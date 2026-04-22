@@ -18,7 +18,6 @@ import {
   Sparkles,
   Trash2,
   UserRound,
-  Weight,
   X,
 } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
@@ -39,7 +38,6 @@ import {
   getUpcomingReminder,
   getUpcomingReminders,
   initialState,
-  latestWeight,
   normalizeState,
   notificationPermissionStatus,
   prettyDate,
@@ -56,7 +54,6 @@ import {
   todayISO,
   visibleCareRecords,
   visibleReminders,
-  weightTrend,
   type CareRecord,
   type DailyTask,
   type DiaryEntry,
@@ -740,8 +737,6 @@ function CareScreen({
   const [activeCareTab, setActiveCareTab] = useState(careTabs[0].label);
   const activeTypes = careTabs.find((tabItem) => tabItem.label === activeCareTab)?.types || [];
   const filteredRecords = records.filter((record) => activeTypes.includes(record.type));
-  const displayWeight = latestWeight(records, profile.weight);
-  const displayWeightTrend = weightTrend(records);
 
   return (
     <section className="screen">
@@ -765,11 +760,6 @@ function CareScreen({
             {tabItem.label}
           </button>
         ))}
-      </div>
-      <div className="stats-grid">
-        <StatCard icon={<Weight size={16} />} label="Weight" value={displayWeight} />
-        <StatCard icon={<HeartPulse size={16} />} label="Trend" value={displayWeightTrend} />
-        <StatCard icon={<Pill size={16} />} label="Meds" value={String(records.filter((record) => record.type === "Medication").length)} />
       </div>
       {filteredRecords.length === 0 ? (
         <EmptyState
