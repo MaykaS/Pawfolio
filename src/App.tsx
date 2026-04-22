@@ -26,7 +26,6 @@ import {
   avatarOptions,
   breedOptions,
   canUseBrowserNotifications,
-  buildGoogleCalendarEvent,
   careStatus,
   careTypes,
   careEmptyState,
@@ -42,6 +41,7 @@ import {
   initialState,
   medicationConsistency,
   normalizeState,
+  notificationBody,
   notificationPermissionStatus,
   prettyDate,
   recurrenceLabel,
@@ -912,7 +912,6 @@ function CalendarScreen({
   const visibleUpcoming = showAllUpcoming ? upcoming : upcoming.slice(0, 3);
   const isCurrentMonth = monthKey(visibleMonth) === monthKey(currentMonth);
   const selectedDateEvents = selectedDate ? eventsForDate(reminders, selectedDate) : [];
-  const nextCalendarPayload = visibleUpcoming[0] ? buildGoogleCalendarEvent(visibleUpcoming[0], "Pawfolio") : undefined;
 
   const shiftMonth = (amount: number) => {
     setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
@@ -958,13 +957,6 @@ function CalendarScreen({
           </button>
         )}
       </div>
-      {nextCalendarPayload && (
-        <section className="sync-card card">
-          <p className="label no-margin">Google Calendar sync</p>
-          <h2>{nextCalendarPayload.summary}</h2>
-          <p>Ready to sync when Google OAuth is connected.</p>
-        </section>
-      )}
       {visibleUpcoming.length === 0 ? (
         <EmptyState title="No reminders yet" text="Add a vet appointment, medication, food refill, or grooming task." />
       ) : (
@@ -1061,20 +1053,46 @@ function NotificationsSheet({
 }) {
   const notificationApi = typeof Notification === "undefined" ? undefined : Notification;
   const [permission, setPermission] = useState(() => notificationPermissionStatus(notificationApi));
+  const [testStatus, setTestStatus] = useState("");
   const upcoming = getUpcomingReminders(reminders).slice(0, 6);
   const supported = canUseBrowserNotifications(notificationApi);
 
   const testNotification = async () => {
-    if (!supported || !notificationApi) return;
+    if (!supported || !notificationApi) {
+      setTestStatus("Notifications are not supported in this browser.");
+      return;
+    }
+
     const nextPermission =
       notificationApi.permission === "default" ? await notificationApi.requestPermission() : notificationApi.permission;
     setPermission(nextPermission);
-    if (nextPermission === "granted") {
-      new Notification("Pawfolio reminder", {
-        body: upcoming[0]
-          ? `${upcoming[0].title} is coming up ${prettyDate(upcoming[0].date)}.`
-          : "Notifications are ready for Pawfolio.",
-      });
+
+    if (nextPermission !== "granted") {
+      setTestStatus("Notifications are blocked. Enable them in your browser or phone app settings.");
+      return;
+    }
+
+    const body = notificationBody(upcoming[0]);
+    try {
+      if ("serviceWorker" in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        await registration.showNotification("Pawfolio reminder", {
+          body,
+          icon: "/pwa-192x192.png",
+          badge: "/pwa-192x192.png",
+          tag: "pawfolio-test-reminder",
+        });
+      } else {
+        new Notification("Pawfolio reminder", { body });
+      }
+      setTestStatus("Test notification sent. On Android, check the notification shade if you do not see it pop up.");
+    } catch {
+      try {
+        new Notification("Pawfolio reminder", { body });
+        setTestStatus("Test notification sent.");
+      } catch {
+        setTestStatus("Pawfolio could not send a test notification here. Try from the installed app on your phone.");
+      }
     }
   };
 
@@ -1087,14 +1105,15 @@ function NotificationsSheet({
         </div>
         {supported && (
           <button className="btn btn-sm btn-secondary" type="button" onClick={testNotification}>
-            Test notification
+            Enable & test
           </button>
         )}
       </section>
 
       <p className="notice-copy">
-        Pawfolio can show this in-app notification center today. Real background push reminders come later with PWA push or the native app.
+        Install Pawfolio on Android, open this sheet, and tap Enable & test to confirm phone notifications. Automatic background reminders still need backend push later.
       </p>
+      {testStatus && <p className="notice-copy notice-status">{testStatus}</p>}
 
       <div className="label-row">
         <p className="label no-margin">Upcoming</p>

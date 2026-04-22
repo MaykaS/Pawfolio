@@ -22,7 +22,7 @@ Implemented:
 - Calendar reminders with recurrence labels, calculated next occurrences, month navigation, future-only upcoming items, and clickable day details
 - Smart medication recurrence inference from clear frequency text
 - Unified green health styling for vaccine and vet calendar items
-- In-app notification center with upcoming reminders and browser permission check
+- In-app notification center with upcoming reminders and service-worker test notifications for installed PWA checks
 - Integration settings for Google Calendar, email reminders, phone push, and cloud sync planning
 - Local Routine Coach suggestions
 - Profile screen with full data export/import and editable personality tags

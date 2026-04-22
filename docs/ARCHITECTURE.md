@@ -107,7 +107,7 @@ Likely roles:
 
 ## Notification Direction
 
-The current prototype has an in-app notification center. It shows future reminders, exposes browser notification permission status, and can trigger a test notification where the browser supports it.
+The current prototype has an in-app notification center. It shows future reminders, exposes browser notification permission status, and can trigger a service-worker-backed test notification where the installed PWA/browser supports it.
 
 It does not yet schedule real background push reminders. The app also exposes preference toggles for future in-app, phone push, email reminders, and Google Calendar sync so the settings model is ready before backend secrets exist.
 

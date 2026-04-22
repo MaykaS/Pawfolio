@@ -646,6 +646,12 @@ export function canUseBrowserNotifications(notificationApi?: { permission?: Noti
   return notificationPermissionStatus(notificationApi) !== "unsupported";
 }
 
+export function notificationBody(reminder?: Pick<Reminder, "title" | "date">) {
+  return reminder
+    ? `${reminder.title} is coming up ${prettyDate(reminder.date)}.`
+    : "Notifications are ready for Pawfolio.";
+}
+
 export function validateCareRecord(record: Partial<CareRecord>) {
   const errors: Partial<Record<keyof CareRecord, string>> = {};
   if (!record.date) errors.date = "Choose a date.";

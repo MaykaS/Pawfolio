@@ -61,7 +61,7 @@ Current prototype behavior:
 - Calendar reminders with recurrence labels and calculated next occurrences
 - Medication frequency text can infer daily, weekly, monthly, or yearly reminders when it is clear
 - Calendar month navigation with clickable day details
-- In-app notification center with upcoming reminders and browser permission check
+- In-app notification center with upcoming reminders and service-worker test notifications for installed PWA checks
 - Integration settings for Google Calendar, email, phone push, and cloud sync planning
 - Local rule-based Routine Coach suggestions
 - Full Pawfolio data export/import for localStorage safety

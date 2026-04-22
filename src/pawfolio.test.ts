@@ -20,6 +20,7 @@ import {
   medicationConsistency,
   nextOccurrenceDate,
   normalizeState,
+  notificationBody,
   notificationPermissionStatus,
   parseMedicationRecurrence,
   prettyDate,
@@ -382,6 +383,8 @@ describe("pawfolio helpers", () => {
     expect(notificationPermissionStatus({ permission: "granted" })).toBe("granted");
     expect(notificationPermissionStatus({ permission: "default" })).toBe("default");
     expect(canUseBrowserNotifications({ permission: "denied" })).toBe(true);
+    expect(notificationBody({ title: "Lyme 2", date: "2026-05-08" })).toBe("Lyme 2 is coming up May 8.");
+    expect(notificationBody()).toBe("Notifications are ready for Pawfolio.");
   });
 
   it("filters month events and maps event categories consistently", () => {
