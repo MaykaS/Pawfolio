@@ -40,9 +40,11 @@ import {
   getUpcomingReminder,
   getUpcomingReminders,
   initialState,
+  isStoredPhotoRef,
   medicationConsistency,
   normalizeState,
   notificationBody,
+  photoRefPrefix,
   notificationPermissionStatus,
   prettyDate,
   recurrenceLabel,
@@ -76,6 +78,10 @@ type TaskMode = { mode: "create" } | { mode: "edit"; task: DailyTask };
 type MemoryMode = { mode: "create" } | { mode: "edit"; entry: DiaryEntry };
 type CareMode = { mode: "create" } | { mode: "edit"; record: CareRecord };
 type ReminderMode = { mode: "create"; date?: string } | { mode: "edit"; reminder: Reminder };
+type PhotoRecord = { id: string; dataUrl: string; createdAt: string };
+
+const photoDbName = "pawfolio-photos-v1";
+const photoStoreName = "photos";
 
 function loadState(): PawfolioState {
   try {
@@ -89,6 +95,49 @@ function loadState(): PawfolioState {
 
 function uid(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
+}
+
+function openPhotoDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(photoDbName, 1);
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore(photoStoreName, { keyPath: "id" });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function savePhotoToStore(dataUrl: string) {
+  const id = uid("photo");
+  const db = await openPhotoDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(photoStoreName, "readwrite");
+      transaction.objectStore(photoStoreName).put({ id, dataUrl, createdAt: new Date().toISOString() } satisfies PhotoRecord);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  } finally {
+    db.close();
+  }
+  return `${photoRefPrefix}${id}`;
+}
+
+async function loadPhotoFromStore(ref: string) {
+  if (!isStoredPhotoRef(ref)) return ref;
+  const id = ref.slice(photoRefPrefix.length);
+  const db = await openPhotoDb();
+  try {
+    return await new Promise<string>((resolve, reject) => {
+      const transaction = db.transaction(photoStoreName, "readonly");
+      const request = transaction.objectStore(photoStoreName).get(id);
+      request.onsuccess = () => resolve((request.result as PhotoRecord | undefined)?.dataUrl || "");
+      request.onerror = () => reject(request.error);
+    });
+  } finally {
+    db.close();
+  }
 }
 
 function readFile(file: File): Promise<string> {
@@ -173,6 +222,35 @@ function prettyLongDate(date: string) {
   });
 }
 
+function PhotoImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [resolvedSrc, setResolvedSrc] = useState(isStoredPhotoRef(src) ? "" : src);
+
+  useEffect(() => {
+    let active = true;
+    if (!isStoredPhotoRef(src)) {
+      setResolvedSrc(src);
+      return () => {
+        active = false;
+      };
+    }
+
+    loadPhotoFromStore(src)
+      .then((photo) => {
+        if (active) setResolvedSrc(photo);
+      })
+      .catch(() => {
+        if (active) setResolvedSrc("");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [src]);
+
+  if (!resolvedSrc) return null;
+  return <img className={className} src={resolvedSrc} alt={alt} />;
+}
+
 function monthKey(date: Date) {
   return `${date.getFullYear()}-${date.getMonth()}`;
 }
@@ -186,6 +264,45 @@ export default function App() {
   const [reminderMode, setReminderMode] = useState<ReminderMode | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [saveError, setSaveError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const migratePhotos = async () => {
+      let changed = false;
+      const next: PawfolioState = {
+        ...state,
+        profile: state.profile ? { ...state.profile } : undefined,
+        diary: state.diary.map((entry) => ({ ...entry })),
+      };
+
+      if (next.profile?.photo && !isStoredPhotoRef(next.profile.photo)) {
+        try {
+          next.profile.photo = await savePhotoToStore(next.profile.photo);
+          changed = true;
+        } catch {
+          // Keep the existing data URL if IndexedDB is unavailable.
+        }
+      }
+
+      for (const entry of next.diary) {
+        if (entry.photo && !isStoredPhotoRef(entry.photo)) {
+          try {
+            entry.photo = await savePhotoToStore(entry.photo);
+            changed = true;
+          } catch {
+            // Keep the existing data URL if IndexedDB is unavailable.
+          }
+        }
+      }
+
+      if (active && changed) setState(next);
+    };
+
+    migratePhotos();
+    return () => {
+      active = false;
+    };
+  }, [state]);
 
   useEffect(() => {
     const result = safeSetLocalStorage(localStorage, storageKey, state);
@@ -470,7 +587,8 @@ function Onboarding({ onSave }: { onSave: (profile: DogProfile) => void }) {
   const updatePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const photo = await readCompressedImage(file, 512, 0.78, 120_000);
+    const compressedPhoto = await readCompressedImage(file, 512, 0.78, 120_000);
+    const photo = await savePhotoToStore(compressedPhoto).catch(() => compressedPhoto);
     setProfile((current) => ({ ...current, photo }));
   };
 
@@ -485,7 +603,7 @@ function Onboarding({ onSave }: { onSave: (profile: DogProfile) => void }) {
         <div className="profile-preview card">
           <div className="profile-photo">
             {profile.photo ? (
-              <img src={profile.photo} alt="Dog profile preview" />
+              <PhotoImage src={profile.photo} alt="Dog profile preview" />
             ) : (
               <DogAvatar avatar={profile.avatar} />
             )}
@@ -619,7 +737,7 @@ function TodayScreen({
         <div className="hero-row">
           <div className="profile-avatar small-avatar">
             {profile.photo ? (
-              <img src={profile.photo} alt={profile.name} />
+              <PhotoImage src={profile.photo} alt={profile.name} />
             ) : (
               <DogAvatar avatar={profile.avatar} small />
             )}
@@ -744,7 +862,7 @@ function DiaryScreen({
         entries.map((entry) => (
           <article className="diary-entry" key={entry.id}>
             {entry.photo ? (
-              <img className="diary-photo" src={entry.photo} alt={entry.title} />
+              <PhotoImage className="diary-photo" src={entry.photo} alt={entry.title} />
             ) : (
               <div className="diary-photo photo-placeholder">
                 <Camera size={18} />
@@ -1327,7 +1445,8 @@ function ProfileEditSheet({
   const updatePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const photo = await readCompressedImage(file, 512, 0.78, 120_000);
+    const compressedPhoto = await readCompressedImage(file, 512, 0.78, 120_000);
+    const photo = await savePhotoToStore(compressedPhoto).catch(() => compressedPhoto);
     setDraft((current) => ({ ...current, photo }));
   };
 
@@ -1341,7 +1460,7 @@ function ProfileEditSheet({
       >
         <section className="profile-preview card">
           <div className="profile-photo">
-            {draft.photo ? <img src={draft.photo} alt={draft.name} /> : <DogAvatar avatar={draft.avatar} />}
+            {draft.photo ? <PhotoImage src={draft.photo} alt={draft.name} /> : <DogAvatar avatar={draft.avatar} />}
           </div>
           <div>
             <h2>{draft.name || "Your dog"}</h2>
@@ -1528,7 +1647,12 @@ function MemorySheet({
   const updatePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setPhoto(await readCompressedImage(file, 760, 0.72, 180_000));
+    const compressedPhoto = await readCompressedImage(file, 760, 0.72, 180_000);
+    try {
+      setPhoto(await savePhotoToStore(compressedPhoto));
+    } catch {
+      setPhoto(await readCompressedImage(file, 560, 0.58, 90_000));
+    }
   };
 
   return (

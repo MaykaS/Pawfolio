@@ -123,6 +123,7 @@ export type PawfolioState = {
 };
 
 export const storageKey = "pawfolio-local-v1";
+export const photoRefPrefix = "pawfolio-photo:";
 
 export const defaultTasks: DailyTask[] = [
   { id: "breakfast", title: "Morning meal", time: "7:00 AM", done: false, note: "" },
@@ -561,6 +562,10 @@ export function deleteCalendarItemFromState(state: PawfolioState, id: string): P
 export function estimateDataUrlBytes(dataUrl: string) {
   const encoded = dataUrl.split(",")[1] || "";
   return Math.ceil((encoded.length * 3) / 4);
+}
+
+export function isStoredPhotoRef(photo?: string) {
+  return Boolean(photo?.startsWith(photoRefPrefix));
 }
 
 export function safeSetLocalStorage(

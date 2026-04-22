@@ -54,7 +54,7 @@ Current prototype behavior:
 - Compact task notes that open only when needed
 - Custom daily tasks with editable times
 - Diary entries with optional photos
-- Adaptive compressed photo uploads to reduce localStorage crashes
+- Adaptive photo compression with browser IndexedDB photo storage to avoid localStorage limits
 - Shared medication, vaccine, and vet visit items across Care and Calendar
 - Care records with type filtering, type-specific fields, next due dates, and weight trend
 - Care history panels with weight trend and medication consistency summaries

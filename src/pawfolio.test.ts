@@ -15,6 +15,7 @@ import {
   getCareMoments,
   getUpcomingReminder,
   getUpcomingReminders,
+  isStoredPhotoRef,
   isFutureOrToday,
   latestWeight,
   medicationConsistency,
@@ -459,6 +460,8 @@ describe("pawfolio helpers", () => {
 
   it("estimates data URL size and catches localStorage save failures", () => {
     expect(estimateDataUrlBytes("data:image/jpeg;base64,AAAA")).toBe(3);
+    expect(isStoredPhotoRef("pawfolio-photo:abc")).toBe(true);
+    expect(isStoredPhotoRef("data:image/jpeg;base64,AAAA")).toBe(false);
     expect(safeSetLocalStorage({ setItem: () => undefined }, "pawfolio", { ok: true })).toEqual({ ok: true });
     expect(
       safeSetLocalStorage(
