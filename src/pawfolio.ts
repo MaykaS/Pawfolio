@@ -417,10 +417,41 @@ export function getCareMoments(tasks: DailyTask[]) {
   ];
 }
 
-export function getUpcomingReminder(reminders: Reminder[]) {
+export function isFutureOrToday(date: string, now = new Date()) {
+  if (!date) return false;
+  const eventDate = new Date(`${date}T00:00`);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return eventDate.getTime() >= today.getTime();
+}
+
+export function getUpcomingReminders(reminders: Reminder[], now = new Date()) {
   return [...reminders]
-    .filter((reminder) => reminder.date)
-    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))[0];
+    .filter((reminder) => isFutureOrToday(reminder.date, now))
+    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+}
+
+export function getUpcomingReminder(reminders: Reminder[], now = new Date()) {
+  return getUpcomingReminders(reminders, now)[0];
+}
+
+export function eventCategory(type: string) {
+  if (type === "Medication") return "medication";
+  if (type === "Vaccine") return "vaccine";
+  if (type === "Vet" || type === "Vet visit") return "vet";
+  if (type === "Grooming") return "grooming";
+  if (type === "Walk") return "walk";
+  if (type === "Food") return "food";
+  return "other";
+}
+
+export function eventsForMonth(reminders: Reminder[], visibleMonth: Date) {
+  const year = visibleMonth.getFullYear();
+  const month = visibleMonth.getMonth();
+  return reminders.filter((reminder) => {
+    if (!reminder.date) return false;
+    const date = new Date(`${reminder.date}T00:00`);
+    return date.getFullYear() === year && date.getMonth() === month;
+  });
 }
 
 export function recurrenceLabel(recurrence: ReminderRecurrence) {

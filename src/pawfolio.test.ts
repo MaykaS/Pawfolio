@@ -6,8 +6,12 @@ import {
   deleteCareItemFromState,
   daysTogether,
   estimateDataUrlBytes,
+  eventCategory,
+  eventsForMonth,
   getCareMoments,
   getUpcomingReminder,
+  getUpcomingReminders,
+  isFutureOrToday,
   latestWeight,
   normalizeState,
   prettyDate,
@@ -218,13 +222,41 @@ describe("pawfolio helpers", () => {
     ]);
   });
 
-  it("returns the earliest dated reminder", () => {
+  it("returns future upcoming reminders only, sorted by date and time", () => {
     const reminders: Reminder[] = [
+      { id: "past", title: "Lyme 1", type: "Vaccine", date: "2026-04-17", time: "", note: "", recurrence: "none" },
+      { id: "today-late", title: "Dinner meds", type: "Medication", date: "2026-04-22", time: "18:00", note: "", recurrence: "none" },
+      { id: "today-early", title: "Morning meds", type: "Medication", date: "2026-04-22", time: "08:00", note: "", recurrence: "none" },
       { id: "2", title: "Grooming", type: "Grooming", date: "2026-05-02", time: "14:00", note: "", recurrence: "monthly" },
       { id: "1", title: "Vet", type: "Vet", date: "2026-04-30", time: "10:30", note: "", recurrence: "yearly" },
     ];
 
-    expect(getUpcomingReminder(reminders)?.title).toBe("Vet");
+    expect(isFutureOrToday("2026-04-21", new Date("2026-04-22T12:00:00"))).toBe(false);
+    expect(isFutureOrToday("2026-04-22", new Date("2026-04-22T12:00:00"))).toBe(true);
+    expect(getUpcomingReminders(reminders, new Date("2026-04-22T12:00:00")).map((reminder) => reminder.title)).toEqual([
+      "Morning meds",
+      "Dinner meds",
+      "Vet",
+      "Grooming",
+    ]);
+    expect(getUpcomingReminder(reminders, new Date("2026-04-22T12:00:00"))?.title).toBe("Morning meds");
+  });
+
+  it("filters month events and maps event categories consistently", () => {
+    const reminders: Reminder[] = [
+      { id: "apr-med", title: "Heartgard", type: "Medication", date: "2026-04-22", time: "09:00", note: "", recurrence: "monthly" },
+      { id: "apr-vet", title: "Vet", type: "Vet", date: "2026-04-23", time: "10:00", note: "", recurrence: "none" },
+      { id: "may-groom", title: "Grooming", type: "Grooming", date: "2026-05-02", time: "14:00", note: "", recurrence: "none" },
+    ];
+
+    expect(eventsForMonth(reminders, new Date("2026-04-01T12:00:00")).map((reminder) => reminder.id)).toEqual(["apr-med", "apr-vet"]);
+    expect(eventCategory("Medication")).toBe("medication");
+    expect(eventCategory("Vaccine")).toBe("vaccine");
+    expect(eventCategory("Vet")).toBe("vet");
+    expect(eventCategory("Grooming")).toBe("grooming");
+    expect(eventCategory("Walk")).toBe("walk");
+    expect(eventCategory("Food")).toBe("food");
+    expect(eventCategory("Other")).toBe("other");
   });
 
   it("derives care status and latest weight", () => {

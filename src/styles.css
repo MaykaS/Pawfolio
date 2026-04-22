@@ -160,6 +160,15 @@ button {
   font-weight: 800;
 }
 
+.link-btn {
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-family: "Nunito", sans-serif;
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .nav-bar {
   position: absolute;
   bottom: 0;
@@ -724,6 +733,30 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   flex: 1;
 }
 
+.calendar-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.calendar-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.month-title-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.month-title-row .screen-title {
+  min-width: 164px;
+}
+
 .month-card {
   padding: 12px;
 }
@@ -736,12 +769,17 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 
 .weekday,
 .month-day {
+  border-radius: 10px;
+  color: var(--text);
+  flex-direction: column;
+  gap: 2px;
   min-height: 28px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: 800;
+  position: relative;
 }
 
 .weekday {
@@ -754,6 +792,34 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   background: var(--primary);
   color: white;
   border-radius: 10px;
+}
+
+.event-dots {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+  height: 4px;
+  justify-content: center;
+}
+
+.event-dot {
+  border-radius: 999px;
+  display: inline-flex;
+  height: 4px;
+  width: 4px;
+}
+
+.dot-medication { background: var(--blue); }
+.dot-vaccine { background: var(--green); }
+.dot-vet { background: var(--amber); }
+.dot-grooming { background: var(--primary); }
+.dot-walk { background: var(--lavender); }
+.dot-food { background: var(--green); }
+.dot-other { background: var(--muted); }
+
+.month-day.today .event-dot {
+  background: white;
+  opacity: 0.95;
 }
 
 .profile-screen {

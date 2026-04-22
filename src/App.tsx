@@ -4,6 +4,7 @@ import {
   Camera,
   Check,
   ChevronRight,
+  ChevronLeft,
   Download,
   Heart,
   HeartPulse,
@@ -30,8 +31,11 @@ import {
   deleteCalendarItemFromState,
   deleteCareItemFromState,
   daysTogether,
+  eventCategory,
+  eventsForMonth,
   getCareMoments,
   getUpcomingReminder,
+  getUpcomingReminders,
   initialState,
   latestWeight,
   normalizeState,
@@ -130,6 +134,10 @@ function prettyLongDate(date: string) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function monthKey(date: Date) {
+  return `${date.getFullYear()}-${date.getMonth()}`;
 }
 
 export default function App() {
@@ -743,25 +751,57 @@ function CalendarScreen({
   onEdit: (reminder: Reminder) => void;
   onDelete: (id: string) => void;
 }) {
-  const sorted = [...reminders].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+  const currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const monthEvents = eventsForMonth(reminders, visibleMonth);
+  const upcoming = getUpcomingReminders(reminders);
+  const visibleUpcoming = showAllUpcoming ? upcoming : upcoming.slice(0, 3);
+  const isCurrentMonth = monthKey(visibleMonth) === monthKey(currentMonth);
+
+  const shiftMonth = (amount: number) => {
+    setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
+  };
 
   return (
     <section className="screen">
-      <ScreenHeader
-        label="Calendar"
-        title={new Date().toLocaleDateString("en", { month: "long", year: "numeric" })}
-        action={
+      <header className="calendar-head">
+        <div>
+          <p className="screen-kicker">Calendar</p>
+          <div className="month-title-row">
+            <button className="tiny-btn" type="button" aria-label="Previous month" onClick={() => shiftMonth(-1)}>
+              <ChevronLeft size={16} />
+            </button>
+            <h1 className="screen-title">{visibleMonth.toLocaleDateString("en", { month: "long", year: "numeric" })}</h1>
+            <button className="tiny-btn" type="button" aria-label="Next month" onClick={() => shiftMonth(1)}>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+        <div className="calendar-actions">
+          {!isCurrentMonth && (
+            <button className="btn btn-sm btn-ghost" type="button" onClick={() => setVisibleMonth(currentMonth)}>
+              Today
+            </button>
+          )}
           <button className="btn btn-sm btn-secondary" type="button" onClick={onOpenReminder}>
             + Add
           </button>
-        }
-      />
-      <MonthGrid />
-      <p className="label">Upcoming</p>
-      {sorted.length === 0 ? (
+        </div>
+      </header>
+      <MonthGrid visibleMonth={visibleMonth} reminders={monthEvents} />
+      <div className="label-row">
+        <p className="label no-margin">Upcoming</p>
+        {upcoming.length > 3 && (
+          <button className="link-btn" type="button" onClick={() => setShowAllUpcoming((current) => !current)}>
+            {showAllUpcoming ? "Show less" : `Show all ${upcoming.length}`}
+          </button>
+        )}
+      </div>
+      {visibleUpcoming.length === 0 ? (
         <EmptyState title="No reminders yet" text="Add a vet appointment, medication, food refill, or grooming task." />
       ) : (
-        sorted.map((reminder) => (
+        visibleUpcoming.map((reminder) => (
           <article className="event-item" key={reminder.id}>
             <div className="event-date-block">
               <strong>{new Date(`${reminder.date}T00:00`).getDate()}</strong>
@@ -936,10 +976,16 @@ function ProfileEditSheet({
   );
 }
 
-function MonthGrid() {
+function MonthGrid({ visibleMonth, reminders }: { visibleMonth: Date; reminders: Reminder[] }) {
   const now = new Date();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
+  const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate();
+  const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1).getDay();
+  const eventsByDay = reminders.reduce<Record<string, string[]>>((days, reminder) => {
+    const date = new Date(`${reminder.date}T00:00`);
+    const day = String(date.getDate());
+    days[day] = [...(days[day] || []), eventCategory(reminder.type)];
+    return days;
+  }, {});
   const cells = [
     ...Array.from({ length: firstDay }, (_, index) => ({ key: `blank-${index}`, day: "" })),
     ...Array.from({ length: daysInMonth }, (_, index) => ({ key: `day-${index + 1}`, day: String(index + 1) })),
@@ -951,11 +997,26 @@ function MonthGrid() {
         {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
           <span className="weekday" key={day}>{day}</span>
         ))}
-        {cells.map((cell) => (
-          <span className={cell.day === String(now.getDate()) ? "month-day today" : "month-day"} key={cell.key}>
-            {cell.day}
-          </span>
-        ))}
+        {cells.map((cell) => {
+          const isToday =
+            cell.day === String(now.getDate()) &&
+            visibleMonth.getMonth() === now.getMonth() &&
+            visibleMonth.getFullYear() === now.getFullYear();
+          const categories = [...new Set(eventsByDay[cell.day] || [])].slice(0, 3);
+
+          return (
+            <span className={isToday ? "month-day today" : "month-day"} key={cell.key}>
+              {cell.day && <span>{cell.day}</span>}
+              {categories.length > 0 && (
+                <span className="event-dots">
+                  {categories.map((category) => (
+                    <span className={`event-dot dot-${category}`} key={category} />
+                  ))}
+                </span>
+              )}
+            </span>
+          );
+        })}
       </div>
     </section>
   );
