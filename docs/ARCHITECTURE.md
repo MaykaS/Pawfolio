@@ -57,7 +57,7 @@ Current localStorage prototype data includes:
 - In-app notification center for future reminders, Due now/Soon/Upcoming groups, alert lead labels, and browser notification permission testing
 - Local notification preferences and integration settings for in-app reminders, future phone push, email reminders, Google Calendar, and cloud sync
 - Google Calendar payload scaffolding for reminders and shared care events, without frontend secrets or OAuth tokens
-- Local Pawfolio Coach settings, dismissals, care-gap/routine suggestions, breed/season signals, optional broad location context, and one-tap suggestion actions
+- PawPal companion settings, dismissals, care-gap/routine suggestions, breed/season signals, optional broad location context, unified Today attention, and one-tap suggestion actions
 - Full local export/import payload for backup and restore, including referenced IndexedDB photo records
 
 Older localStorage records are normalized on load so prototype changes do not break existing local data.
@@ -138,15 +138,16 @@ Real push should be handled by PWA Push API plus a backend push sender, or by Ex
 
 ## Agentic Direction
 
-The first agentic feature is Pawfolio Coach.
+The first agentic feature is PawPal.
 
 Current version:
 
 - Runs locally with simple rules
 - Reviews routine completion, medication detail quality, upcoming reminders, care gaps, diary/care backup needs, breed, season, and optional broad care region
-- Produces gentle suggestions on Today and supporting insights in Care/Profile
+- Lives as its own bottom-nav companion tab and also feeds urgent items into Today needs attention
 - Supports dismissible suggestions and one-tap actions such as adding a tick check task, opening a care record, opening reminder creation, or exporting a backup
-- Is controlled by opt-in settings for Coach, seasonal tips, and optional location/manual region context
+- Uses shared dismissals so a done/dismissed suggestion disappears from PawPal and Today
+- Is controlled by opt-in settings for PawPal, seasonal tips, and optional location/manual region context
 
 Later version:
 

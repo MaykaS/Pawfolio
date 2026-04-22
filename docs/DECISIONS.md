@@ -173,3 +173,9 @@ Reason: The home-screen icon is part of the app's emotional first impression, es
 Decision: Pawfolio Coach expands beyond a simple insight line into local rule-based suggestions with care gaps, routine patterns, breed/season tips, optional broad location context, dismissals, and one-tap actions.
 
 Reason: This gives Pawfolio an agentic feel without sending pet-care data to a model or requiring auth. LLM help can come later after privacy, account sync, and user consent are clear.
+
+## 2026-04-22: Move Coach Into PawPal
+
+Decision: The local coach experience should live in a dedicated sixth bottom-nav tab called PawPal, while Today shows only the highest-priority shared attention items.
+
+Reason: The companion/AI layer should feel like its own friendly helper instead of another alert card. Shared dismissals keep Done/dismiss behavior consistent across PawPal and Today.

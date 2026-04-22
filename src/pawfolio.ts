@@ -1,4 +1,4 @@
-export type Tab = "today" | "diary" | "care" | "calendar" | "profile";
+export type Tab = "today" | "diary" | "care" | "calendar" | "pawpal" | "profile";
 
 export type DogAvatar = {
   fur: string;
@@ -1084,7 +1084,7 @@ export function buildCoachSuggestions(state: PawfolioState, now = new Date()) {
   const suggestions: CoachSuggestion[] = [];
 
   const urgentCare = records.find((record) => careStatus(record, now) !== "OK");
-  if (urgentCare) {
+  if (urgentCare && !dismissals.has(`record-${urgentCare.id}`)) {
     suggestions.push({
       id: `care-status-${urgentCare.id}`,
       type: "care_gap",
@@ -1098,7 +1098,7 @@ export function buildCoachSuggestions(state: PawfolioState, now = new Date()) {
   }
 
   const incompleteMedication = records.find((record) => record.type === "Medication" && (!record.dose || !record.frequency));
-  if (incompleteMedication) {
+  if (incompleteMedication && !dismissals.has(`record-${incompleteMedication.id}`)) {
     suggestions.push({
       id: `med-details-${incompleteMedication.id}`,
       type: "care_gap",
@@ -1112,7 +1112,7 @@ export function buildCoachSuggestions(state: PawfolioState, now = new Date()) {
   }
 
   const vaccineWithoutNext = records.find((record) => record.type === "Vaccine" && !record.nextDueDate);
-  if (vaccineWithoutNext) {
+  if (vaccineWithoutNext && !dismissals.has(`record-${vaccineWithoutNext.id}`)) {
     suggestions.push({
       id: `vaccine-next-${vaccineWithoutNext.id}`,
       type: "care_gap",
@@ -1209,6 +1209,10 @@ export function buildCoachSuggestions(state: PawfolioState, now = new Date()) {
   return rankCoachSuggestions(suggestions).filter((suggestion) => !dismissals.has(suggestion.id));
 }
 
+export function buildTodayAttentionItems(state: PawfolioState, now = new Date()) {
+  return buildCoachSuggestions(state, now).filter((suggestion) => suggestion.priority >= 70).slice(0, 3);
+}
+
 export function applyCoachSuggestion(state: PawfolioState, suggestionId: string, now = new Date()) {
   const suggestion = buildCoachSuggestions(state, now).find((item) => item.id === suggestionId);
   if (!suggestion) return state;
@@ -1232,16 +1236,15 @@ export function applyCoachSuggestion(state: PawfolioState, suggestionId: string,
       };
     }
   }
-  return {
-    ...next,
-    coachDismissals: [...new Set([...(next.coachDismissals || []), suggestion.id])],
-  };
+  return dismissCoachSuggestion(next, suggestion.id);
 }
 
 export function dismissCoachSuggestion(state: PawfolioState, suggestionId: string) {
+  const suggestion = buildCoachSuggestions(state).find((item) => item.id === suggestionId);
+  const relatedDismissal = suggestion?.action.type === "open_care" && suggestion.action.recordId ? `record-${suggestion.action.recordId}` : "";
   return {
     ...state,
-    coachDismissals: [...new Set([...(state.coachDismissals || []), suggestionId])],
+    coachDismissals: [...new Set([...(state.coachDismissals || []), suggestionId, relatedDismissal].filter(Boolean))],
   };
 }
 

@@ -121,11 +121,11 @@ The dog's identity and important reference details:
 - Vet information
 - Emergency notes later
 
-### Pawfolio Coach
+### PawPal
 
-An opt-in helper that reviews routine completion, medication consistency, upcoming reminders, care gaps, breed/season context, and optional broad region signals.
+An opt-in companion tab that reviews routine completion, medication consistency, upcoming reminders, care gaps, breed/season context, and optional broad region signals.
 
-The first version is local and rule-based, with dismissible suggestions and one-tap actions. Later, an agentic version can use an LLM only after privacy, account sync, and user consent are clear.
+The first version is local and rule-based, with dismissible suggestions, unified Today attention, and one-tap actions. Later, an agentic version can use an LLM only after privacy, account sync, and user consent are clear.
 
 ## Future Capabilities
 
@@ -137,7 +137,7 @@ The first version is local and rule-based, with dismissible suggestions and one-
 - Private cloud sync with account-based data
 - Google sign-in
 - Full local backup including photos before cloud sync
-- Routine Coach with richer agentic suggestions
+- PawPal with richer agentic suggestions
 - GPS walk tracking
 - Pet photo gallery search
 - Health document uploads

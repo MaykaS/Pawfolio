@@ -28,6 +28,7 @@ import {
   avatarOptions,
   breedOptions,
   buildCoachSuggestions,
+  buildTodayAttentionItems,
   canUseBrowserNotifications,
   careStatus,
   careTypes,
@@ -398,6 +399,7 @@ export default function App() {
   const careRecords = useMemo(() => visibleCareRecords(state), [state]);
   const calendarItems = useMemo(() => visibleReminders(state), [state]);
   const coachSuggestions = useMemo(() => buildCoachSuggestions(state), [state]);
+  const todayAttentionItems = useMemo(() => buildTodayAttentionItems(state), [state]);
   const upcomingReminder = useMemo(
     () => getUpcomingReminder(calendarItems),
     [calendarItems],
@@ -486,11 +488,10 @@ export default function App() {
         <TodayScreen
           profile={state.profile}
           tasks={todayTasks}
-          careRecords={careRecords}
           completed={completed}
           progress={progress}
           upcomingReminder={upcomingReminder}
-          coachSuggestions={coachSuggestions}
+          attentionItems={todayAttentionItems}
           onToggleTask={(id) =>
             setState((current) => ({
               ...current,
@@ -522,6 +523,15 @@ export default function App() {
           onOpenNotifications={() => setNotificationsOpen(true)}
           onCoachAction={handleCoachAction}
           onDismissCoach={(id) => setState((current) => dismissCoachSuggestion(current, id))}
+        />
+      )}
+
+      {tab === "pawpal" && (
+        <PawPalScreen
+          profile={state.profile}
+          suggestions={coachSuggestions}
+          onAction={handleCoachAction}
+          onDone={(id) => setState((current) => dismissCoachSuggestion(current, id))}
         />
       )}
 
@@ -859,11 +869,10 @@ function Onboarding({ onSave }: { onSave: (profile: DogProfile) => void }) {
 function TodayScreen({
   profile,
   tasks,
-  careRecords,
   completed,
   progress,
   upcomingReminder,
-  coachSuggestions,
+  attentionItems,
   onToggleTask,
   onTaskNote,
   onAddTask,
@@ -876,11 +885,10 @@ function TodayScreen({
 }: {
   profile: DogProfile;
   tasks: DailyTask[];
-  careRecords: CareRecord[];
   completed: number;
   progress: number;
   upcomingReminder?: Reminder;
-  coachSuggestions: CoachSuggestion[];
+  attentionItems: CoachSuggestion[];
   onToggleTask: (id: string) => void;
   onTaskNote: (id: string, note: string) => void;
   onAddTask: () => void;
@@ -893,13 +901,6 @@ function TodayScreen({
 }) {
   const careMoments = getCareMoments(tasks);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
-  const attentionItems = [
-    tasks.length - completed > 0 ? `${tasks.length - completed} routine tasks left today` : "",
-    upcomingReminder ? `${upcomingReminder.title} is next` : "",
-    careRecords.find((record) => careStatus(record) !== "OK")
-      ? `${careRecords.find((record) => careStatus(record) !== "OK")?.title} needs care attention`
-      : "",
-  ].filter(Boolean);
 
   return (
     <section className="screen">
@@ -955,47 +956,28 @@ function TodayScreen({
       <section className="attention-card">
         <p className="label no-margin">Today needs attention</p>
         {attentionItems.length ? (
-          <ul>
-            {attentionItems.slice(0, 3).map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        ) : (
-          <p>Everything looks calm for today.</p>
-        )}
-      </section>
-
-      {coachSuggestions.length > 0 && (
-        <section className="coach-card">
-          <div className="section-heading">
-            <div>
-              <p className="label no-margin">Pawfolio Coach</p>
-              <h2>Helpful nudges</h2>
-            </div>
-            <Sparkles size={18} />
-          </div>
-          <div className="coach-list">
-            {coachSuggestions.slice(0, 3).map((suggestion) => (
-              <article className={`coach-suggestion coach-${suggestion.type}`} key={suggestion.id}>
+          <div className="attention-list">
+            {attentionItems.map((item) => (
+              <article className="attention-item" key={item.id}>
                 <div>
-                  <h3>{suggestion.title}</h3>
-                  <p>{suggestion.body}</p>
+                  <h3>{item.title}</h3>
+                  <p>{item.body}</p>
                 </div>
-                <div className="coach-actions">
-                  <button className="btn btn-sm btn-secondary" type="button" onClick={() => onCoachAction(suggestion)}>
-                    {suggestion.actionLabel}
+                <div className="attention-actions">
+                  <button className="link-btn" type="button" onClick={() => onCoachAction(item)}>
+                    {item.actionLabel}
                   </button>
-                  {suggestion.dismissible && (
-                    <button className="tiny-btn" type="button" aria-label={`Dismiss ${suggestion.title}`} onClick={() => onDismissCoach(suggestion.id)}>
-                      <X size={14} />
-                    </button>
-                  )}
+                  <button className="link-btn muted" type="button" onClick={() => onDismissCoach(item.id)}>
+                    Done
+                  </button>
                 </div>
               </article>
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <p>Everything looks calm for today.</p>
+        )}
+      </section>
 
       <p className="label">Quick log</p>
       <div className="quick-pills">
@@ -1057,6 +1039,80 @@ function TodayScreen({
           )}
         </article>
       ))}
+    </section>
+  );
+}
+
+function PawPalScreen({
+  profile,
+  suggestions,
+  onAction,
+  onDone,
+}: {
+  profile: DogProfile;
+  suggestions: CoachSuggestion[];
+  onAction: (suggestion: CoachSuggestion) => void;
+  onDone: (id: string) => void;
+}) {
+  const groups = [
+    { type: "care_gap", label: "Care attention" },
+    { type: "routine_pattern", label: "Routine patterns" },
+    { type: "seasonal", label: "Seasonal care" },
+    { type: "calendar", label: "Calendar help" },
+    { type: "backup", label: "Data safety" },
+  ] as const;
+
+  return (
+    <section className="screen pawpal-screen">
+      <ScreenHeader
+        label={`${profile.name}'s companion`}
+        title="PawPal"
+        action={
+          <span className="pawpal-orb" aria-hidden="true">
+            <Sparkles size={20} />
+          </span>
+        }
+      />
+      <section className="pawpal-hero">
+        <div>
+          <p className="label no-margin">Local helper</p>
+          <h2>Little nudges for a calmer care day.</h2>
+          <p>PawPal looks at Pawfolio data on this device and suggests practical next steps.</p>
+        </div>
+      </section>
+      {suggestions.length === 0 ? (
+        <EmptyState title="PawPal is all caught up" text="No care gaps or helpful nudges right now. Nice and calm." />
+      ) : (
+        groups.map((group) => {
+          const groupSuggestions = suggestions.filter((suggestion) => suggestion.type === group.type);
+          if (groupSuggestions.length === 0) return null;
+          return (
+            <section className="pawpal-group" key={group.type}>
+              <p className="label">{group.label}</p>
+              <div className="coach-list">
+                {groupSuggestions.map((suggestion) => (
+                  <article className={`coach-suggestion coach-${suggestion.type}`} key={suggestion.id}>
+                    <div>
+                      <h3>{suggestion.title}</h3>
+                      <p>{suggestion.body}</p>
+                    </div>
+                    <div className="coach-actions">
+                      <button className="btn btn-sm btn-secondary" type="button" onClick={() => onAction(suggestion)}>
+                        {suggestion.actionLabel}
+                      </button>
+                      {suggestion.dismissible && (
+                        <button className="btn btn-sm btn-ghost" type="button" onClick={() => onDone(suggestion.id)}>
+                          Done
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          );
+        })
+      )}
     </section>
   );
 }
@@ -1680,7 +1736,7 @@ function ProfileScreen({
         <SettingRow label="In-app reminders" value="Active now" checked={notificationPreferences.inApp} onToggle={() => onTogglePreference("inApp")} />
       </section>
       <section className="card settings-card">
-        <p className="label no-margin">Routine Coach</p>
+        <p className="label no-margin">PawPal</p>
         <SettingRow label="Pattern suggestions" value="Local and private" checked={coachSettings.enabled} onToggle={onToggleCoach} />
         <SettingRow
           label="Seasonal tips"
@@ -1714,7 +1770,7 @@ function ProfileScreen({
           </div>
           {locationStatus && <p className="settings-note">{locationStatus}</p>}
         </div>
-        <p className="settings-note">Coach uses Pawfolio data on this device. Location is optional and only used for broad care context. LLM help can come later after cloud/privacy is ready.</p>
+        <p className="settings-note">PawPal uses Pawfolio data on this device. Location is optional and only used for broad care context. LLM help can come later after cloud/privacy is ready.</p>
       </section>
       <section className="card settings-card">
         <p className="label no-margin">Cloud sync plan</p>
@@ -2519,6 +2575,7 @@ function BottomNav({ active, onChange }: { active: Tab; onChange: (tab: Tab) => 
     { tab: "diary", label: "Diary", icon: <NotebookPen size={19} /> },
     { tab: "care", label: "Care", icon: <HeartPulse size={19} /> },
     { tab: "calendar", label: "Calendar", icon: <CalendarDays size={19} /> },
+    { tab: "pawpal", label: "PawPal", icon: <Sparkles size={19} /> },
     { tab: "profile", label: "Profile", icon: <UserRound size={19} /> },
   ];
 

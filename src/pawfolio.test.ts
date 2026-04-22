@@ -4,6 +4,7 @@ import {
   applyCoachSuggestion,
   breedCareSignals,
   buildCoachSuggestions,
+  buildTodayAttentionItems,
   buildGoogleCalendarEvent,
   careEmptyState,
   careStatus,
@@ -72,6 +73,7 @@ import {
   type DailyTask,
   type PawfolioState,
   type Reminder,
+  type Tab,
 } from "./pawfolio";
 
 describe("pawfolio helpers", () => {
@@ -581,6 +583,12 @@ describe("pawfolio helpers", () => {
     expect(rankCoachSuggestions([{ ...suggestions[0], priority: 1 }, { ...suggestions[1], priority: 99 }])[0].priority).toBe(99);
   });
 
+  it("supports PawPal as a navigation tab", () => {
+    const tab: Tab = "pawpal";
+
+    expect(tab).toBe("pawpal");
+  });
+
   it("uses breed, season, and optional region for coach care signals", () => {
     expect(getSeasonForDate(new Date("2026-04-22T12:00:00"), "North America")).toBe("spring");
     expect(regionFromCoordinates(40.7, -74)).toBe("North America");
@@ -629,6 +637,25 @@ describe("pawfolio helpers", () => {
     expect(next.tasks.some((task) => task.title === "Tick check" && task.time === "20:00")).toBe(true);
     expect(next.coachDismissals).toContain("region-north-america-tick-check");
     expect(buildCoachSuggestions(next, new Date("2026-04-22T12:00:00")).some((suggestion) => suggestion.id === "region-north-america-tick-check")).toBe(false);
+  });
+
+  it("uses coach suggestions for today attention and dismisses them everywhere", () => {
+    const state = normalizeState({
+      tasks: [],
+      diary: [],
+      care: [
+        { id: "lyme-1", type: "Vaccine", title: "Lyme 1", date: "2026-05-08", note: "", nextDueDate: "" },
+      ],
+      reminders: [],
+    });
+
+    expect(buildTodayAttentionItems(state, new Date("2026-04-22T12:00:00")).map((item) => item.id)).toContain("care-status-lyme-1");
+    const dismissed = applyCoachSuggestion(state, "care-status-lyme-1", new Date("2026-04-22T12:00:00"));
+
+    expect(buildCoachSuggestions(dismissed, new Date("2026-04-22T12:00:00")).map((item) => item.id)).not.toContain("care-status-lyme-1");
+    expect(buildCoachSuggestions(dismissed, new Date("2026-04-22T12:00:00")).map((item) => item.id)).not.toContain("vaccine-next-lyme-1");
+    expect(buildTodayAttentionItems(dismissed, new Date("2026-04-22T12:00:00")).map((item) => item.id)).not.toContain("care-status-lyme-1");
+    expect(buildCoachSuggestions(dismissed, new Date("2026-04-22T12:00:00")).some((item) => item.id !== "care-status-lyme-1")).toBe(true);
   });
 
   it("estimates data URL size and catches localStorage save failures", () => {

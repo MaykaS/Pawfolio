@@ -64,7 +64,7 @@ Current prototype behavior:
 - Smart reminder timing defaults with per-reminder alert lead times
 - In-app notification center with Due now, Soon, and Upcoming reminder groups plus service-worker test notifications for installed PWA checks
 - Integration settings for Google Calendar, email, phone push, and cloud sync planning
-- Local Pawfolio Coach with rule-based care gaps, routine patterns, breed/season tips, optional broad location context, dismissible suggestions, and one-tap actions
+- PawPal companion tab with local rule-based care gaps, routine patterns, breed/season tips, optional broad location context, unified Today attention, dismissible suggestions, and one-tap actions
 - Full Pawfolio data export/import for localStorage and IndexedDB photo safety
 - Cuter dog-face PWA app icon for home-screen installs
 - Browser-local persistence

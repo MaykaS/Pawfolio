@@ -24,7 +24,7 @@ Implemented:
 - Unified green health styling for vaccine and vet calendar items
 - In-app notification center with Due now, Soon, and Upcoming groups plus service-worker test notifications for installed PWA checks
 - Integration settings for Google Calendar, email reminders, phone push, and cloud sync planning
-- Local Pawfolio Coach suggestions with care gaps, routine patterns, breed/season tips, optional broad location context, dismissals, and one-tap actions
+- PawPal companion tab with care gaps, routine patterns, breed/season tips, optional broad location context, unified Today attention, dismissals, and one-tap actions
 - Profile screen with full state/photo backup export/import and editable personality tags
 - Adaptive photo compression, IndexedDB photo storage, diary galleries, and safer local saves
 - Cute dog-face PWA app icon
@@ -38,11 +38,11 @@ Implemented:
    - Saves localStorage and IndexedDB photo data
    - Reopens with saved dog data
    - Loads the app shell after the first visit
-2. Polish Pawfolio Coach suggestion actions:
+2. Polish PawPal suggestion actions:
    - Let more suggestions prefill care or reminder forms
    - Add more breed profiles and seasonal care signals
-   - Add a monthly Coach recap for care/routine patterns
-3. Decide when Pawfolio Coach should move from local rules to optional LLM help.
+   - Add a monthly PawPal recap for care/routine patterns
+3. Decide when PawPal should move from local rules to optional LLM help.
 4. Connect Supabase Auth/Postgres with Google sign-in and RLS when cloud sync becomes the priority again.
 5. Add an "Upload local Pawfolio to account" migration after Supabase is ready.
 6. Connect Google Calendar OAuth and real event sync.
@@ -55,7 +55,7 @@ The user should continue entering their own dog information instead of relying o
 
 ## Decisions To Make Soon
 
-- Whether the first LLM feature should be natural-language entry parsing, Coach recaps, or a dedicated Ask Pawfolio chat
+- Whether the first LLM feature should be natural-language entry parsing, PawPal recaps, or a dedicated Ask Pawfolio chat
 - Exact timing for the Supabase Auth/Postgres milestone
 - Whether GitHub repository should be public or private
 - Whether cloud sync should stay single-owner first or include shared caregiver access in the first database design
