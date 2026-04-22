@@ -21,8 +21,10 @@ import {
   nextOccurrenceDate,
   normalizeState,
   notificationPermissionStatus,
+  parseMedicationRecurrence,
   prettyDate,
   recurrenceLabel,
+  reminderTypes,
   safeSetLocalStorage,
   saveCareRecordToState,
   saveReminderToState,
@@ -176,6 +178,19 @@ describe("pawfolio helpers", () => {
 
     expect(visibleCareRecords(state).some((record) => record.type === "Vet visit" && record.title === "Annual checkup")).toBe(true);
     expect(visibleReminders(state).some((reminder) => reminder.type === "Vet" && reminder.title === "Annual checkup")).toBe(true);
+
+    state = saveReminderToState(state, {
+      id: "vaccine-calendar",
+      title: "Lyme 2",
+      type: "Vaccine",
+      date: "2026-05-08",
+      time: "09:30",
+      note: "",
+      recurrence: "none",
+    });
+
+    expect(visibleCareRecords(state).some((record) => record.type === "Vaccine" && record.title === "Lyme 2")).toBe(true);
+    expect(visibleReminders(state).some((reminder) => reminder.type === "Vaccine" && reminder.title === "Lyme 2")).toBe(true);
   });
 
   it("edits and deletes shared items from either side without duplicates", () => {
@@ -213,6 +228,30 @@ describe("pawfolio helpers", () => {
     expect(deleteCareItemFromState(state, "vet").careEvents).toEqual([]);
   });
 
+  it("persists cleared next due dates on shared care-calendar items", () => {
+    let state = saveCareRecordToState(normalizeState(undefined), {
+      id: "lyme-1",
+      type: "Vaccine",
+      title: "Lyme 1",
+      date: "2026-04-17",
+      note: "",
+      nextDueDate: "2026-05-08",
+    });
+
+    state = saveCareRecordToState(state, {
+      id: "lyme-1",
+      type: "Vaccine",
+      title: "Lyme 1",
+      date: "2026-04-17",
+      note: "",
+      nextDueDate: "",
+    });
+
+    expect(state.careEvents[0].nextDueDate).toBe("");
+    expect(normalizeState(state).careEvents[0].nextDueDate).toBe("");
+    expect(visibleCareRecords(state)[0].nextDueDate).toBe("");
+  });
+
   it("normalizes older care records and calculates next due status", () => {
     const oldCareRecord = { id: "rabies", type: "Vaccine", title: "Rabies", date: "2026-04-21", note: "" } as CareRecord;
 
@@ -228,6 +267,43 @@ describe("pawfolio helpers", () => {
     expect(careStatus({ ...oldCareRecord, nextDueDate: "2026-05-15" }, new Date("2026-04-21T12:00:00"))).toBe("Due soon");
     expect(careStatus({ ...oldCareRecord, nextDueDate: "2026-04-01" }, new Date("2026-04-21T12:00:00"))).toBe("Overdue");
     expect(careStatus({ ...oldCareRecord, nextDueDate: "2027-04-01" }, new Date("2026-04-21T12:00:00"))).toBe("OK");
+    expect(careStatus({ ...oldCareRecord, id: "lyme-2", title: "Lyme 2", date: "2026-05-08" }, new Date("2026-04-22T12:00:00"))).toBe("Due soon");
+    expect(careStatus({ ...oldCareRecord, date: "2026-04-17" }, new Date("2026-04-22T12:00:00"))).toBe("OK");
+  });
+
+  it("infers medication recurrence from clear frequency text", () => {
+    expect(parseMedicationRecurrence("daily")).toBe("daily");
+    expect(parseMedicationRecurrence("every day")).toBe("daily");
+    expect(parseMedicationRecurrence("once a week")).toBe("weekly");
+    expect(parseMedicationRecurrence("Monthly refill")).toBe("monthly");
+    expect(parseMedicationRecurrence("annually")).toBe("yearly");
+    expect(parseMedicationRecurrence("as needed")).toBe("none");
+
+    let state = saveCareRecordToState(normalizeState(undefined), {
+      id: "heartgard",
+      type: "Medication",
+      title: "Heartgard",
+      date: "2026-04-22",
+      note: "",
+      nextDueDate: "",
+      dose: "1 chew",
+      frequency: "once a month",
+      refillDate: "2026-05-22",
+    });
+    expect(visibleReminders(state)[0]).toMatchObject({ type: "Medication", date: "2026-04-22", recurrence: "monthly" });
+
+    state = saveCareRecordToState(state, {
+      id: "heartgard",
+      type: "Medication",
+      title: "Heartgard",
+      date: "2026-04-22",
+      note: "",
+      nextDueDate: "",
+      dose: "1 chew",
+      frequency: "as needed",
+      refillDate: "2026-05-22",
+    });
+    expect(visibleReminders(state)[0].recurrence).toBe("none");
   });
 
   it("updates task times immutably", () => {
@@ -316,6 +392,8 @@ describe("pawfolio helpers", () => {
     ];
 
     expect(eventsForMonth(reminders, new Date("2026-04-01T12:00:00")).map((reminder) => reminder.id)).toEqual(["apr-med", "apr-vet"]);
+    expect(reminderTypes).toContain("Vet");
+    expect(reminderTypes).toContain("Vaccine");
     expect(eventCategory("Medication")).toBe("medication");
     expect(eventCategory("Vaccine")).toBe("vaccine");
     expect(eventCategory("Vet")).toBe("vet");

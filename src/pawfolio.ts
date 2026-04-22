@@ -182,7 +182,7 @@ export const avatarOptions = {
 };
 
 export const careTypes = ["Weight", "Medication", "Vaccine", "Vet visit", "Allergy", "Health note"];
-export const reminderTypes = ["Vet", "Medication", "Grooming", "Walk", "Food", "Other"];
+export const reminderTypes = ["Vet", "Vaccine", "Medication", "Grooming", "Walk", "Food", "Other"];
 export const reminderRecurrenceOptions: { value: ReminderRecurrence; label: string }[] = [
   { value: "none", label: "Does not repeat" },
   { value: "daily", label: "Every day" },
@@ -321,12 +321,23 @@ export function careTypeToReminderType(type: SharedCareType) {
   return type === "Vet visit" ? "Vet" : type;
 }
 
+export function parseMedicationRecurrence(text = ""): ReminderRecurrence {
+  const normalized = text.trim().toLowerCase();
+  if (!normalized) return "none";
+  if (/\b(every day|daily|once a day|each day)\b/.test(normalized)) return "daily";
+  if (/\b(every week|weekly|once a week|each week)\b/.test(normalized)) return "weekly";
+  if (/\b(every month|monthly|once a month|each month)\b/.test(normalized)) return "monthly";
+  if (/\b(every year|yearly|annually|annual|once a year|each year)\b/.test(normalized)) return "yearly";
+  return "none";
+}
+
 function careEventKey(event: CareEvent) {
   return `${event.type}|${event.title.trim().toLowerCase()}|${event.date}`;
 }
 
 export function careRecordToEvent(record: CareRecord): CareEvent {
   const type = isSharedCareType(record.type) ? record.type : "Medication";
+  const recurrence = record.type === "Medication" ? parseMedicationRecurrence(record.frequency) : "none";
   return {
     id: record.id,
     type,
@@ -335,7 +346,7 @@ export function careRecordToEvent(record: CareRecord): CareEvent {
     time: "",
     note: record.note,
     nextDueDate: record.nextDueDate || "",
-    recurrence: "none",
+    recurrence,
     dose: record.dose || "",
     frequency: record.frequency || "",
     refillDate: record.refillDate || "",
@@ -355,8 +366,8 @@ export function reminderToCareEvent(reminder: Reminder): CareEvent | undefined {
     date: reminder.date,
     time: reminder.time,
     note: reminder.note,
-    nextDueDate: "",
     recurrence: reminder.recurrence || "none",
+    frequency: type === "Medication" && reminder.recurrence !== "none" ? recurrenceLabel(reminder.recurrence || "none") : "",
   };
 }
 
@@ -396,17 +407,34 @@ function mergeCareEvent(events: CareEvent[], event: CareEvent) {
   );
   if (existingIndex === -1) return [...events, normalized];
 
+  const optionalFields: (keyof CareEvent)[] = [
+    "nextDueDate",
+    "dose",
+    "frequency",
+    "refillDate",
+    "clinic",
+    "vetName",
+    "reason",
+  ];
+
   return events.map((item, index) =>
     index === existingIndex
-      ? {
+      ? optionalFields.reduce<CareEvent>(
+          (merged, field) =>
+            Object.prototype.hasOwnProperty.call(event, field)
+              ? { ...merged, [field]: normalized[field] }
+              : merged,
+          {
           ...item,
-          ...normalized,
           id: item.id,
-          time: normalized.time || item.time,
-          note: normalized.note || item.note,
-          nextDueDate: normalized.nextDueDate || item.nextDueDate || "",
-          recurrence: normalized.recurrence !== "none" ? normalized.recurrence : item.recurrence,
-        }
+          type: normalized.type,
+          title: normalized.title,
+          date: normalized.date,
+          time: normalized.time,
+          note: normalized.id === item.id || normalized.note ? normalized.note : item.note,
+          recurrence: normalized.recurrence,
+        },
+        )
       : item,
   );
 }
@@ -790,13 +818,19 @@ export function recurrenceLabel(recurrence: ReminderRecurrence) {
 }
 
 export function careStatus(record: CareRecord, now = new Date()) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   if (record.nextDueDate) {
     const due = new Date(`${record.nextDueDate}T00:00`);
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const daysUntilDue = Math.ceil((due.getTime() - today.getTime()) / 86_400_000);
     if (daysUntilDue < 0) return "Overdue";
     if (daysUntilDue <= 45) return "Due soon";
     return "OK";
+  }
+  if ((record.type === "Vaccine" || record.type === "Vet visit") && record.date) {
+    const scheduled = new Date(`${record.date}T00:00`);
+    const daysUntilScheduled = Math.ceil((scheduled.getTime() - today.getTime()) / 86_400_000);
+    if (daysUntilScheduled >= 0 && daysUntilScheduled <= 45) return "Due soon";
+    if (daysUntilScheduled > 45) return "OK";
   }
   const note = record.note.toLowerCase();
   if (note.includes("due") || note.includes("next")) return "Due soon";

@@ -51,6 +51,7 @@ Current localStorage prototype data includes:
 - Care records with type, title, record date, type-specific fields, optional next due date, and note
 - Shared care-calendar events for medications, vaccines, and vet visits
 - Calendar-only reminders with title, type, date, time, note, recurrence label, and calculated next occurrence
+- Medication frequency parsing that maps clear daily, weekly, monthly, or yearly text to shared calendar recurrence
 - Calendar helper views for future-only upcoming items, visible-month events, and selected-day event details
 - Care helper views for type-specific validation, empty states, weight trends, medication consistency, and follow-up histories
 - In-app notification center for future reminders and browser notification permission testing

@@ -60,6 +60,12 @@ Decision: Calendar reminders store a recurrence label such as daily, weekly, mon
 
 Reason: Repeated medicine, grooming, and vet care are core pet-care workflows, even before real notifications exist.
 
+## 2026-04-22: Infer Clear Medication Recurrence
+
+Decision: Medication frequency text can infer daily, weekly, monthly, or yearly calendar recurrence when the wording is clear.
+
+Reason: Users should not have to enter the same medication schedule twice, but Pawfolio should avoid guessing when frequency text is ambiguous.
+
 ## 2026-04-22: Ship Android App Feel As A PWA First
 
 Decision: Pawfolio should become an installable Android PWA before starting a native Expo app.

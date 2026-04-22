@@ -59,6 +59,7 @@ Current prototype behavior:
 - Care records with type filtering, type-specific fields, next due dates, and weight trend
 - Care history panels with weight trend and medication consistency summaries
 - Calendar reminders with recurrence labels and calculated next occurrences
+- Medication frequency text can infer daily, weekly, monthly, or yearly reminders when it is clear
 - Calendar month navigation with clickable day details
 - In-app notification center with upcoming reminders and browser permission check
 - Integration settings for Google Calendar, email, phone push, and cloud sync planning
