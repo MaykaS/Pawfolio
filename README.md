@@ -57,9 +57,12 @@ Current prototype behavior:
 - Compressed photo uploads to reduce localStorage crashes
 - Shared medication, vaccine, and vet visit items across Care and Calendar
 - Care records with type filtering, type-specific fields, next due dates, and weight trend
+- Care history panels with weight trend and medication consistency summaries
 - Calendar reminders with recurrence labels and calculated next occurrences
 - Calendar month navigation with clickable day details
 - In-app notification center with upcoming reminders and browser permission check
+- Integration settings for Google Calendar, email, phone push, and cloud sync planning
+- Local rule-based Routine Coach suggestions
 - Full Pawfolio data export/import for localStorage safety
 - Browser-local persistence
 

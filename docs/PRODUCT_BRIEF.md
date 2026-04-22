@@ -80,9 +80,11 @@ A timeline for memories:
 A deeper organization area for:
 
 - Weight
+- Weight trends
 - Vet visits
 - Vaccines
 - Medications
+- Medication dose, frequency, refill, and consistency tracking
 - Allergies
 - Next due dates for vaccines, medications, and follow-up care
 - Known conditions
@@ -97,6 +99,7 @@ A schedule and reminder area for:
 - Medications
 - Recurring reminders
 - Clickable day details to see what happened or is scheduled on a date
+- Future Google Calendar sync
 - Walks
 - Play dates
 - Tasks such as scheduling appointments or buying food
@@ -111,8 +114,16 @@ The dog's identity and important reference details:
 - Birthday
 - Weight
 - Personality
+- Notification and integration settings
+- Local data export/import
 - Vet information
 - Emergency notes later
+
+### Routine Coach
+
+An opt-in helper that reviews routine completion, medication consistency, upcoming reminders, and care gaps.
+
+The first version should be local and rule-based. Later, an agentic version can use an LLM only after privacy, account sync, and user consent are clear.
 
 ## Future Capabilities
 
@@ -121,6 +132,9 @@ The dog's identity and important reference details:
 - Push notifications
 - Email notifications
 - Calendar sync
+- Private cloud sync with account-based data
+- Google sign-in
+- Routine Coach with richer agentic suggestions
 - GPS walk tracking
 - Pet photo gallery search
 - Health document uploads

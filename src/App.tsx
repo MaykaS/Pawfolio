@@ -26,8 +26,10 @@ import {
   avatarOptions,
   breedOptions,
   canUseBrowserNotifications,
+  buildGoogleCalendarEvent,
   careStatus,
   careTypes,
+  careEmptyState,
   deleteCalendarItemFromState,
   deleteCareItemFromState,
   daysTogether,
@@ -38,12 +40,14 @@ import {
   getUpcomingReminder,
   getUpcomingReminders,
   initialState,
+  medicationConsistency,
   normalizeState,
   notificationPermissionStatus,
   prettyDate,
   recurrenceLabel,
   reminderRecurrenceOptions,
   reminderTypes,
+  routineCoachInsights,
   safeSetLocalStorage,
   saveCareRecordToState,
   saveReminderToState,
@@ -54,6 +58,8 @@ import {
   todayISO,
   visibleCareRecords,
   visibleReminders,
+  validateCareRecord,
+  weightTrendSeries,
   type CareRecord,
   type DailyTask,
   type DiaryEntry,
@@ -275,6 +281,9 @@ export default function App() {
         <CareScreen
           profile={state.profile}
           records={careRecords}
+          taskHistory={state.taskHistory}
+          tasks={state.tasks}
+          reminders={calendarItems}
           onOpenCare={() => setCareMode({ mode: "create" })}
           onEdit={(record) => setCareMode({ mode: "edit", record })}
           onDelete={(id) =>
@@ -303,6 +312,26 @@ export default function App() {
           onOpenNotifications={() => setNotificationsOpen(true)}
           onExportData={exportPawfolioData}
           onImportData={importPawfolioData}
+          notificationPreferences={state.notificationPreferences}
+          integrationSettings={state.integrationSettings}
+          routineCoachSettings={state.routineCoachSettings}
+          onTogglePreference={(key) =>
+            setState((current) => ({
+              ...current,
+              notificationPreferences: {
+                ...current.notificationPreferences,
+                [key]: !current.notificationPreferences[key],
+              },
+            }))
+          }
+          onToggleCoach={() =>
+            setState((current) => ({
+              ...current,
+              routineCoachSettings: {
+                enabled: !current.routineCoachSettings.enabled,
+              },
+            }))
+          }
         />
       )}
 
@@ -718,12 +747,18 @@ function DiaryScreen({
 function CareScreen({
   profile,
   records,
+  taskHistory,
+  tasks,
+  reminders,
   onOpenCare,
   onEdit,
   onDelete,
 }: {
   profile: DogProfile;
   records: CareRecord[];
+  taskHistory: PawfolioState["taskHistory"];
+  tasks: DailyTask[];
+  reminders: Reminder[];
   onOpenCare: () => void;
   onEdit: (record: CareRecord) => void;
   onDelete: (id: string) => void;
@@ -737,6 +772,10 @@ function CareScreen({
   const [activeCareTab, setActiveCareTab] = useState(careTabs[0].label);
   const activeTypes = careTabs.find((tabItem) => tabItem.label === activeCareTab)?.types || [];
   const filteredRecords = records.filter((record) => activeTypes.includes(record.type));
+  const empty = careEmptyState(activeCareTab);
+  const weights = weightTrendSeries(records);
+  const meds = medicationConsistency(records);
+  const coachInsights = routineCoachInsights(tasks, taskHistory, reminders, records);
 
   return (
     <section className="screen">
@@ -761,10 +800,11 @@ function CareScreen({
           </button>
         ))}
       </div>
+      <CareHistoryPanel activeTab={activeCareTab} records={filteredRecords} weights={weights} meds={meds} insights={coachInsights} />
       {filteredRecords.length === 0 ? (
         <EmptyState
-          title={`No ${activeCareTab.toLowerCase()} yet`}
-          text="Tap Add to save a care record for this section."
+          title={empty.title}
+          text={empty.text}
         />
       ) : (
         filteredRecords.map((record) => (
@@ -783,6 +823,71 @@ function CareScreen({
           </article>
         ))
       )}
+    </section>
+  );
+}
+
+function CareHistoryPanel({
+  activeTab,
+  records,
+  weights,
+  meds,
+  insights,
+}: {
+  activeTab: string;
+  records: CareRecord[];
+  weights: ReturnType<typeof weightTrendSeries>;
+  meds: ReturnType<typeof medicationConsistency>;
+  insights: string[];
+}) {
+  if (activeTab === "Weight") {
+    return (
+      <section className="care-history card">
+        <div className="section-heading">
+          <div>
+            <p className="label no-margin">Weight trend</p>
+            <h2>{weights.length ? `${weights[weights.length - 1].value} ${weights[weights.length - 1].unit}` : "No weights yet"}</h2>
+          </div>
+        </div>
+        <div className="mini-chart" aria-label="Weight trend chart">
+          {weights.slice(-6).map((point) => (
+            <span
+              key={`${point.date}-${point.value}`}
+              style={{ height: `${Math.max(12, Math.min(88, point.value * 2))}%` }}
+              title={`${point.date}: ${point.value} ${point.unit}`}
+            />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (activeTab === "Meds") {
+    return (
+      <section className="care-history card">
+        <p className="label no-margin">Medication consistency</p>
+        <div className="mini-metrics">
+          <span><strong>{meds.last30Days}</strong> last 30 days</span>
+          <span><strong>{meds.withDose}/{meds.total}</strong> with dose</span>
+          <span><strong>{meds.withFrequency}/{meds.total}</strong> with frequency</span>
+        </div>
+      </section>
+    );
+  }
+
+  if (activeTab === "Vaccines" || activeTab === "Vet visits") {
+    return (
+      <section className="care-history card">
+        <p className="label no-margin">{activeTab === "Vaccines" ? "Vaccine follow-ups" : "Visit follow-ups"}</p>
+        <p>{records.filter((record) => record.nextDueDate).length || 0} records have a next date saved.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="care-history card">
+      <p className="label no-margin">Routine Coach</p>
+      <p>{insights[0]}</p>
     </section>
   );
 }
@@ -807,6 +912,7 @@ function CalendarScreen({
   const visibleUpcoming = showAllUpcoming ? upcoming : upcoming.slice(0, 3);
   const isCurrentMonth = monthKey(visibleMonth) === monthKey(currentMonth);
   const selectedDateEvents = selectedDate ? eventsForDate(reminders, selectedDate) : [];
+  const nextCalendarPayload = visibleUpcoming[0] ? buildGoogleCalendarEvent(visibleUpcoming[0], "Pawfolio") : undefined;
 
   const shiftMonth = (amount: number) => {
     setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
@@ -852,6 +958,13 @@ function CalendarScreen({
           </button>
         )}
       </div>
+      {nextCalendarPayload && (
+        <section className="sync-card card">
+          <p className="label no-margin">Google Calendar sync</p>
+          <h2>{nextCalendarPayload.summary}</h2>
+          <p>Ready to sync when Google OAuth is connected.</p>
+        </section>
+      )}
       {visibleUpcoming.length === 0 ? (
         <EmptyState title="No reminders yet" text="Add a vet appointment, medication, food refill, or grooming task." />
       ) : (
@@ -1027,6 +1140,11 @@ function ProfileScreen({
   onOpenNotifications,
   onExportData,
   onImportData,
+  notificationPreferences,
+  integrationSettings,
+  routineCoachSettings,
+  onTogglePreference,
+  onToggleCoach,
 }: {
   profile: DogProfile;
   diaryCount: number;
@@ -1035,6 +1153,11 @@ function ProfileScreen({
   onOpenNotifications: () => void;
   onExportData: () => void;
   onImportData: (file: File) => Promise<void>;
+  notificationPreferences: PawfolioState["notificationPreferences"];
+  integrationSettings: PawfolioState["integrationSettings"];
+  routineCoachSettings: PawfolioState["routineCoachSettings"];
+  onTogglePreference: (key: keyof PawfolioState["notificationPreferences"]) => void;
+  onToggleCoach: () => void;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -1060,6 +1183,22 @@ function ProfileScreen({
       <section className="card">
         <p className="label no-margin">Personality notes</p>
         <p className="personality-text">{profile.personality || "Add little quirks, fears, favorite games, and care notes."}</p>
+      </section>
+      <section className="card settings-card">
+        <p className="label no-margin">Integrations</p>
+        <SettingRow label="Google Calendar" value={integrationStatusLabel(integrationSettings.googleCalendar)} checked={notificationPreferences.googleCalendar} onToggle={() => onTogglePreference("googleCalendar")} />
+        <SettingRow label="Email reminders" value={integrationStatusLabel(integrationSettings.email)} checked={notificationPreferences.email} onToggle={() => onTogglePreference("email")} />
+        <SettingRow label="Phone push" value={integrationStatusLabel(integrationSettings.push)} checked={notificationPreferences.push} onToggle={() => onTogglePreference("push")} />
+        <SettingRow label="In-app reminders" value="Active now" checked={notificationPreferences.inApp} onToggle={() => onTogglePreference("inApp")} />
+      </section>
+      <section className="card settings-card">
+        <p className="label no-margin">Routine Coach</p>
+        <SettingRow label="Pattern suggestions" value="Local and private" checked={routineCoachSettings.enabled} onToggle={onToggleCoach} />
+        <p className="settings-note">Routine Coach uses local Pawfolio data for gentle suggestions. LLM help can come later after cloud/privacy is ready.</p>
+      </section>
+      <section className="card settings-card">
+        <p className="label no-margin">Cloud sync plan</p>
+        <p className="settings-note">Planned path: Supabase Auth with Google sign-in, Postgres, and Row Level Security. Local export/import stays as your safety net.</p>
       </section>
       <div className="profile-actions">
         <ProfileAction icon={<Pencil size={18} />} label="Edit profile" onClick={() => setEditing(true)} />
@@ -1102,6 +1241,35 @@ function ProfileAction({ icon, label, onClick }: { icon: React.ReactNode; label:
       <ChevronRight size={17} />
     </button>
   );
+}
+
+function SettingRow({
+  label,
+  value,
+  checked,
+  onToggle,
+}: {
+  label: string;
+  value: string;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button className="setting-row" type="button" onClick={onToggle}>
+      <span>
+        <strong>{label}</strong>
+        <small>{value}</small>
+      </span>
+      <span className={checked ? "toggle-pill on" : "toggle-pill"}>{checked ? "On" : "Off"}</span>
+    </button>
+  );
+}
+
+function integrationStatusLabel(status: string) {
+  if (status === "connected" || status === "configured" || status === "enabled") return "Connected";
+  if (status === "planned") return "Planned";
+  if (status === "local_only") return "Local only";
+  return "Not connected";
 }
 
 function ProfileEditSheet({
@@ -1381,6 +1549,8 @@ function CareSheet({
   const update = (key: keyof typeof record, value: string) => {
     setRecord((current) => ({ ...current, [key]: value }));
   };
+  const errors = validateCareRecord(record);
+  const canSave = Object.keys(errors).length === 0;
 
   return (
     <Sheet title={mode.mode === "edit" ? "Edit care record" : "Add care record"} onClose={onClose}>
@@ -1391,6 +1561,7 @@ function CareSheet({
             record.type === "Weight" && record.weightValue
               ? `${record.weightValue} ${record.weightUnit || "lb"}`
               : record.title;
+          if (!canSave) return;
           onSave({ id: existing?.id || uid("care"), ...record, title });
         }}
       >
@@ -1407,12 +1578,19 @@ function CareSheet({
           </Field>
         </div>
         <Field label={record.type === "Weight" ? "Label" : record.type === "Medication" ? "Medication name" : record.type === "Vaccine" ? "Vaccine name" : "Title"}>
-          <input className="input" value={record.title} onChange={(event) => update("title", event.target.value)} required={record.type !== "Weight"} />
+          <input
+            className="input"
+            value={record.title}
+            onChange={(event) => update("title", event.target.value)}
+            required={record.type !== "Weight" && record.type !== "Vet visit"}
+          />
+          {errors.title && <span className="field-error">{errors.title}</span>}
         </Field>
         {record.type === "Weight" && (
           <div className="form-two">
             <Field label="Weight">
               <input className="input" inputMode="decimal" value={record.weightValue} onChange={(event) => update("weightValue", event.target.value)} placeholder="27.8" />
+              {errors.weightValue && <span className="field-error">{errors.weightValue}</span>}
             </Field>
             <Field label="Unit">
               <select className="input" value={record.weightUnit} onChange={(event) => update("weightUnit", event.target.value)}>
@@ -1427,9 +1605,11 @@ function CareSheet({
             <div className="form-two">
               <Field label="Dose">
                 <input className="input" value={record.dose} onChange={(event) => update("dose", event.target.value)} placeholder="1 pill" />
+                {errors.dose && <span className="field-error">{errors.dose}</span>}
               </Field>
               <Field label="Frequency">
                 <input className="input" value={record.frequency} onChange={(event) => update("frequency", event.target.value)} placeholder="Monthly" />
+                {errors.frequency && <span className="field-error">{errors.frequency}</span>}
               </Field>
             </div>
             <Field label="Refill / next dose">
@@ -1440,6 +1620,7 @@ function CareSheet({
         {record.type === "Vaccine" && (
           <Field label="Next due date">
             <input className="input" type="date" value={record.nextDueDate} onChange={(event) => update("nextDueDate", event.target.value)} />
+            {errors.nextDueDate && <span className="field-error">{errors.nextDueDate}</span>}
           </Field>
         )}
         {record.type === "Vet visit" && (
@@ -1447,6 +1628,7 @@ function CareSheet({
             <div className="form-two">
               <Field label="Clinic">
                 <input className="input" value={record.clinic} onChange={(event) => update("clinic", event.target.value)} />
+                {errors.clinic && <span className="field-error">{errors.clinic}</span>}
               </Field>
               <Field label="Vet">
                 <input className="input" value={record.vetName} onChange={(event) => update("vetName", event.target.value)} />
@@ -1454,6 +1636,7 @@ function CareSheet({
             </div>
             <Field label="Reason">
               <input className="input" value={record.reason} onChange={(event) => update("reason", event.target.value)} placeholder="Annual checkup" />
+              {errors.title && <span className="field-error">{errors.title}</span>}
             </Field>
             <Field label="Follow-up date">
               <input className="input" type="date" value={record.nextDueDate} onChange={(event) => update("nextDueDate", event.target.value)} />
@@ -1463,7 +1646,7 @@ function CareSheet({
         <Field label="Note">
           <textarea className="input" value={record.note} onChange={(event) => update("note", event.target.value)} />
         </Field>
-        <button className="btn btn-primary">Save care record</button>
+        <button className="btn btn-primary" disabled={!canSave}>Save care record</button>
       </form>
     </Sheet>
   );

@@ -16,26 +16,30 @@ Implemented:
 - Custom daily tasks
 - Diary entries with optional photos
 - Care records with type tabs and type-specific fields
+- Care form validation, friendly empty states, and care history panels
 - Care next due dates for vaccines, medications, and follow-up care
 - Shared medication, vaccine, and vet visit items across Care and Calendar
 - Calendar reminders with recurrence labels, calculated next occurrences, month navigation, future-only upcoming items, and clickable day details
 - Unified green health styling for vaccine and vet calendar items
 - In-app notification center with upcoming reminders and browser permission check
+- Integration settings for Google Calendar, email reminders, phone push, and cloud sync planning
+- Local Routine Coach suggestions
 - Profile screen with full data export/import and editable personality tags
 - Photo compression and safer local saves
 - localStorage persistence
 
 ## Immediate Next Improvements
 
-1. Polish the new care forms with better validation and friendlier empty states.
-2. Add full care history views and charts for weight and medication consistency.
-3. Plan real push notifications now that recurrence and local backups exist.
-4. Continue installed PWA testing from Android Chrome:
+1. Connect Supabase Auth/Postgres with Google sign-in and RLS.
+2. Connect Google Calendar OAuth and real event sync.
+3. Add backend email reminders, likely through Vercel functions and Resend.
+4. Add real PWA push subscriptions and backend push sending.
+5. Continue installed PWA testing from Android Chrome:
    - Launches in standalone mode
    - Saves localStorage data
    - Reopens with saved dog data
    - Loads the app shell after the first visit
-5. Research Supabase Auth/Postgres for private cloud sync.
+6. Decide when Routine Coach should move from rule-based local suggestions to an LLM-backed assistant.
 
 ## Prototype Content To Keep Improving
 

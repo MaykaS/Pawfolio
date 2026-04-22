@@ -113,3 +113,21 @@ Reason: A daily checklist should reset naturally each day while keeping the task
 Decision: Pawfolio supports exporting and importing the full local state before adding account-based cloud storage.
 
 Reason: localStorage is convenient for the prototype, but users need a way to protect their profile, photos, care records, reminders, diary, and routine history.
+
+## 2026-04-22: Scaffold Integrations Before Wiring Secrets
+
+Decision: Pawfolio should show notification and integration preferences for Google Calendar, email reminders, phone push, and cloud sync before connecting real external services.
+
+Reason: These features need backend secrets, OAuth, or push infrastructure. Scaffolding the settings now keeps the UX honest while avoiding fake reminders or exposed credentials.
+
+## 2026-04-22: Use Google Calendar As The First Direct Calendar Sync
+
+Decision: Google Calendar is the primary direct calendar integration path, with `.ics` export as a later fallback for Apple and Outlook users.
+
+Reason: Google sign-in is also the preferred Supabase Auth direction, so Google Calendar is the cleanest first account-based integration.
+
+## 2026-04-22: Start Routine Coach As Local Rules
+
+Decision: Routine Coach starts as an opt-in, local, rule-based helper instead of an LLM-backed assistant.
+
+Reason: The feature should feel useful immediately, but anything agentic that reads pet-care data needs clear privacy boundaries before using cloud or model services.

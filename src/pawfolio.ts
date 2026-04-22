@@ -84,6 +84,30 @@ export type Reminder = {
 export type PawfolioNotificationStatus = "unsupported" | "default" | "granted" | "denied";
 export type TaskHistory = Record<string, Record<string, boolean>>;
 
+export type NotificationPreferences = {
+  inApp: boolean;
+  push: boolean;
+  email: boolean;
+  googleCalendar: boolean;
+};
+
+export type IntegrationSettings = {
+  googleCalendar: "not_connected" | "planned" | "connected";
+  email: "not_configured" | "planned" | "configured";
+  push: "not_enabled" | "planned" | "enabled";
+  cloudSync: "local_only" | "planned" | "enabled";
+};
+
+export type GoogleCalendarSyncState = {
+  connected: boolean;
+  calendarId?: string;
+  lastSyncAt?: string;
+};
+
+export type RoutineCoachSettings = {
+  enabled: boolean;
+};
+
 export type PawfolioState = {
   profile?: DogProfile;
   tasks: DailyTask[];
@@ -92,6 +116,10 @@ export type PawfolioState = {
   care: CareRecord[];
   careEvents: CareEvent[];
   reminders: Reminder[];
+  notificationPreferences: NotificationPreferences;
+  integrationSettings: IntegrationSettings;
+  googleCalendarSyncState: GoogleCalendarSyncState;
+  routineCoachSettings: RoutineCoachSettings;
 };
 
 export const storageKey = "pawfolio-local-v1";
@@ -113,6 +141,24 @@ export const initialState: PawfolioState = {
   care: [],
   careEvents: [],
   reminders: [],
+  notificationPreferences: {
+    inApp: true,
+    push: false,
+    email: false,
+    googleCalendar: false,
+  },
+  integrationSettings: {
+    googleCalendar: "planned",
+    email: "planned",
+    push: "planned",
+    cloudSync: "planned",
+  },
+  googleCalendarSyncState: {
+    connected: false,
+  },
+  routineCoachSettings: {
+    enabled: true,
+  },
 };
 
 export const breedOptions = [
@@ -400,6 +446,22 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
     care: normalizedCare.filter((record) => !isSharedCareType(record.type)),
     careEvents,
     reminders: normalizedReminders.filter((reminder) => !reminderTypeToCareType(reminder.type)),
+    notificationPreferences: {
+      ...initialState.notificationPreferences,
+      ...(base.notificationPreferences || {}),
+    },
+    integrationSettings: {
+      ...initialState.integrationSettings,
+      ...(base.integrationSettings || {}),
+    },
+    googleCalendarSyncState: {
+      ...initialState.googleCalendarSyncState,
+      ...(base.googleCalendarSyncState || {}),
+    },
+    routineCoachSettings: {
+      ...initialState.routineCoachSettings,
+      ...(base.routineCoachSettings || {}),
+    },
   };
 }
 
@@ -554,6 +616,114 @@ export function notificationPermissionStatus(notificationApi?: { permission?: No
 
 export function canUseBrowserNotifications(notificationApi?: { permission?: NotificationPermission }) {
   return notificationPermissionStatus(notificationApi) !== "unsupported";
+}
+
+export function validateCareRecord(record: Partial<CareRecord>) {
+  const errors: Partial<Record<keyof CareRecord, string>> = {};
+  if (!record.date) errors.date = "Choose a date.";
+
+  if (record.type === "Medication") {
+    if (!record.title?.trim()) errors.title = "Add the medication name.";
+    if (!record.dose?.trim()) errors.dose = "Add the dose.";
+    if (!record.frequency?.trim()) errors.frequency = "Add how often it is given.";
+  } else if (record.type === "Vaccine") {
+    if (!record.title?.trim()) errors.title = "Add the vaccine name.";
+  } else if (record.type === "Vet visit") {
+    if (!record.title?.trim() && !record.reason?.trim()) errors.title = "Add a visit title or reason.";
+    if (!record.clinic?.trim()) errors.clinic = "Add the clinic name.";
+  } else if (record.type === "Weight") {
+    if (!record.weightValue?.trim()) errors.weightValue = "Add a weight.";
+  } else if (!record.title?.trim()) {
+    errors.title = "Add a title.";
+  }
+
+  return errors;
+}
+
+export function careEmptyState(tab: string) {
+  const states: Record<string, { title: string; text: string }> = {
+    Meds: {
+      title: "No medications yet",
+      text: "Add doses, frequency, and refill or next-dose dates so medicine stays easy to track.",
+    },
+    Vaccines: {
+      title: "No vaccines yet",
+      text: "Save vaccine dates and next due dates so future boosters are easier to remember.",
+    },
+    "Vet visits": {
+      title: "No vet visits yet",
+      text: "Track clinic, vet, reason, notes, and follow-up dates in one place.",
+    },
+    Weight: {
+      title: "No weight records yet",
+      text: "Add weights over time to see a simple trend for your dog.",
+    },
+  };
+  return states[tab] || { title: `No ${tab.toLowerCase()} yet`, text: "Tap Add to save a care record." };
+}
+
+export function weightTrendSeries(records: CareRecord[]) {
+  return records
+    .filter((record) => record.type === "Weight")
+    .map((record) => ({
+      date: record.date,
+      value: Number.parseFloat(record.weightValue || record.title),
+      unit: record.weightUnit || "lb",
+    }))
+    .filter((point) => Number.isFinite(point.value))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export function medicationConsistency(records: CareRecord[], now = new Date()) {
+  const meds = records.filter((record) => record.type === "Medication");
+  const last30 = meds.filter((record) => {
+    const date = new Date(`${record.date}T00:00`);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const age = today.getTime() - date.getTime();
+    return age >= 0 && age <= 30 * 86_400_000;
+  });
+  return {
+    total: meds.length,
+    last30Days: last30.length,
+    withDose: meds.filter((record) => Boolean(record.dose)).length,
+    withFrequency: meds.filter((record) => Boolean(record.frequency)).length,
+  };
+}
+
+export function buildGoogleCalendarEvent(reminder: Reminder, petName = "Pawfolio") {
+  return {
+    summary: `${petName}: ${reminder.title}`,
+    description: [reminder.type, reminder.note].filter(Boolean).join(" - "),
+    start: reminder.time
+      ? { dateTime: `${reminder.date}T${reminder.time}:00` }
+      : { date: reminder.date },
+    end: reminder.time
+      ? { dateTime: `${reminder.date}T${reminder.time}:00` }
+      : { date: reminder.date },
+    recurrence: reminder.recurrence === "none" ? [] : [`RRULE:FREQ=${reminder.recurrence.toUpperCase()}`],
+  };
+}
+
+export function routineCoachInsights(tasks: DailyTask[], taskHistory: TaskHistory, reminders: Reminder[], records: CareRecord[]) {
+  const dates = Object.keys(taskHistory).sort();
+  const insights: string[] = [];
+  const recentDates = dates.slice(-7);
+  const walkTasks = tasks.filter((task) => /walk/i.test(task.title));
+  const missedWalks = recentDates.filter((date) => walkTasks.some((task) => !taskHistory[date]?.[task.id])).length;
+  if (walkTasks.length && recentDates.length >= 3 && missedWalks >= 2) {
+    insights.push("Walks have been missed a few times lately. Want to move one to an easier time?");
+  }
+  const medSummary = medicationConsistency(records);
+  if (medSummary.total > 0 && medSummary.withDose < medSummary.total) {
+    insights.push("Some medication records are missing dose details. Adding them will make reminders safer.");
+  }
+  if (getUpcomingReminders(reminders).length === 0) {
+    insights.push("No upcoming reminders yet. A vet, vaccine, medication, or grooming reminder can keep the week calmer.");
+  }
+  if (insights.length === 0) {
+    insights.push("Routine looks steady. Pawfolio will keep watching for helpful patterns.");
+  }
+  return insights;
 }
 
 export function eventCategory(type: string) {

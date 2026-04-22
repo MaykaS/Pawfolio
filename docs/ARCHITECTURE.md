@@ -52,14 +52,18 @@ Current localStorage prototype data includes:
 - Shared care-calendar events for medications, vaccines, and vet visits
 - Calendar-only reminders with title, type, date, time, note, recurrence label, and calculated next occurrence
 - Calendar helper views for future-only upcoming items, visible-month events, and selected-day event details
+- Care helper views for type-specific validation, empty states, weight trends, medication consistency, and follow-up histories
 - In-app notification center for future reminders and browser notification permission testing
+- Local notification preferences and integration settings for in-app reminders, future phone push, email reminders, Google Calendar, and cloud sync
+- Google Calendar payload scaffolding for reminders and shared care events, without frontend secrets or OAuth tokens
+- Local rule-based Routine Coach settings and insights
 - Full local export/import payload for backup and restore
 
 Older localStorage records are normalized on load so prototype changes do not break existing local data.
 
 Profile and diary photo uploads are compressed before localStorage writes. Save failures are caught and shown in-app instead of crashing the prototype.
 
-Future cloud persistence should use Supabase Auth plus Postgres Row Level Security. Each user-owned row should include a `user_id`, with policies limiting access to the authenticated user's own data.
+Future cloud persistence should use Supabase Auth plus Postgres Row Level Security. Google sign-in is the preferred first login path. Each user-owned row should include a `user_id`, with policies limiting access to the authenticated user's own data.
 
 Likely future entities:
 
@@ -68,8 +72,14 @@ Likely future entities:
 - PetMember or PetAccess
 - DiaryEntry
 - DiaryPhoto
-- CareTask
+- CareRecord
+- CareEvent
 - Reminder
+- RoutineTask
+- RoutineHistory
+- NotificationPreference
+- IntegrationAccount
+- AgentInsight
 - Appointment
 - Medication
 - Vaccine
@@ -98,11 +108,14 @@ Likely roles:
 
 The current prototype has an in-app notification center. It shows future reminders, exposes browser notification permission status, and can trigger a test notification where the browser supports it.
 
-It does not yet schedule real background push reminders. The app should eventually support:
+It does not yet schedule real background push reminders. The app also exposes preference toggles for future in-app, phone push, email reminders, and Google Calendar sync so the settings model is ready before backend secrets exist.
+
+The app should eventually support:
 
 - Push notifications for mobile
-- Email notifications
-- Calendar integration
+- Email notifications through a backend sender such as Resend
+- Google Calendar sync through per-user OAuth
+- Calendar export fallback such as `.ics`
 
 Reminder records should be designed with:
 
@@ -114,6 +127,25 @@ Reminder records should be designed with:
 - Completion status
 - Pet association
 - Optional assigned user later
+
+Real push should be handled by PWA Push API plus a backend push sender, or by Expo push in the native app phase. Email and Google Calendar sync must happen through server-side code so secrets are not exposed in the browser.
+
+## Agentic Direction
+
+The first agentic feature is Routine Coach.
+
+Current version:
+
+- Runs locally with simple rules
+- Reviews routine completion, medication detail quality, upcoming reminders, and care gaps
+- Produces gentle suggestions in the Care/Profile experience
+- Is controlled by an opt-in settings toggle
+
+Later version:
+
+- Can use a cloud/LLM assistant only after privacy, auth, and sync decisions are stable
+- Should explain what data it used
+- Should never replace medical advice or urgent care judgment
 
 ## GPS Walk Direction
 

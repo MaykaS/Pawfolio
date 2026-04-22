@@ -26,11 +26,16 @@ Included:
 - Diary entries with optional photos
 - Care screen
 - User-entered care records with type tabs and next due dates
+- Friendly care empty states and validation by record type
+- Weight trend and medication consistency summaries
 - Calendar/reminders screen
 - User-entered reminders with recurrence labels
 - Month navigation, future-only upcoming items, and clickable day details
 - Profile screen
 - Health record export
+- Full local backup export/import
+- Notification and integration settings scaffold
+- Local rule-based Routine Coach suggestions
 - Cute animated UI moments
 - Mobile-first layout with bottom navigation
 - Local browser persistence
@@ -54,6 +59,9 @@ Included:
 - Full local export/import while data remains local-first
 - Type-specific care forms for vaccines, medications, vet visits, and weight trends
 - Daily routine rollover so task completion is tracked per day
+- Local notification preferences
+- Google Calendar payload mapping before OAuth
+- Routine Coach settings and local insight helpers
 - User account model
 - Pet profile storage
 - Diary entry storage
@@ -74,16 +82,34 @@ Goal: Make the app useful as a real organizer.
 
 Included:
 
-- Push notification planning
-- Email reminder planning
-- Reminder scheduling
+- Google Calendar OAuth and event sync
+- Push notification subscriptions and backend push sending
+- Email reminders through server-side email delivery
+- Reminder scheduling with calculated recurrence
 - Appointment and task states
-- Calendar export or integration research
+- Calendar export fallback for Apple/Outlook users
 
 Success criteria:
 
 - Users can trust the app to remind them about pet care
 - Reminder data can later connect to mobile notifications and external calendars
+
+## Phase 3.5: Private Cloud Sync
+
+Goal: Let each user keep private pet data across devices.
+
+Likely approach:
+
+- Supabase Auth with Google sign-in first
+- Supabase Postgres tables for pets, care, reminders, diary, routine history, preferences, integrations, and agent insights
+- Row Level Security so each authenticated user only reads and writes their own data
+- Local export/import remains available as a safety path
+
+Success criteria:
+
+- A new user sees only their own Pawfolio data
+- Local prototype data can be uploaded into an account
+- The data model can later support multiple pets and shared caregivers
 
 ## Phase 4: Mobile App
 
@@ -116,4 +142,5 @@ Possible features:
 - GPS walk history
 - Genetic/DNA result tracking
 - Breed-specific health and care insights
+- LLM-backed Routine Coach after privacy and cloud sync are stable
 - Other pet types beyond dogs

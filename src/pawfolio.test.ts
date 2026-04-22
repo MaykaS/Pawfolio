@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   ageLabel,
+  buildGoogleCalendarEvent,
+  careEmptyState,
   careStatus,
   deleteCalendarItemFromState,
   deleteCareItemFromState,
@@ -15,6 +17,7 @@ import {
   getUpcomingReminders,
   isFutureOrToday,
   latestWeight,
+  medicationConsistency,
   nextOccurrenceDate,
   normalizeState,
   notificationPermissionStatus,
@@ -28,9 +31,12 @@ import {
   tasksForDate,
   todayISO,
   updateTaskTime,
+  validateCareRecord,
   visibleCareRecords,
   visibleReminders,
   weightTrend,
+  weightTrendSeries,
+  routineCoachInsights,
   withCareSchedule,
   withReminderRecurrence,
   withTaskTime,
@@ -96,6 +102,19 @@ describe("pawfolio helpers", () => {
 
     expect(normalized.reminders).toEqual([]);
     expect(normalized.careEvents[0].recurrence).toBe("none");
+    expect(normalized.notificationPreferences.inApp).toBe(true);
+    expect(normalized.integrationSettings.googleCalendar).toBe("planned");
+    expect(normalized.routineCoachSettings.enabled).toBe(true);
+  });
+
+  it("validates care forms and returns friendly empty states", () => {
+    expect(validateCareRecord({ type: "Medication", date: "2026-04-22", title: "Heartgard" })).toMatchObject({
+      dose: "Add the dose.",
+      frequency: "Add how often it is given.",
+    });
+    expect(validateCareRecord({ type: "Vaccine", date: "2026-04-22", title: "Rabies" })).toEqual({});
+    expect(validateCareRecord({ type: "Weight", date: "2026-04-22", weightValue: "27.8" })).toEqual({});
+    expect(careEmptyState("Vaccines").title).toBe("No vaccines yet");
   });
 
   it("normalizes shared care and calendar records into one care event", () => {
@@ -275,6 +294,10 @@ describe("pawfolio helpers", () => {
     expect(getUpcomingReminders([reminder], new Date("2026-04-22T12:00:00"))[0].date).toBe("2026-05-01");
     expect(eventsForMonth([reminder], new Date("2026-05-01T12:00:00"))[0].date).toBe("2026-05-01");
     expect(eventsForDate([reminder], "2026-05-01")[0].date).toBe("2026-05-01");
+    expect(buildGoogleCalendarEvent(reminder, "Mochi")).toMatchObject({
+      summary: "Mochi: Heartgard",
+      recurrence: ["RRULE:FREQ=MONTHLY"],
+    });
   });
 
   it("reports browser notification support safely", () => {
@@ -326,8 +349,31 @@ describe("pawfolio helpers", () => {
 
     expect(latestWeight(records, "26 lb")).toBe("27.8 lb");
     expect(weightTrend(records)).toBe("Up 1.8 lb");
+    expect(weightTrendSeries(records).map((point) => point.value)).toEqual([26, 27.8]);
+    expect(medicationConsistency(records, new Date("2026-04-22T12:00:00")).last30Days).toBe(1);
+    expect(
+      medicationConsistency([...records, { ...records[2], id: "future-med", date: "2026-06-01" }], new Date("2026-04-22T12:00:00")).last30Days,
+    ).toBe(1);
     expect(careStatus(records[2])).toBe("Due soon");
     expect(careStatus(records[1])).toBe("OK");
+  });
+
+  it("creates routine coach insights from local patterns", () => {
+    const tasks: DailyTask[] = [
+      { id: "walk", title: "Evening walk", time: "7:30 PM", done: false, note: "" },
+    ];
+    const insights = routineCoachInsights(
+      tasks,
+      {
+        "2026-04-20": { walk: false },
+        "2026-04-21": { walk: false },
+        "2026-04-22": { walk: true },
+      },
+      [],
+      [],
+    );
+
+    expect(insights.some((insight) => insight.includes("Walks have been missed"))).toBe(true);
   });
 
   it("estimates data URL size and catches localStorage save failures", () => {
