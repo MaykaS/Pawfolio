@@ -450,6 +450,7 @@ function TodayScreen({
   onOpenReminder: () => void;
 }) {
   const careMoments = getCareMoments(tasks);
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
 
   return (
     <section className="screen">
@@ -520,32 +521,46 @@ function TodayScreen({
 
       {tasks.map((task) => (
         <article className="task-item" key={task.id}>
-          <button
-            className={task.done ? "task-check done" : "task-check"}
-            type="button"
-            aria-label={`Toggle ${task.title}`}
-            onClick={() => onToggleTask(task.id)}
-          >
-            {task.done && <Check size={16} />}
-          </button>
-          <div className="task-copy">
-            <div className={task.done ? "task-label done" : "task-label"}>{task.title}</div>
-            <div className="task-time">{taskTime(task)}</div>
+          <div className="task-main-row">
+            <button
+              className={task.done ? "task-check done" : "task-check"}
+              type="button"
+              aria-label={`Toggle ${task.title}`}
+              onClick={() => onToggleTask(task.id)}
+            >
+              {task.done && <Check size={16} />}
+            </button>
+            <div className="task-copy">
+              <div className={task.done ? "task-label done" : "task-label"}>{task.title}</div>
+              <div className="task-time">{taskTime(task)}</div>
+              {task.note && openNoteId !== task.id && <p className="task-note-preview">{task.note}</p>}
+            </div>
+            <div className="row-actions">
+              <button
+                className={task.note ? "tiny-btn note-active" : "tiny-btn"}
+                type="button"
+                aria-label={task.note ? `Edit note for ${task.title}` : `Add note for ${task.title}`}
+                onClick={() => setOpenNoteId(openNoteId === task.id ? null : task.id)}
+              >
+                <NotebookPen size={14} />
+              </button>
+              <button className="tiny-btn" type="button" aria-label={`Edit ${task.title}`} onClick={() => onEditTask(task)}>
+                <Pencil size={14} />
+              </button>
+              <button className="tiny-btn danger" type="button" aria-label={`Delete ${task.title}`} onClick={() => onDeleteTask(task.id)}>
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+          {openNoteId === task.id && (
             <input
               className="task-note input"
               value={task.note}
               onChange={(event) => onTaskNote(task.id, event.target.value)}
               placeholder="Add note"
+              autoFocus
             />
-          </div>
-          <div className="row-actions">
-            <button className="tiny-btn" type="button" onClick={() => onEditTask(task)}>
-              <Pencil size={14} />
-            </button>
-            <button className="tiny-btn danger" type="button" onClick={() => onDeleteTask(task.id)}>
-              <Trash2 size={14} />
-            </button>
-          </div>
+          )}
         </article>
       ))}
     </section>

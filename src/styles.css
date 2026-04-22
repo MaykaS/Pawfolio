@@ -431,14 +431,11 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 }
 
 .task-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 13px 14px;
+  display: block;
+  padding: 10px 12px;
   background: white;
-  border-radius: 14px;
+  border-radius: 13px;
   margin-bottom: 8px;
-  cursor: pointer;
   transition: transform 0.1s;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
@@ -447,10 +444,17 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 
 .task-item:active { transform: scale(0.98); }
 
+.task-main-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 35px;
+}
+
 .task-check {
-  width: 26px;
-  height: 26px;
-  border-radius: 9px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   border: 2px solid var(--border);
   display: flex;
   align-items: center;
@@ -459,7 +463,6 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   transition: all 0.18s;
   background: white;
   color: white;
-  margin-top: 2px;
 }
 
 .task-check.done {
@@ -474,10 +477,11 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 }
 
 .task-label {
-  font-size: 15px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 900;
   color: var(--text);
   transition: color 0.18s;
+  line-height: 1.15;
 }
 
 .task-label.done {
@@ -487,15 +491,29 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 
 .task-time {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  margin-top: 1px;
+  margin-top: 2px;
+}
+
+.task-note-preview {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .task-note {
-  margin-top: 8px;
-  padding: 8px 10px;
+  margin-top: 9px;
+  margin-left: 34px;
+  width: calc(100% - 34px);
+  padding: 9px 12px;
   font-size: 13px;
+  min-height: 0;
 }
 
 .row-actions,
@@ -520,6 +538,11 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 .tiny-btn.danger {
   color: var(--primary);
   background: var(--primary-light);
+}
+
+.tiny-btn.note-active {
+  color: var(--green);
+  background: var(--green-light);
 }
 
 .diary-entry {
