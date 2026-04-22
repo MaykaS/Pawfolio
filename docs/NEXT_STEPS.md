@@ -1,49 +1,48 @@
 # Next Steps
 
-## Immediate Build Plan
+## Current Prototype Status
 
-1. Create the mobile-style web prototype.
-2. Build the first app screens:
-   - Onboarding
-   - Breed picker
-   - Dog profile setup
-   - Today
-   - Diary
-   - Care
-   - Calendar
-   - Profile
-3. Save the first dog profile locally in the browser.
-4. Add dog photo upload for the profile.
-5. Add a playful dog avatar studio for a stylized app character.
-6. Add friendly animations and mobile bottom navigation.
-7. Review the prototype flow and adjust the product direction.
+Prototype 0.1 is built as a mobile-style local web app.
 
-## Prototype Content Needed
+Implemented:
 
-For the first clickable version, the user should enter their own dog information.
-
-The prototype should support:
-
-- Dog name
-- Breed
-- Birthday
-- Weight
-- Personality notes
-- Profile photo
-- Stylized dog avatar
-- Daily tasks with checkboxes
-- Notes attached to each daily task
+- Onboarding and dog profile setup
+- Breed suggestions
+- Profile photo upload
+- Stylized avatar studio
+- Today routine with editable task times
+- Compact task notes
 - Custom daily tasks
 - Diary entries with optional photos
-- Care records
-- Reminders
+- Care records with type tabs
+- Care next due dates for vaccines, medications, and follow-up care
+- Calendar reminders with recurrence labels
+- Profile screen with health record export
+- localStorage persistence
+
+## Immediate Next Improvements
+
+1. Test the app on a real phone over the local network.
+2. Add PWA support so Pawfolio can be added to the phone home screen.
+3. Improve care forms by type:
+   - Vaccines: next due date and vaccine notes
+   - Medication: dose, frequency, refill/next dose
+   - Vet visit: clinic, vet, follow-up date
+   - Weight: numeric weight and trend display
+4. Make recurring reminders calculate the next upcoming occurrence automatically.
+5. Add full data export/import for localStorage safety.
+6. Add a daily rollover/reset model so completed routine tasks are tracked per day.
+
+## Prototype Content To Keep Improving
+
+The user should continue entering their own dog information instead of relying on fake data.
 
 ## Decisions To Make Soon
 
-- Final project/app name
-- Visual style direction
 - Whether the next data layer should be local browser storage plus export/import, or a small backend database
 - Whether GitHub repository should be public or private
+- Whether to add PWA install support before backend/auth
+- Whether care reminders should be generated from care records automatically
 
 ## Not In The First Prototype
 
@@ -66,4 +65,5 @@ These are important, but should come after the initial prototype:
 - A user can understand the daily workflow quickly.
 - The diary feels like a real place to keep pet memories.
 - The user can enter their own dog information and see it saved locally.
+- The user can test the prototype on their phone.
 - The future roadmap is visible but does not overwhelm version one.

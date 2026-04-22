@@ -2,7 +2,7 @@
 
 ## Working Name
 
-Pet Diary Companion
+Pawfolio
 
 ## One-Line Description
 
@@ -57,11 +57,11 @@ The user creates the first dog profile:
 
 A daily companion screen for the dog's routine:
 
-- Breakfast
-- Dinner
+- Meals
 - Walks
 - Medication
-- Notes
+- Editable task times
+- Optional compact notes
 - Quick memory entry
 - Upcoming reminder
 
@@ -84,6 +84,7 @@ A deeper organization area for:
 - Vaccines
 - Medications
 - Allergies
+- Next due dates for vaccines, medications, and follow-up care
 - Known conditions
 - Genetic notes or breed notes later
 
@@ -94,6 +95,7 @@ A schedule and reminder area for:
 - Vet appointments
 - Grooming
 - Medications
+- Recurring reminders
 - Walks
 - Play dates
 - Tasks such as scheduling appointments or buying food

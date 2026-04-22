@@ -20,18 +20,20 @@ Included:
 - Dog photo upload
 - Stylized dog avatar studio
 - Today screen
-- Daily tasks with checkbox completion and notes
-- Custom daily tasks
+- Daily tasks with checkbox completion, editable times, and compact notes
+- Custom daily tasks with editable times
 - Diary timeline
 - Diary entries with optional photos
 - Care screen
-- User-entered care records
+- User-entered care records with type tabs and next due dates
 - Calendar/reminders screen
-- User-entered reminders
+- User-entered reminders with recurrence labels
 - Profile screen
+- Health record export
 - Cute animated UI moments
 - Mobile-first layout with bottom navigation
 - Local browser persistence
+- Local-network phone testing
 
 Success criteria:
 
@@ -47,13 +49,15 @@ Goal: Turn the prototype into a working app with saved data.
 
 Included:
 
+- PWA install support or equivalent mobile testing packaging
+- Full local export/import while data remains local-first
 - User account model
 - Pet profile storage
 - Diary entry storage
 - Reminder storage
 - Care record storage
 - Local image upload handling
-- Basic notification-ready reminder model
+- Notification-ready reminder and recurrence model
 
 Success criteria:
 

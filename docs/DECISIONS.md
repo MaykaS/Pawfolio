@@ -29,3 +29,33 @@ Reason: The app needs product and design iteration before committing to native m
 Decision: The likely mobile path is Expo/React Native.
 
 Reason: Expo can support Android, iOS, push notifications, photo picker, and GPS permissions while keeping one shared mobile codebase.
+
+## 2026-04-22: Use Pawfolio As The Project Name
+
+Decision: The prototype and docs use Pawfolio as the working app name.
+
+Reason: The name fits the pet profile, care, memories, and health-history direction better than the earlier generic placeholder.
+
+## 2026-04-22: Keep Prototype Local-First
+
+Decision: Version 0.1 stores user-entered data in browser localStorage only.
+
+Reason: This keeps iteration fast while the product flow, care model, and mobile-style UI are still being shaped.
+
+## 2026-04-22: Add Saved Times And Compact Notes To Daily Tasks
+
+Decision: Daily tasks store editable times and show notes only as a compact preview until opened.
+
+Reason: The Today screen should stay clean and match the mobile routine-list inspiration while still supporting real notes.
+
+## 2026-04-22: Track Care Next Due Dates
+
+Decision: Care records can store an optional next due date, used for more accurate OK, Due soon, and Overdue statuses.
+
+Reason: Vaccines, medications, and vet follow-ups need future dates to be trustworthy care records.
+
+## 2026-04-22: Store Reminder Recurrence
+
+Decision: Calendar reminders store a recurrence label such as daily, weekly, monthly, or yearly.
+
+Reason: Repeated medicine, grooming, and vet care are core pet-care workflows, even before real notifications exist.

@@ -36,6 +36,16 @@ The likely mobile path is Expo/React Native because it can support:
 
 The first version should look like one user and one dog, with browser-local persistence. The model should be ready for expansion.
 
+Current localStorage prototype data includes:
+
+- Dog profile with name, breed, birthday, weight, personality, photo, and avatar settings
+- Daily tasks with title, completion state, saved time, and optional note
+- Diary entries with title, body, date, and optional photo
+- Care records with type, title, record date, optional next due date, and note
+- Calendar reminders with title, type, date, time, note, and recurrence label
+
+Older localStorage records are normalized on load so prototype changes do not break existing local data.
+
 Likely future entities:
 
 - User

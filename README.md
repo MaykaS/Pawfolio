@@ -1,4 +1,4 @@
-# Pet Diary Companion
+# Pawfolio
 
 A mobile-first pet care companion that combines a cute daily app experience with serious organization for a dog's life, health, memories, and routines.
 
@@ -42,18 +42,19 @@ Future versions may include:
 
 ## Current Status
 
-Prototype 0.1 is in progress as a Vite, React, and TypeScript mobile-style web app.
+Prototype 0.1 is a local-first Vite, React, and TypeScript mobile-style web app.
 
 Current prototype behavior:
 
 - User-created dog profile
 - Profile photo upload
 - Stylized dog avatar builder
-- Daily task checklist with notes
-- Custom daily tasks
+- Daily task checklist with editable saved times
+- Compact task notes that open only when needed
+- Custom daily tasks with editable times
 - Diary entries with optional photos
-- Care records
-- Reminders
+- Care records with type filtering, next due dates, and health export
+- Reminders with recurrence labels
 - Browser-local persistence
 
 Run locally:
@@ -62,6 +63,14 @@ Run locally:
 npm install
 npm run dev
 ```
+
+Run for phone testing on the same network:
+
+```bash
+npm run dev -- --host 0.0.0.0
+```
+
+Then open the network URL shown by Vite on your phone.
 
 See:
 
