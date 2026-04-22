@@ -72,6 +72,28 @@ npm run dev -- --host 0.0.0.0
 
 Then open the network URL shown by Vite on your phone.
 
+## Install On Android
+
+Pawfolio is set up as an installable PWA. For the real app-like install flow, use an HTTPS deployment such as Vercel.
+
+Deploy/build settings:
+
+- Framework: Vite
+- Build command: `npm run build`
+- Output directory: `dist`
+
+Android install flow:
+
+1. Open the Vercel HTTPS URL in Chrome on Android.
+2. Open the Chrome menu.
+3. Tap `Add to Home screen` or `Install app`.
+4. Launch Pawfolio from the new home-screen icon.
+
+Notes:
+
+- Data is still local-first and stored in that phone browser/app profile.
+- The local network dev URL is useful for testing, but HTTPS is needed for the proper install/offline PWA experience.
+
 See:
 
 - [Product Brief](docs/PRODUCT_BRIEF.md)

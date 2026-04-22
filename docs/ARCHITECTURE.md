@@ -9,6 +9,8 @@ Recommended stack for the prototype:
 - Vite, React, and TypeScript for the mobile-style web app
 - Component-based screens that can later inform a React Native/Expo app
 - Local browser storage first
+- PWA install support for Android home-screen testing
+- Vercel HTTPS hosting for installable phone builds
 - Real persistence after the interaction model feels right
 
 ## Why Not Native Android First
@@ -24,7 +26,12 @@ A web prototype lets us:
 
 ## Future Mobile Direction
 
-The likely mobile path is Expo/React Native because it can support:
+The current phone-app path is staged:
+
+1. Installable PWA first, using the current Vite app and Vercel HTTPS hosting.
+2. Expo/React Native later, once the core care workflow and product shape are more stable.
+
+Expo/React Native remains the likely native mobile path because it can support:
 
 - Android and iOS from one codebase
 - Push notifications

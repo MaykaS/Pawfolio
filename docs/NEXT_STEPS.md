@@ -22,8 +22,12 @@ Implemented:
 
 ## Immediate Next Improvements
 
-1. Test the app on a real phone over the local network.
-2. Add PWA support so Pawfolio can be added to the phone home screen.
+1. Deploy the PWA to Vercel and install it from Android Chrome.
+2. Test the installed home-screen app:
+   - Launches in standalone mode
+   - Saves localStorage data
+   - Reopens with saved dog data
+   - Loads the app shell after the first visit
 3. Improve care forms by type:
    - Vaccines: next due date and vaccine notes
    - Medication: dose, frequency, refill/next dose

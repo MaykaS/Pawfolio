@@ -59,3 +59,15 @@ Reason: Vaccines, medications, and vet follow-ups need future dates to be trustw
 Decision: Calendar reminders store a recurrence label such as daily, weekly, monthly, or yearly.
 
 Reason: Repeated medicine, grooming, and vet care are core pet-care workflows, even before real notifications exist.
+
+## 2026-04-22: Ship Android App Feel As A PWA First
+
+Decision: Pawfolio should become an installable Android PWA before starting a native Expo app.
+
+Reason: A PWA gives the current prototype a home-screen icon and standalone app feel quickly, while avoiding a premature rebuild before the product workflow is stable.
+
+## 2026-04-22: Use Vercel For HTTPS PWA Testing
+
+Decision: Use Vercel as the first hosted target for Pawfolio's installable PWA.
+
+Reason: Android Chrome needs HTTPS for the proper install and service-worker experience, and Vercel fits the existing Vite static build.

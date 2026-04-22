@@ -27,3 +27,5 @@ Thumbs.db
 
 # Local app data
 *.local
+
+.vercel
