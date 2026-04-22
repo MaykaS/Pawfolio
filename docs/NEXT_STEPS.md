@@ -11,35 +11,31 @@ Implemented:
 - Profile photo upload
 - Stylized avatar studio
 - Today routine with editable task times
+- Daily routine completion tracked per date
 - Compact task notes
 - Custom daily tasks
 - Diary entries with optional photos
-- Care records with type tabs
+- Care records with type tabs and type-specific fields
 - Care next due dates for vaccines, medications, and follow-up care
 - Shared medication, vaccine, and vet visit items across Care and Calendar
-- Calendar reminders with recurrence labels, month navigation, future-only upcoming items, and clickable day details
+- Calendar reminders with recurrence labels, calculated next occurrences, month navigation, future-only upcoming items, and clickable day details
 - Unified green health styling for vaccine and vet calendar items
 - In-app notification center with upcoming reminders and browser permission check
-- Profile screen with health record export
+- Profile screen with full data export/import and editable personality tags
 - Photo compression and safer local saves
 - localStorage persistence
 
 ## Immediate Next Improvements
 
-1. Improve care forms by type:
-   - Vaccines: next due date and vaccine notes
-   - Medication: dose, frequency, refill/next dose
-   - Vet visit: clinic, vet, follow-up date
-   - Weight: numeric weight and trend display
-2. Make recurring reminders calculate the next upcoming occurrence automatically.
-3. Add full data export/import for localStorage safety.
-4. Add a daily rollover/reset model so completed routine tasks are tracked per day.
-5. Plan real push notifications after recurrence and data safety are stable.
-6. Continue installed PWA testing from Android Chrome:
+1. Polish the new care forms with better validation and friendlier empty states.
+2. Add full care history views and charts for weight and medication consistency.
+3. Plan real push notifications now that recurrence and local backups exist.
+4. Continue installed PWA testing from Android Chrome:
    - Launches in standalone mode
    - Saves localStorage data
    - Reopens with saved dog data
    - Loads the app shell after the first visit
+5. Research Supabase Auth/Postgres for private cloud sync.
 
 ## Prototype Content To Keep Improving
 

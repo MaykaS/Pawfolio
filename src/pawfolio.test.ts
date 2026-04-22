@@ -15,6 +15,7 @@ import {
   getUpcomingReminders,
   isFutureOrToday,
   latestWeight,
+  nextOccurrenceDate,
   normalizeState,
   notificationPermissionStatus,
   prettyDate,
@@ -22,11 +23,14 @@ import {
   safeSetLocalStorage,
   saveCareRecordToState,
   saveReminderToState,
+  setTaskDoneForDate,
   taskTime,
+  tasksForDate,
   todayISO,
   updateTaskTime,
   visibleCareRecords,
   visibleReminders,
+  weightTrend,
   withCareSchedule,
   withReminderRecurrence,
   withTaskTime,
@@ -66,6 +70,16 @@ describe("pawfolio helpers", () => {
         reminders: [],
       } as unknown as Parameters<typeof normalizeState>[0]).tasks[0].time,
     ).toBe("7:00 AM");
+  });
+
+  it("tracks daily routine completion by date", () => {
+    const tasks: DailyTask[] = [
+      { id: "walk", title: "Morning walk", time: "8:00 AM", done: false, note: "" },
+    ];
+    const history = setTaskDoneForDate({}, "2026-04-22", "walk", true);
+
+    expect(tasksForDate(tasks, history, "2026-04-22")[0].done).toBe(true);
+    expect(tasksForDate(tasks, history, "2026-04-23")[0].done).toBe(false);
   });
 
   it("normalizes older reminders with no recurrence", () => {
@@ -246,6 +260,23 @@ describe("pawfolio helpers", () => {
     expect(getUpcomingReminder(reminders, new Date("2026-04-22T12:00:00"))?.title).toBe("Morning meds");
   });
 
+  it("calculates next recurring reminder occurrences", () => {
+    const reminder: Reminder = {
+      id: "heartgard",
+      title: "Heartgard",
+      type: "Medication",
+      date: "2026-01-01",
+      time: "08:00",
+      note: "",
+      recurrence: "monthly",
+    };
+
+    expect(nextOccurrenceDate(reminder, new Date("2026-04-22T12:00:00"))).toBe("2026-05-01");
+    expect(getUpcomingReminders([reminder], new Date("2026-04-22T12:00:00"))[0].date).toBe("2026-05-01");
+    expect(eventsForMonth([reminder], new Date("2026-05-01T12:00:00"))[0].date).toBe("2026-05-01");
+    expect(eventsForDate([reminder], "2026-05-01")[0].date).toBe("2026-05-01");
+  });
+
   it("reports browser notification support safely", () => {
     expect(notificationPermissionStatus(undefined)).toBe("unsupported");
     expect(canUseBrowserNotifications(undefined)).toBe(false);
@@ -288,13 +319,15 @@ describe("pawfolio helpers", () => {
 
   it("derives care status and latest weight", () => {
     const records: CareRecord[] = [
-      { id: "weight", type: "Weight", title: "27.8 lb", date: "2026-04-21", note: "" },
+      { id: "old-weight", type: "Weight", title: "26 lb", date: "2026-04-01", note: "", weightValue: "26", weightUnit: "lb" },
+      { id: "weight", type: "Weight", title: "27.8 lb", date: "2026-04-21", note: "", weightValue: "27.8", weightUnit: "lb" },
       { id: "med", type: "Medication", title: "Heartgard", date: "2026-04-21", note: "Next: May 1", nextDueDate: "" },
     ];
 
     expect(latestWeight(records, "26 lb")).toBe("27.8 lb");
-    expect(careStatus(records[1])).toBe("Due soon");
-    expect(careStatus(records[0])).toBe("OK");
+    expect(weightTrend(records)).toBe("Up 1.8 lb");
+    expect(careStatus(records[2])).toBe("Due soon");
+    expect(careStatus(records[1])).toBe("OK");
   });
 
   it("estimates data URL size and catches localStorage save failures", () => {

@@ -49,11 +49,14 @@ import {
   safeSetLocalStorage,
   saveCareRecordToState,
   saveReminderToState,
+  setTaskDoneForDate,
   storageKey,
   taskTime,
+  tasksForDate,
   todayISO,
   visibleCareRecords,
   visibleReminders,
+  weightTrend,
   type CareRecord,
   type DailyTask,
   type DiaryEntry,
@@ -125,6 +128,12 @@ function countTasks(tasks: DailyTask[], pattern: RegExp) {
 
 function careMeta(record: CareRecord) {
   const parts = [record.type, prettyDate(record.date)];
+  if (record.dose) parts.push(record.dose);
+  if (record.frequency) parts.push(record.frequency);
+  if (record.refillDate) parts.push(`refill ${prettyLongDate(record.refillDate)}`);
+  if (record.clinic) parts.push(record.clinic);
+  if (record.vetName) parts.push(record.vetName);
+  if (record.reason) parts.push(record.reason);
   if (record.nextDueDate) parts.push(`next ${prettyLongDate(record.nextDueDate)}`);
   if (record.note) parts.push(record.note);
   return parts.join(" - ");
@@ -158,14 +167,44 @@ export default function App() {
     setSaveError(result.ok ? "" : result.message);
   }, [state]);
 
-  const completed = state.tasks.filter((task) => task.done).length;
-  const progress = state.tasks.length ? completed / state.tasks.length : 0;
+  const today = todayISO();
+  const todayTasks = useMemo(() => tasksForDate(state.tasks, state.taskHistory, today), [state.tasks, state.taskHistory, today]);
+  const completed = todayTasks.filter((task) => task.done).length;
+  const progress = todayTasks.length ? completed / todayTasks.length : 0;
   const careRecords = useMemo(() => visibleCareRecords(state), [state]);
   const calendarItems = useMemo(() => visibleReminders(state), [state]);
   const upcomingReminder = useMemo(
     () => getUpcomingReminder(calendarItems),
     [calendarItems],
   );
+
+  const exportPawfolioData = () => {
+    const payload = {
+      app: "Pawfolio",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      state,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${state.profile?.name || "pawfolio"}-backup.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importPawfolioData = async (file: File) => {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as { state?: PawfolioState } | PawfolioState;
+      const importedState = "state" in parsed && parsed.state ? parsed.state : parsed;
+      setState(normalizeState(importedState as Partial<PawfolioState>));
+      setSaveError("");
+    } catch {
+      setSaveError("Pawfolio could not import that file. Choose a Pawfolio backup JSON file.");
+    }
+  };
 
   if (!state.profile) {
     return (
@@ -184,15 +223,18 @@ export default function App() {
       {tab === "today" && (
         <TodayScreen
           profile={state.profile}
-          tasks={state.tasks}
+          tasks={todayTasks}
           completed={completed}
           progress={progress}
           upcomingReminder={upcomingReminder}
           onToggleTask={(id) =>
             setState((current) => ({
               ...current,
-              tasks: current.tasks.map((task) =>
-                task.id === id ? { ...task, done: !task.done } : task,
+              taskHistory: setTaskDoneForDate(
+                current.taskHistory,
+                today,
+                id,
+                !tasksForDate(current.tasks, current.taskHistory, today).find((task) => task.id === id)?.done,
               ),
             }))
           }
@@ -260,9 +302,10 @@ export default function App() {
           profile={state.profile}
           diaryCount={state.diary.length}
           walkCount={state.tasks.filter((task) => /walk/i.test(task.title)).length}
-          careRecords={careRecords}
           onSave={(profile) => setState((current) => ({ ...current, profile }))}
           onOpenNotifications={() => setNotificationsOpen(true)}
+          onExportData={exportPawfolioData}
+          onImportData={importPawfolioData}
         />
       )}
 
@@ -361,6 +404,7 @@ function Onboarding({ onSave }: { onSave: (profile: DogProfile) => void }) {
     birthday: "",
     weight: "",
     personality: "",
+    personalityTags: ["Playful", "Energetic", "Food-motivated"],
     avatar: {
       fur: avatarOptions.fur[0],
       ears: "floppy",
@@ -697,6 +741,7 @@ function CareScreen({
   const activeTypes = careTabs.find((tabItem) => tabItem.label === activeCareTab)?.types || [];
   const filteredRecords = records.filter((record) => activeTypes.includes(record.type));
   const displayWeight = latestWeight(records, profile.weight);
+  const displayWeightTrend = weightTrend(records);
 
   return (
     <section className="screen">
@@ -723,8 +768,8 @@ function CareScreen({
       </div>
       <div className="stats-grid">
         <StatCard icon={<Weight size={16} />} label="Weight" value={displayWeight} />
+        <StatCard icon={<HeartPulse size={16} />} label="Trend" value={displayWeightTrend} />
         <StatCard icon={<Pill size={16} />} label="Meds" value={String(records.filter((record) => record.type === "Medication").length)} />
-        <StatCard icon={<HeartPulse size={16} />} label="Records" value={String(records.length)} />
       </div>
       {filteredRecords.length === 0 ? (
         <EmptyState
@@ -988,33 +1033,20 @@ function ProfileScreen({
   profile,
   diaryCount,
   walkCount,
-  careRecords,
   onSave,
   onOpenNotifications,
+  onExportData,
+  onImportData,
 }: {
   profile: DogProfile;
   diaryCount: number;
   walkCount: number;
-  careRecords: CareRecord[];
   onSave: (profile: DogProfile) => void;
   onOpenNotifications: () => void;
+  onExportData: () => void;
+  onImportData: (file: File) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
-
-  const exportHealthRecords = () => {
-    const payload = {
-      pet: profile.name,
-      exportedAt: new Date().toISOString(),
-      careRecords,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${profile.name || "pawfolio"}-health-records.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
 
   return (
     <section className="screen profile-screen">
@@ -1024,10 +1056,10 @@ function ProfileScreen({
         </div>
         <h1>{profile.name}</h1>
         <p>{profile.breed || "Breed not set"} - {ageLabel(profile.birthday)} - {profile.weight || "Weight not set"}</p>
-        <div className="quick-pills center">
-          <span className="badge badge-amber">Playful</span>
-          <span className="badge badge-green">Energetic</span>
-          <span className="badge badge-blue">Food-motivated</span>
+      <div className="quick-pills center">
+          {(profile.personalityTags?.length ? profile.personalityTags : ["Playful", "Energetic", "Food-motivated"]).map((tag, index) => (
+            <span className={index % 3 === 0 ? "badge badge-amber" : index % 3 === 1 ? "badge badge-green" : "badge badge-blue"} key={tag}>{tag}</span>
+          ))}
         </div>
       </section>
       <div className="stats-grid">
@@ -1042,7 +1074,21 @@ function ProfileScreen({
       <div className="profile-actions">
         <ProfileAction icon={<Pencil size={18} />} label="Edit profile" onClick={() => setEditing(true)} />
         <ProfileAction icon={<Bell size={18} />} label="Notifications" onClick={onOpenNotifications} />
-        <ProfileAction icon={<Download size={18} />} label="Export health records" onClick={exportHealthRecords} />
+        <ProfileAction icon={<Download size={18} />} label="Export Pawfolio data" onClick={onExportData} />
+        <label className="profile-action card-sm import-action">
+          <span className="profile-action-icon"><Download size={18} /></span>
+          <span>Import Pawfolio data</span>
+          <ChevronRight size={17} />
+          <input
+            type="file"
+            accept="application/json"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void onImportData(file);
+              event.currentTarget.value = "";
+            }}
+          />
+        </label>
       </div>
       {editing && (
         <ProfileEditSheet
@@ -1134,6 +1180,19 @@ function ProfileEditSheet({
       </div>
       <Field label="Personality">
         <textarea className="input" value={draft.personality} onChange={(event) => setDraft((current) => ({ ...current, personality: event.target.value }))} />
+      </Field>
+      <Field label="Personality tags">
+        <input
+          className="input"
+          value={(draft.personalityTags || []).join(", ")}
+          onChange={(event) =>
+            setDraft((current) => ({
+              ...current,
+              personalityTags: event.target.value.split(",").map((tag) => tag.trim()).filter(Boolean),
+            }))
+          }
+          placeholder="Playful, Energetic, Food-motivated"
+        />
       </Field>
       <AvatarBuilder avatar={draft.avatar} onChange={(avatar) => setDraft((current) => ({ ...current, avatar }))} />
       <button className="btn btn-primary">Save profile</button>
@@ -1319,6 +1378,14 @@ function CareSheet({
     date: existing?.date || todayISO(),
     nextDueDate: existing?.nextDueDate || "",
     note: existing?.note || "",
+    dose: existing?.dose || "",
+    frequency: existing?.frequency || "",
+    refillDate: existing?.refillDate || "",
+    clinic: existing?.clinic || "",
+    vetName: existing?.vetName || "",
+    reason: existing?.reason || "",
+    weightValue: existing?.weightValue || "",
+    weightUnit: existing?.weightUnit || "lb",
   });
 
   const update = (key: keyof typeof record, value: string) => {
@@ -1330,7 +1397,11 @@ function CareSheet({
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          onSave({ id: existing?.id || uid("care"), ...record });
+          const title =
+            record.type === "Weight" && record.weightValue
+              ? `${record.weightValue} ${record.weightUnit || "lb"}`
+              : record.title;
+          onSave({ id: existing?.id || uid("care"), ...record, title });
         }}
       >
         <div className="form-two">
@@ -1345,12 +1416,60 @@ function CareSheet({
             <input className="input" type="date" value={record.date} onChange={(event) => update("date", event.target.value)} />
           </Field>
         </div>
-        <Field label="Title">
-          <input className="input" value={record.title} onChange={(event) => update("title", event.target.value)} required />
+        <Field label={record.type === "Weight" ? "Label" : record.type === "Medication" ? "Medication name" : record.type === "Vaccine" ? "Vaccine name" : "Title"}>
+          <input className="input" value={record.title} onChange={(event) => update("title", event.target.value)} required={record.type !== "Weight"} />
         </Field>
-        <Field label="Next due date">
-          <input className="input" type="date" value={record.nextDueDate} onChange={(event) => update("nextDueDate", event.target.value)} />
-        </Field>
+        {record.type === "Weight" && (
+          <div className="form-two">
+            <Field label="Weight">
+              <input className="input" inputMode="decimal" value={record.weightValue} onChange={(event) => update("weightValue", event.target.value)} placeholder="27.8" />
+            </Field>
+            <Field label="Unit">
+              <select className="input" value={record.weightUnit} onChange={(event) => update("weightUnit", event.target.value)}>
+                <option>lb</option>
+                <option>kg</option>
+              </select>
+            </Field>
+          </div>
+        )}
+        {record.type === "Medication" && (
+          <>
+            <div className="form-two">
+              <Field label="Dose">
+                <input className="input" value={record.dose} onChange={(event) => update("dose", event.target.value)} placeholder="1 pill" />
+              </Field>
+              <Field label="Frequency">
+                <input className="input" value={record.frequency} onChange={(event) => update("frequency", event.target.value)} placeholder="Monthly" />
+              </Field>
+            </div>
+            <Field label="Refill / next dose">
+              <input className="input" type="date" value={record.refillDate} onChange={(event) => update("refillDate", event.target.value)} />
+            </Field>
+          </>
+        )}
+        {record.type === "Vaccine" && (
+          <Field label="Next due date">
+            <input className="input" type="date" value={record.nextDueDate} onChange={(event) => update("nextDueDate", event.target.value)} />
+          </Field>
+        )}
+        {record.type === "Vet visit" && (
+          <>
+            <div className="form-two">
+              <Field label="Clinic">
+                <input className="input" value={record.clinic} onChange={(event) => update("clinic", event.target.value)} />
+              </Field>
+              <Field label="Vet">
+                <input className="input" value={record.vetName} onChange={(event) => update("vetName", event.target.value)} />
+              </Field>
+            </div>
+            <Field label="Reason">
+              <input className="input" value={record.reason} onChange={(event) => update("reason", event.target.value)} placeholder="Annual checkup" />
+            </Field>
+            <Field label="Follow-up date">
+              <input className="input" type="date" value={record.nextDueDate} onChange={(event) => update("nextDueDate", event.target.value)} />
+            </Field>
+          </>
+        )}
         <Field label="Note">
           <textarea className="input" value={record.note} onChange={(event) => update("note", event.target.value)} />
         </Field>

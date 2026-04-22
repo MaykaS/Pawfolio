@@ -1109,6 +1109,19 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   color: var(--muted);
 }
 
+.import-action {
+  cursor: pointer;
+  position: relative;
+}
+
+.import-action input {
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
 .upload-btn {
   position: relative;
   overflow: hidden;

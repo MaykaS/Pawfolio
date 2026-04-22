@@ -45,14 +45,15 @@ The first version should look like one user and one dog, with browser-local pers
 
 Current localStorage prototype data includes:
 
-- Dog profile with name, breed, birthday, weight, personality, photo, and avatar settings
-- Daily tasks with title, completion state, saved time, and optional note
+- Dog profile with name, breed, birthday, weight, personality, editable tags, photo, and avatar settings
+- Daily tasks with title, saved time, optional note, and date-based completion history
 - Diary entries with title, body, date, and compressed optional photo
-- Care records with type, title, record date, optional next due date, and note
+- Care records with type, title, record date, type-specific fields, optional next due date, and note
 - Shared care-calendar events for medications, vaccines, and vet visits
-- Calendar-only reminders with title, type, date, time, note, and recurrence label
+- Calendar-only reminders with title, type, date, time, note, recurrence label, and calculated next occurrence
 - Calendar helper views for future-only upcoming items, visible-month events, and selected-day event details
 - In-app notification center for future reminders and browser notification permission testing
+- Full local export/import payload for backup and restore
 
 Older localStorage records are normalized on load so prototype changes do not break existing local data.
 

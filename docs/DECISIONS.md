@@ -101,3 +101,15 @@ Reason: Both represent health-care milestones, and a single health color makes t
 Decision: The notification button opens an in-app notification center before real background push scheduling is added.
 
 Reason: Upcoming reminders are useful immediately, but trustworthy push reminders need recurrence handling, data safety, and either PWA push infrastructure or native Expo push support.
+
+## 2026-04-22: Track Routine Completion By Date
+
+Decision: Daily routine completion is stored in a date-keyed history instead of permanently on each task.
+
+Reason: A daily checklist should reset naturally each day while keeping the task definitions, notes, and times stable.
+
+## 2026-04-22: Add Full Local Backup Before Cloud Sync
+
+Decision: Pawfolio supports exporting and importing the full local state before adding account-based cloud storage.
+
+Reason: localStorage is convenient for the prototype, but users need a way to protect their profile, photos, care records, reminders, diary, and routine history.

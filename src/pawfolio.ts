@@ -13,6 +13,7 @@ export type DogProfile = {
   birthday: string;
   weight: string;
   personality: string;
+  personalityTags?: string[];
   photo?: string;
   avatar: DogAvatar;
 };
@@ -40,6 +41,14 @@ export type CareRecord = {
   date: string;
   note: string;
   nextDueDate?: string;
+  dose?: string;
+  frequency?: string;
+  refillDate?: string;
+  clinic?: string;
+  vetName?: string;
+  reason?: string;
+  weightValue?: string;
+  weightUnit?: string;
 };
 
 export type SharedCareType = "Medication" | "Vaccine" | "Vet visit";
@@ -54,6 +63,12 @@ export type CareEvent = {
   note: string;
   nextDueDate?: string;
   recurrence: ReminderRecurrence;
+  dose?: string;
+  frequency?: string;
+  refillDate?: string;
+  clinic?: string;
+  vetName?: string;
+  reason?: string;
 };
 
 export type Reminder = {
@@ -67,10 +82,12 @@ export type Reminder = {
 };
 
 export type PawfolioNotificationStatus = "unsupported" | "default" | "granted" | "denied";
+export type TaskHistory = Record<string, Record<string, boolean>>;
 
 export type PawfolioState = {
   profile?: DogProfile;
   tasks: DailyTask[];
+  taskHistory: TaskHistory;
   diary: DiaryEntry[];
   care: CareRecord[];
   careEvents: CareEvent[];
@@ -91,6 +108,7 @@ export const defaultTasks: DailyTask[] = [
 
 export const initialState: PawfolioState = {
   tasks: defaultTasks,
+  taskHistory: {},
   diary: [],
   care: [],
   careEvents: [],
@@ -111,10 +129,10 @@ export const breedOptions = [
 ];
 
 export const avatarOptions = {
-  fur: ["#fff7df", "#f7d08a", "#d9a066", "#6f4d38", "#1f2933", "#fbfbf5"],
+  fur: ["#fff7df", "#f7d08a", "#d9a066", "#6f4d38", "#1f2933", "#fbfbf5", "#b7794f", "#8b6f47"],
   ears: ["floppy", "pointy", "round"],
   spot: ["none", "eye", "back", "freckles"],
-  accessory: ["none", "bandana", "bow", "collar"],
+  accessory: ["none", "bandana", "bow", "collar", "scarf", "star"],
 };
 
 export const careTypes = ["Weight", "Medication", "Vaccine", "Vet visit", "Allergy", "Health note"];
@@ -195,15 +213,51 @@ export function withReminderRecurrence(
 }
 
 export function withCareSchedule(record: CareRecord): CareRecord {
-  return { ...record, nextDueDate: record.nextDueDate || "" };
+  return {
+    ...record,
+    nextDueDate: record.nextDueDate || "",
+    dose: record.dose || "",
+    frequency: record.frequency || "",
+    refillDate: record.refillDate || "",
+    clinic: record.clinic || "",
+    vetName: record.vetName || "",
+    reason: record.reason || "",
+    weightValue: record.weightValue || "",
+    weightUnit: record.weightUnit || "",
+  };
 }
 
 export function withCareEventSchedule(event: Omit<CareEvent, "recurrence"> & { recurrence?: ReminderRecurrence }): CareEvent {
-  return { ...event, nextDueDate: event.nextDueDate || "", recurrence: event.recurrence || "none" };
+  return {
+    ...event,
+    nextDueDate: event.nextDueDate || "",
+    recurrence: event.recurrence || "none",
+    dose: event.dose || "",
+    frequency: event.frequency || "",
+    refillDate: event.refillDate || "",
+    clinic: event.clinic || "",
+    vetName: event.vetName || "",
+    reason: event.reason || "",
+  };
 }
 
 export function updateTaskTime(tasks: DailyTask[], id: string, time: string) {
   return tasks.map((task) => (task.id === id ? { ...task, time } : task));
+}
+
+export function tasksForDate(tasks: DailyTask[], taskHistory: TaskHistory, date: string) {
+  const day = taskHistory[date] || {};
+  return tasks.map((task) => ({ ...task, done: Boolean(day[task.id]) }));
+}
+
+export function setTaskDoneForDate(taskHistory: TaskHistory, date: string, taskId: string, done: boolean): TaskHistory {
+  return {
+    ...taskHistory,
+    [date]: {
+      ...(taskHistory[date] || {}),
+      [taskId]: done,
+    },
+  };
 }
 
 export function isSharedCareType(type: string): type is SharedCareType {
@@ -236,6 +290,12 @@ export function careRecordToEvent(record: CareRecord): CareEvent {
     note: record.note,
     nextDueDate: record.nextDueDate || "",
     recurrence: "none",
+    dose: record.dose || "",
+    frequency: record.frequency || "",
+    refillDate: record.refillDate || "",
+    clinic: record.clinic || "",
+    vetName: record.vetName || "",
+    reason: record.reason || "",
   };
 }
 
@@ -262,6 +322,12 @@ export function careEventToCareRecord(event: CareEvent): CareRecord {
     date: event.date,
     note: event.note,
     nextDueDate: event.nextDueDate || "",
+    dose: event.dose || "",
+    frequency: event.frequency || "",
+    refillDate: event.refillDate || "",
+    clinic: event.clinic || "",
+    vetName: event.vetName || "",
+    reason: event.reason || "",
   };
 }
 
@@ -325,11 +391,23 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
 
   return {
     ...base,
-    tasks: (base.tasks?.length ? base.tasks : defaultTasks).map(withTaskTime),
+    profile: base.profile
+      ? { ...base.profile, personalityTags: base.profile.personalityTags?.length ? base.profile.personalityTags : ["Playful", "Energetic", "Food-motivated"] }
+      : undefined,
+    tasks: (base.tasks?.length ? base.tasks : defaultTasks).map(withTaskTime).map((task) => ({ ...task, done: false })),
+    taskHistory: base.taskHistory || legacyTaskHistory(base.tasks || []),
     diary: base.diary || [],
     care: normalizedCare.filter((record) => !isSharedCareType(record.type)),
     careEvents,
     reminders: normalizedReminders.filter((reminder) => !reminderTypeToCareType(reminder.type)),
+  };
+}
+
+function legacyTaskHistory(tasks: DailyTask[]) {
+  const doneTasks = tasks.filter((task) => task.done);
+  if (doneTasks.length === 0) return {};
+  return {
+    [todayISO()]: Object.fromEntries(doneTasks.map((task) => [task.id, true])),
   };
 }
 
@@ -426,8 +504,41 @@ export function isFutureOrToday(date: string, now = new Date()) {
   return eventDate.getTime() >= today.getTime();
 }
 
+function toLocalISO(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function addRecurrence(date: Date, recurrence: ReminderRecurrence) {
+  const next = new Date(date);
+  if (recurrence === "daily") next.setDate(next.getDate() + 1);
+  if (recurrence === "weekly") next.setDate(next.getDate() + 7);
+  if (recurrence === "monthly") next.setMonth(next.getMonth() + 1);
+  if (recurrence === "yearly") next.setFullYear(next.getFullYear() + 1);
+  return next;
+}
+
+export function nextOccurrenceDate(reminder: Pick<Reminder, "date" | "recurrence">, now = new Date()) {
+  if (!reminder.date) return "";
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let occurrence = new Date(`${reminder.date}T00:00`);
+  if (reminder.recurrence === "none") return toLocalISO(occurrence);
+
+  let guard = 0;
+  while (occurrence.getTime() < today.getTime() && guard < 1000) {
+    occurrence = addRecurrence(occurrence, reminder.recurrence);
+    guard += 1;
+  }
+  return toLocalISO(occurrence);
+}
+
+export function withNextOccurrence(reminder: Reminder, now = new Date()): Reminder {
+  const occurrenceDate = nextOccurrenceDate(reminder, now);
+  return occurrenceDate ? { ...reminder, date: occurrenceDate } : reminder;
+}
+
 export function getUpcomingReminders(reminders: Reminder[], now = new Date()) {
-  return [...reminders]
+  return reminders
+    .map((reminder) => withNextOccurrence(reminder, now))
     .filter((reminder) => isFutureOrToday(reminder.date, now))
     .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
 }
@@ -467,16 +578,40 @@ export function eventCategoryColor(type: string) {
 export function eventsForMonth(reminders: Reminder[], visibleMonth: Date) {
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
-  return reminders.filter((reminder) => {
-    if (!reminder.date) return false;
-    const date = new Date(`${reminder.date}T00:00`);
-    return date.getFullYear() === year && date.getMonth() === month;
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 0);
+  return reminders.flatMap((reminder) => {
+    if (!reminder.date) return [];
+    if (reminder.recurrence === "none") {
+      const date = new Date(`${reminder.date}T00:00`);
+      return date.getFullYear() === year && date.getMonth() === month ? [reminder] : [];
+    }
+
+    let occurrence = new Date(`${reminder.date}T00:00`);
+    let guard = 0;
+    while (occurrence.getTime() < monthStart.getTime() && guard < 1000) {
+      occurrence = addRecurrence(occurrence, reminder.recurrence);
+      guard += 1;
+    }
+    if (occurrence.getTime() > monthEnd.getTime()) return [];
+    return [{ ...reminder, date: toLocalISO(occurrence) }];
   });
 }
 
 export function eventsForDate(reminders: Reminder[], date: string) {
   return reminders
-    .filter((reminder) => reminder.date === date)
+    .flatMap((reminder) => {
+      if (reminder.date === date) return [reminder];
+      if (reminder.recurrence === "none" || !reminder.date) return [];
+      const target = new Date(`${date}T00:00`);
+      let occurrence = new Date(`${reminder.date}T00:00`);
+      let guard = 0;
+      while (occurrence.getTime() < target.getTime() && guard < 1000) {
+        occurrence = addRecurrence(occurrence, reminder.recurrence);
+        guard += 1;
+      }
+      return toLocalISO(occurrence) === date ? [{ ...reminder, date }] : [];
+    })
     .sort((a, b) => `${a.time || "99:99"} ${a.title}`.localeCompare(`${b.time || "99:99"} ${b.title}`));
 }
 
@@ -499,5 +634,21 @@ export function careStatus(record: CareRecord, now = new Date()) {
 }
 
 export function latestWeight(records: CareRecord[], profileWeight: string) {
-  return records.find((record) => record.type === "Weight")?.title || profileWeight || "Not set";
+  const weight = records
+    .filter((record) => record.type === "Weight")
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (weight?.weightValue) return `${weight.weightValue} ${weight.weightUnit || "lb"}`;
+  return weight?.title || profileWeight || "Not set";
+}
+
+export function weightTrend(records: CareRecord[]) {
+  const weights = records
+    .filter((record) => record.type === "Weight")
+    .map((record) => ({ ...record, numeric: Number.parseFloat(record.weightValue || record.title) }))
+    .filter((record) => Number.isFinite(record.numeric))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  if (weights.length < 2) return "No trend yet";
+  const diff = weights[0].numeric - weights[1].numeric;
+  if (Math.abs(diff) < 0.1) return "Stable";
+  return diff > 0 ? `Up ${diff.toFixed(1)} ${weights[0].weightUnit || "lb"}` : `Down ${Math.abs(diff).toFixed(1)} ${weights[0].weightUnit || "lb"}`;
 }

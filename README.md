@@ -50,15 +50,17 @@ Current prototype behavior:
 - Profile photo upload
 - Stylized dog avatar builder
 - Daily task checklist with editable saved times
+- Daily routine completion tracked per date
 - Compact task notes that open only when needed
 - Custom daily tasks with editable times
 - Diary entries with optional photos
 - Compressed photo uploads to reduce localStorage crashes
 - Shared medication, vaccine, and vet visit items across Care and Calendar
-- Care records with type filtering, next due dates, and health export
-- Calendar reminders with recurrence labels
+- Care records with type filtering, type-specific fields, next due dates, and weight trend
+- Calendar reminders with recurrence labels and calculated next occurrences
 - Calendar month navigation with clickable day details
 - In-app notification center with upcoming reminders and browser permission check
+- Full Pawfolio data export/import for localStorage safety
 - Browser-local persistence
 
 Run locally:
