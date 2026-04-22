@@ -1863,7 +1863,6 @@ function TaskTimePicker({
   return (
     <div className="task-time-picker" aria-label="Task time">
       <label>
-        <span>Hour</span>
         <select value={hour} onChange={(event) => onChange({ hour: event.target.value })}>
           {taskHourOptions.map((option) => (
             <option key={option} value={option}>
@@ -1873,7 +1872,6 @@ function TaskTimePicker({
         </select>
       </label>
       <label>
-        <span>Minute</span>
         <select value={minute} onChange={(event) => onChange({ minute: event.target.value })}>
           {taskMinuteOptions.map((option) => (
             <option key={option} value={option}>
@@ -1883,7 +1881,6 @@ function TaskTimePicker({
         </select>
       </label>
       <label>
-        <span>AM/PM</span>
         <select value={meridiem} onChange={(event) => onChange({ meridiem: event.target.value })}>
           {taskMeridiemOptions.map((option) => (
             <option key={option} value={option}>
