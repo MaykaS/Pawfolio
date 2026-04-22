@@ -35,7 +35,7 @@ Included:
 - Health record export
 - Full local backup export/import, including IndexedDB photos
 - Notification and integration settings scaffold
-- Local rule-based Routine Coach suggestions
+- Local Pawfolio Coach suggestions with care gaps, routine patterns, breed/season tips, optional broad location context, dismissals, and one-tap actions
 - Cute animated UI moments
 - Mobile-first layout with bottom navigation
 - Local browser persistence
@@ -61,7 +61,7 @@ Included:
 - Daily routine rollover so task completion is tracked per day
 - Local notification preferences and smart reminder lead times
 - Google Calendar payload mapping before OAuth
-- Routine Coach settings and local insight helpers
+- Pawfolio Coach settings and local insight helpers
 - User account model
 - Pet profile storage
 - Diary entry storage
@@ -144,4 +144,5 @@ Possible features:
 - Genetic/DNA result tracking
 - Breed-specific health and care insights
 - LLM-backed Routine Coach after privacy and cloud sync are stable
+- Natural-language entry parsing and monthly Coach recaps after privacy and model-use boundaries are stable
 - Other pet types beyond dogs

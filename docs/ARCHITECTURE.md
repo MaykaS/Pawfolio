@@ -57,7 +57,7 @@ Current localStorage prototype data includes:
 - In-app notification center for future reminders, Due now/Soon/Upcoming groups, alert lead labels, and browser notification permission testing
 - Local notification preferences and integration settings for in-app reminders, future phone push, email reminders, Google Calendar, and cloud sync
 - Google Calendar payload scaffolding for reminders and shared care events, without frontend secrets or OAuth tokens
-- Local rule-based Routine Coach settings and insights
+- Local Pawfolio Coach settings, dismissals, care-gap/routine suggestions, breed/season signals, optional broad location context, and one-tap suggestion actions
 - Full local export/import payload for backup and restore, including referenced IndexedDB photo records
 
 Older localStorage records are normalized on load so prototype changes do not break existing local data.
@@ -138,19 +138,21 @@ Real push should be handled by PWA Push API plus a backend push sender, or by Ex
 
 ## Agentic Direction
 
-The first agentic feature is Routine Coach.
+The first agentic feature is Pawfolio Coach.
 
 Current version:
 
 - Runs locally with simple rules
-- Reviews routine completion, medication detail quality, upcoming reminders, and care gaps
-- Produces gentle suggestions in the Care/Profile experience
-- Is controlled by an opt-in settings toggle
+- Reviews routine completion, medication detail quality, upcoming reminders, care gaps, diary/care backup needs, breed, season, and optional broad care region
+- Produces gentle suggestions on Today and supporting insights in Care/Profile
+- Supports dismissible suggestions and one-tap actions such as adding a tick check task, opening a care record, opening reminder creation, or exporting a backup
+- Is controlled by opt-in settings for Coach, seasonal tips, and optional location/manual region context
 
 Later version:
 
 - Can use a cloud/LLM assistant only after privacy, auth, and sync decisions are stable
 - Should explain what data it used
+- Should default to compact summaries instead of sending raw journals/photos unless the user explicitly chooses otherwise
 - Should never replace medical advice or urgent care judgment
 
 ## GPS Walk Direction

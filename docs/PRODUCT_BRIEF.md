@@ -121,11 +121,11 @@ The dog's identity and important reference details:
 - Vet information
 - Emergency notes later
 
-### Routine Coach
+### Pawfolio Coach
 
-An opt-in helper that reviews routine completion, medication consistency, upcoming reminders, and care gaps.
+An opt-in helper that reviews routine completion, medication consistency, upcoming reminders, care gaps, breed/season context, and optional broad region signals.
 
-The first version should be local and rule-based. Later, an agentic version can use an LLM only after privacy, account sync, and user consent are clear.
+The first version is local and rule-based, with dismissible suggestions and one-tap actions. Later, an agentic version can use an LLM only after privacy, account sync, and user consent are clear.
 
 ## Future Capabilities
 

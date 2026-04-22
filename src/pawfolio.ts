@@ -111,6 +111,34 @@ export type RoutineCoachSettings = {
   enabled: boolean;
 };
 
+export type CoachLocationMode = "off" | "auto" | "manual";
+export type CareRegion = "North America" | "Europe" | "Hot climate" | "Cold climate" | "Custom";
+
+export type CoachSettings = {
+  enabled: boolean;
+  seasonalTips: boolean;
+  locationMode: CoachLocationMode;
+  careRegion: CareRegion;
+};
+
+export type CoachSuggestionAction =
+  | { type: "add_task"; title: string; time: string }
+  | { type: "open_care"; recordId?: string }
+  | { type: "open_reminder" }
+  | { type: "open_calendar" }
+  | { type: "export_data" };
+
+export type CoachSuggestion = {
+  id: string;
+  type: "care_gap" | "routine_pattern" | "seasonal" | "calendar" | "backup";
+  priority: number;
+  title: string;
+  body: string;
+  actionLabel: string;
+  action: CoachSuggestionAction;
+  dismissible: boolean;
+};
+
 export type PawfolioState = {
   profile?: DogProfile;
   tasks: DailyTask[];
@@ -123,6 +151,8 @@ export type PawfolioState = {
   integrationSettings: IntegrationSettings;
   googleCalendarSyncState: GoogleCalendarSyncState;
   routineCoachSettings: RoutineCoachSettings;
+  coachSettings: CoachSettings;
+  coachDismissals: string[];
 };
 
 export const storageKey = "pawfolio-local-v1";
@@ -165,6 +195,13 @@ export const initialState: PawfolioState = {
   routineCoachSettings: {
     enabled: true,
   },
+  coachSettings: {
+    enabled: true,
+    seasonalTips: true,
+    locationMode: "off",
+    careRegion: "North America",
+  },
+  coachDismissals: [],
 };
 
 export const breedOptions = [
@@ -599,6 +636,12 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
     ...initialState,
     ...(state || {}),
   };
+  const legacyCoach = base.routineCoachSettings || initialState.routineCoachSettings;
+  const coachSettings = {
+    ...initialState.coachSettings,
+    ...(base.coachSettings || {}),
+    enabled: base.coachSettings?.enabled ?? legacyCoach.enabled,
+  };
   const normalizedCare = (base.care || []).map(withCareSchedule);
   const normalizedReminders = (base.reminders || []).map(withReminderNotification);
   let careEvents = (base.careEvents || []).map(withCareEventSchedule);
@@ -636,9 +679,10 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
       ...(base.googleCalendarSyncState || {}),
     },
     routineCoachSettings: {
-      ...initialState.routineCoachSettings,
-      ...(base.routineCoachSettings || {}),
+      enabled: coachSettings.enabled,
     },
+    coachSettings,
+    coachDismissals: base.coachDismissals || [],
   };
 }
 
@@ -955,6 +999,250 @@ export function routineCoachInsights(tasks: DailyTask[], taskHistory: TaskHistor
     insights.push("Routine looks steady. Pawfolio will keep watching for helpful patterns.");
   }
   return insights;
+}
+
+export function getSeasonForDate(date = new Date(), region: CareRegion = "North America") {
+  const month = date.getMonth();
+  if (region === "Hot climate") return month >= 3 && month <= 9 ? "hot season" : "mild season";
+  if (region === "Cold climate") return month >= 10 || month <= 2 ? "cold season" : "mild season";
+  if (month >= 2 && month <= 4) return "spring";
+  if (month >= 5 && month <= 7) return "summer";
+  if (month >= 8 && month <= 10) return "fall";
+  return "winter";
+}
+
+export function regionFromCoordinates(latitude: number, longitude: number): CareRegion {
+  if (latitude >= 5 && latitude <= 83 && longitude >= -170 && longitude <= -50) return "North America";
+  if (latitude >= 34 && latitude <= 72 && longitude >= -25 && longitude <= 45) return "Europe";
+  if (Math.abs(latitude) <= 25) return "Hot climate";
+  if (Math.abs(latitude) >= 55) return "Cold climate";
+  return "Custom";
+}
+
+export function breedCareSignals(profile?: DogProfile) {
+  const breed = profile?.breed?.toLowerCase() || "";
+  const signals: { id: string; title: string; body: string }[] = [];
+  if (/great pyrenees|pyrenees|husky|samoyed|newfoundland|bernese/.test(breed)) {
+    signals.push({
+      id: "heavy-coat-heat",
+      title: "Warm-weather coat check",
+      body: `${profile?.name || "Your dog"} has a heavier coat. On warm days, shade, water, and shorter midday outings can help.`,
+    });
+    signals.push({
+      id: "heavy-coat-shedding",
+      title: "Shedding-season brush",
+      body: "A quick brushing routine can make heavy seasonal shedding easier to stay ahead of.",
+    });
+  }
+  if (/retriever|labrador|golden/.test(breed)) {
+    signals.push({
+      id: "retriever-ear-check",
+      title: "Ear check reminder",
+      body: "Retriever ears can trap moisture after water or muddy adventures. A quick check can help you spot irritation early.",
+    });
+  }
+  return signals;
+}
+
+export function regionalCareSignals(region: CareRegion, season: string) {
+  const signals: { id: string; title: string; body: string }[] = [];
+  if (region === "North America" && (season === "spring" || season === "summer" || season === "fall")) {
+    signals.push({
+      id: "north-america-tick-check",
+      title: "Tick-season check",
+      body: "Tick and flea pressure can rise in warmer months. A short evening check is a useful habit.",
+    });
+  }
+  if ((region === "Hot climate" || season === "summer" || season === "hot season") && region !== "Cold climate") {
+    signals.push({
+      id: "warm-weather-hydration",
+      title: "Heat and water check",
+      body: "Warm weather is a good time to keep walks cooler and make water easy to reach.",
+    });
+  }
+  if (region === "Cold climate" || season === "winter" || season === "cold season") {
+    signals.push({
+      id: "cold-weather-paws",
+      title: "Paw check",
+      body: "Cold, salt, or ice can be rough on paws. Add a quick post-walk paw check when weather is harsh.",
+    });
+  }
+  return signals;
+}
+
+export function rankCoachSuggestions(suggestions: CoachSuggestion[]) {
+  return [...suggestions].sort((a, b) => b.priority - a.priority || a.title.localeCompare(b.title));
+}
+
+export function buildCoachSuggestions(state: PawfolioState, now = new Date()) {
+  const settings = state.coachSettings || initialState.coachSettings;
+  if (!settings.enabled) return [];
+
+  const records = visibleCareRecords(state);
+  const reminders = visibleReminders(state);
+  const dismissals = new Set(state.coachDismissals || []);
+  const suggestions: CoachSuggestion[] = [];
+
+  const urgentCare = records.find((record) => careStatus(record, now) !== "OK");
+  if (urgentCare) {
+    suggestions.push({
+      id: `care-status-${urgentCare.id}`,
+      type: "care_gap",
+      priority: careStatus(urgentCare, now) === "Overdue" ? 100 : 90,
+      title: `${urgentCare.title} needs attention`,
+      body: `${urgentCare.type} is marked ${careStatus(urgentCare, now).toLowerCase()}. Review the record or add the next step.`,
+      actionLabel: "Review care",
+      action: { type: "open_care", recordId: urgentCare.id },
+      dismissible: true,
+    });
+  }
+
+  const incompleteMedication = records.find((record) => record.type === "Medication" && (!record.dose || !record.frequency));
+  if (incompleteMedication) {
+    suggestions.push({
+      id: `med-details-${incompleteMedication.id}`,
+      type: "care_gap",
+      priority: 88,
+      title: "Medication details are missing",
+      body: `${incompleteMedication.title} will be safer to track with dose and frequency filled in.`,
+      actionLabel: "Review med",
+      action: { type: "open_care", recordId: incompleteMedication.id },
+      dismissible: true,
+    });
+  }
+
+  const vaccineWithoutNext = records.find((record) => record.type === "Vaccine" && !record.nextDueDate);
+  if (vaccineWithoutNext) {
+    suggestions.push({
+      id: `vaccine-next-${vaccineWithoutNext.id}`,
+      type: "care_gap",
+      priority: 82,
+      title: "Add the next vaccine date",
+      body: `${vaccineWithoutNext.title} does not have a next due date yet. Add it if your vet gave you one.`,
+      actionLabel: "Review vaccine",
+      action: { type: "open_care", recordId: vaccineWithoutNext.id },
+      dismissible: true,
+    });
+  }
+
+  const upcoming = getUpcomingReminders(reminders, now);
+  if (upcoming.length === 0) {
+    suggestions.push({
+      id: "no-upcoming-reminders",
+      type: "calendar",
+      priority: 70,
+      title: "No upcoming reminders",
+      body: "A medication, vaccine, vet, grooming, or food reminder can keep the week calmer.",
+      actionLabel: "Add reminder",
+      action: { type: "open_reminder" },
+      dismissible: true,
+    });
+  }
+
+  const dates = Object.keys(state.taskHistory || {}).sort().slice(-7);
+  const walkTasks = state.tasks.filter((task) => /walk/i.test(task.title));
+  const missedWalkDays = dates.filter((date) => walkTasks.some((task) => !state.taskHistory[date]?.[task.id])).length;
+  if (walkTasks.length && dates.length >= 3 && missedWalkDays >= 2) {
+    suggestions.push({
+      id: "routine-missed-walks",
+      type: "routine_pattern",
+      priority: 76,
+      title: "Walks are slipping lately",
+      body: "Evening or busy-day walks have been missed a few times. A time tweak might make the routine easier.",
+      actionLabel: "Review routine",
+      action: { type: "open_calendar" },
+      dismissible: true,
+    });
+  }
+
+  if (settings.seasonalTips) {
+    const season = getSeasonForDate(now, settings.careRegion);
+    breedCareSignals(state.profile).forEach((signal) => {
+      if ((signal.id.includes("heat") && !["spring", "summer", "hot season"].includes(season)) || signal.id.includes("shedding") && !["spring", "fall"].includes(season)) return;
+      suggestions.push({
+        id: `breed-${signal.id}`,
+        type: "seasonal",
+        priority: 52,
+        title: signal.title,
+        body: signal.body,
+        actionLabel: signal.id.includes("shedding") ? "Add brush task" : "Add reminder",
+        action: signal.id.includes("shedding")
+          ? { type: "add_task", title: "Brush coat", time: "18:30" }
+          : { type: "open_reminder" },
+        dismissible: true,
+      });
+    });
+
+    if (settings.locationMode !== "off") {
+      regionalCareSignals(settings.careRegion, season).forEach((signal) => {
+        suggestions.push({
+          id: `region-${signal.id}`,
+          type: "seasonal",
+          priority: signal.id.includes("tick") ? 64 : 50,
+          title: signal.title,
+          body: signal.body,
+          actionLabel: signal.id.includes("tick") ? "Add tick check" : "Add task",
+          action: {
+            type: "add_task",
+            title: signal.id.includes("tick") ? "Tick check" : signal.id.includes("paw") ? "Paw check" : "Water check",
+            time: signal.id.includes("tick") ? "20:00" : "18:00",
+          },
+          dismissible: true,
+        });
+      });
+    }
+  }
+
+  if ((state.diary.length > 0 || records.length > 0) && !dismissals.has("backup-local-data")) {
+    suggestions.push({
+      id: "backup-local-data",
+      type: "backup",
+      priority: 45,
+      title: "Back up Pawfolio",
+      body: "You have local photos or care data saved. Export a backup so this device is not the only copy.",
+      actionLabel: "Export backup",
+      action: { type: "export_data" },
+      dismissible: true,
+    });
+  }
+
+  return rankCoachSuggestions(suggestions).filter((suggestion) => !dismissals.has(suggestion.id));
+}
+
+export function applyCoachSuggestion(state: PawfolioState, suggestionId: string, now = new Date()) {
+  const suggestion = buildCoachSuggestions(state, now).find((item) => item.id === suggestionId);
+  if (!suggestion) return state;
+  let next = state;
+  if (suggestion.action.type === "add_task") {
+    const action = suggestion.action;
+    const exists = next.tasks.some((task) => task.title.toLowerCase() === action.title.toLowerCase());
+    if (!exists) {
+      next = {
+        ...next,
+        tasks: sortTasksByTime([
+          ...next.tasks,
+          withTaskTime({
+            id: `coach-${action.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+            title: action.title,
+            time: action.time,
+            done: false,
+            note: "",
+          }),
+        ]),
+      };
+    }
+  }
+  return {
+    ...next,
+    coachDismissals: [...new Set([...(next.coachDismissals || []), suggestion.id])],
+  };
+}
+
+export function dismissCoachSuggestion(state: PawfolioState, suggestionId: string) {
+  return {
+    ...state,
+    coachDismissals: [...new Set([...(state.coachDismissals || []), suggestionId])],
+  };
 }
 
 export function eventCategory(type: string) {

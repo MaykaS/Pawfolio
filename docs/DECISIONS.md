@@ -167,3 +167,9 @@ Reason: The app needs private per-user data before syncing across devices. RLS w
 Decision: The installed PWA icon should be a cute dog face in Pawfolio colors rather than a generic mark.
 
 Reason: The home-screen icon is part of the app's emotional first impression, especially while Pawfolio is being tested as an installable Android PWA.
+
+## 2026-04-22: Make Pawfolio Coach Local And Actionable First
+
+Decision: Pawfolio Coach expands beyond a simple insight line into local rule-based suggestions with care gaps, routine patterns, breed/season tips, optional broad location context, dismissals, and one-tap actions.
+
+Reason: This gives Pawfolio an agentic feel without sending pet-care data to a model or requiring auth. LLM help can come later after privacy, account sync, and user consent are clear.

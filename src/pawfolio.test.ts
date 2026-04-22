@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   ageLabel,
+  applyCoachSuggestion,
+  breedCareSignals,
+  buildCoachSuggestions,
   buildGoogleCalendarEvent,
   careEmptyState,
   careStatus,
@@ -13,8 +16,10 @@ import {
   eventsForDate,
   eventsForMonth,
   getCareMoments,
+  getSeasonForDate,
   getUpcomingReminder,
   getUpcomingReminders,
+  initialState,
   isStoredPhotoRef,
   isFutureOrToday,
   latestWeight,
@@ -56,12 +61,16 @@ import {
   notificationLeadLabel,
   parseTaskTimeMinutes,
   reminderAlertDate,
+  regionFromCoordinates,
+  regionalCareSignals,
+  rankCoachSuggestions,
   sortTasksByTime,
   taskTimeFromParts,
   taskTimeParts,
   toTimeInputValue,
   type CareRecord,
   type DailyTask,
+  type PawfolioState,
   type Reminder,
 } from "./pawfolio";
 
@@ -543,6 +552,83 @@ describe("pawfolio helpers", () => {
     );
 
     expect(insights.some((insight) => insight.includes("Walks have been missed"))).toBe(true);
+  });
+
+  it("builds local coach suggestions for care gaps and ranks urgent items first", () => {
+    const state = normalizeState({
+      profile: {
+        name: "Mochi",
+        breed: "Great Pyrenees",
+        birthday: "2021-05-12",
+        weight: "80 lb",
+        personality: "",
+        avatar: initialState.profile?.avatar || { fur: "#fff7df", ears: "floppy", spot: "none", accessory: "none" },
+      },
+      tasks: [],
+      diary: [],
+      care: [
+        { id: "med", type: "Medication", title: "Heartgard", date: "2026-04-22", note: "", dose: "", frequency: "" },
+        { id: "vaccine", type: "Vaccine", title: "Lyme", date: "2026-04-22", note: "", nextDueDate: "" },
+      ],
+      reminders: [],
+    });
+
+    const suggestions = buildCoachSuggestions(state, new Date("2026-04-22T12:00:00"));
+
+    expect(suggestions[0].priority).toBeGreaterThanOrEqual(suggestions[1].priority);
+    expect(suggestions.some((suggestion) => suggestion.id === "med-details-med")).toBe(true);
+    expect(suggestions.some((suggestion) => suggestion.id === "vaccine-next-vaccine")).toBe(true);
+    expect(rankCoachSuggestions([{ ...suggestions[0], priority: 1 }, { ...suggestions[1], priority: 99 }])[0].priority).toBe(99);
+  });
+
+  it("uses breed, season, and optional region for coach care signals", () => {
+    expect(getSeasonForDate(new Date("2026-04-22T12:00:00"), "North America")).toBe("spring");
+    expect(regionFromCoordinates(40.7, -74)).toBe("North America");
+    expect(regionFromCoordinates(48.8, 2.3)).toBe("Europe");
+    expect(breedCareSignals({ name: "Mochi", breed: "Great Pyrenees", birthday: "", weight: "", personality: "", avatar: { fur: "#fff7df", ears: "floppy", spot: "none", accessory: "none" } }).map((signal) => signal.id)).toContain("heavy-coat-heat");
+    expect(regionalCareSignals("North America", "spring").map((signal) => signal.id)).toContain("north-america-tick-check");
+  });
+
+  it("keeps location coach suggestions off until location or manual region is enabled", () => {
+    const base = normalizeState({
+      profile: {
+        name: "Mochi",
+        breed: "Great Pyrenees",
+        birthday: "",
+        weight: "",
+        personality: "",
+        avatar: { fur: "#fff7df", ears: "floppy", spot: "none", accessory: "none" },
+      },
+      tasks: [],
+      diary: [],
+      care: [],
+      reminders: [{ id: "future", title: "Vet", type: "Vet", date: "2026-06-01", time: "09:00", note: "", recurrence: "none" }],
+      coachSettings: { enabled: true, seasonalTips: true, locationMode: "off", careRegion: "North America" },
+    });
+
+    expect(buildCoachSuggestions(base, new Date("2026-04-22T12:00:00")).some((suggestion) => suggestion.id === "region-north-america-tick-check")).toBe(false);
+    const withRegion = normalizeState({
+      ...base,
+      coachSettings: { ...base.coachSettings, locationMode: "manual" },
+    });
+    expect(buildCoachSuggestions(withRegion, new Date("2026-04-22T12:00:00")).some((suggestion) => suggestion.id === "region-north-america-tick-check")).toBe(true);
+  });
+
+  it("dismisses coach suggestions and applies one-tap task actions", () => {
+    const state = normalizeState({
+      tasks: [],
+      diary: [],
+      care: [],
+      reminders: [{ id: "future", title: "Vet", type: "Vet", date: "2026-06-01", time: "09:00", note: "", recurrence: "none" }],
+      coachSettings: { enabled: true, seasonalTips: true, locationMode: "manual", careRegion: "North America" },
+    }) as PawfolioState;
+
+    expect(buildCoachSuggestions(state, new Date("2026-04-22T12:00:00")).some((suggestion) => suggestion.id === "region-north-america-tick-check")).toBe(true);
+    const next = applyCoachSuggestion(state, "region-north-america-tick-check", new Date("2026-04-22T12:00:00"));
+
+    expect(next.tasks.some((task) => task.title === "Tick check" && task.time === "20:00")).toBe(true);
+    expect(next.coachDismissals).toContain("region-north-america-tick-check");
+    expect(buildCoachSuggestions(next, new Date("2026-04-22T12:00:00")).some((suggestion) => suggestion.id === "region-north-america-tick-check")).toBe(false);
   });
 
   it("estimates data URL size and catches localStorage save failures", () => {

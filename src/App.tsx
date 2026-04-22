@@ -24,8 +24,10 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import {
   ageLabel,
+  applyCoachSuggestion,
   avatarOptions,
   breedOptions,
+  buildCoachSuggestions,
   canUseBrowserNotifications,
   careStatus,
   careTypes,
@@ -34,6 +36,7 @@ import {
   defaultReminderLeadMinutes,
   deleteCalendarItemFromState,
   deleteCareItemFromState,
+  dismissCoachSuggestion,
   diaryEntryPhotos,
   daysTogether,
   estimateDataUrlBytes,
@@ -58,6 +61,7 @@ import {
   recurrenceLabel,
   reminderRecurrenceOptions,
   reminderTypes,
+  regionFromCoordinates,
   routineCoachInsights,
   safeSetLocalStorage,
   saveCareRecordToState,
@@ -79,6 +83,9 @@ import {
   validateCareRecord,
   weightTrendSeries,
   type CareRecord,
+  type CareRegion,
+  type CoachSettings,
+  type CoachSuggestion,
   type DailyTask,
   type DiaryEntry,
   type DogAvatar,
@@ -390,10 +397,37 @@ export default function App() {
   const progress = todayTasks.length ? completed / todayTasks.length : 0;
   const careRecords = useMemo(() => visibleCareRecords(state), [state]);
   const calendarItems = useMemo(() => visibleReminders(state), [state]);
+  const coachSuggestions = useMemo(() => buildCoachSuggestions(state), [state]);
   const upcomingReminder = useMemo(
     () => getUpcomingReminder(calendarItems),
     [calendarItems],
   );
+
+  const handleCoachAction = (suggestion: CoachSuggestion) => {
+    if (suggestion.action.type === "add_task") {
+      setState((current) => applyCoachSuggestion(current, suggestion.id));
+      return;
+    }
+    if (suggestion.action.type === "open_care") {
+      const action = suggestion.action;
+      const record = careRecords.find((item) => item.id === action.recordId);
+      setTab("care");
+      if (record) setCareMode({ mode: "edit", record });
+      return;
+    }
+    if (suggestion.action.type === "open_reminder") {
+      setTab("calendar");
+      setReminderMode({ mode: "create" });
+      return;
+    }
+    if (suggestion.action.type === "open_calendar") {
+      setTab("calendar");
+      return;
+    }
+    if (suggestion.action.type === "export_data") {
+      void exportPawfolioData();
+    }
+  };
 
   const exportPawfolioData = async () => {
     const photos = (
@@ -456,6 +490,7 @@ export default function App() {
           completed={completed}
           progress={progress}
           upcomingReminder={upcomingReminder}
+          coachSuggestions={coachSuggestions}
           onToggleTask={(id) =>
             setState((current) => ({
               ...current,
@@ -485,6 +520,8 @@ export default function App() {
           }
           onOpenMemory={() => setMemoryMode({ mode: "create" })}
           onOpenNotifications={() => setNotificationsOpen(true)}
+          onCoachAction={handleCoachAction}
+          onDismissCoach={(id) => setState((current) => dismissCoachSuggestion(current, id))}
         />
       )}
 
@@ -546,7 +583,7 @@ export default function App() {
           onImportData={importPawfolioData}
           notificationPreferences={state.notificationPreferences}
           integrationSettings={state.integrationSettings}
-          routineCoachSettings={state.routineCoachSettings}
+          coachSettings={state.coachSettings}
           onTogglePreference={(key) =>
             setState((current) => ({
               ...current,
@@ -559,9 +596,26 @@ export default function App() {
           onToggleCoach={() =>
             setState((current) => ({
               ...current,
-              routineCoachSettings: {
-                enabled: !current.routineCoachSettings.enabled,
+              coachSettings: {
+                ...current.coachSettings,
+                enabled: !current.coachSettings.enabled,
               },
+              routineCoachSettings: {
+                enabled: !current.coachSettings.enabled,
+              },
+            }))
+          }
+          onUpdateCoachSettings={(settings) =>
+            setState((current) => ({
+              ...current,
+              coachSettings: {
+                ...current.coachSettings,
+                ...settings,
+              },
+              routineCoachSettings:
+                typeof settings.enabled === "boolean"
+                  ? { enabled: settings.enabled }
+                  : current.routineCoachSettings,
             }))
           }
         />
@@ -809,6 +863,7 @@ function TodayScreen({
   completed,
   progress,
   upcomingReminder,
+  coachSuggestions,
   onToggleTask,
   onTaskNote,
   onAddTask,
@@ -816,6 +871,8 @@ function TodayScreen({
   onDeleteTask,
   onOpenMemory,
   onOpenNotifications,
+  onCoachAction,
+  onDismissCoach,
 }: {
   profile: DogProfile;
   tasks: DailyTask[];
@@ -823,6 +880,7 @@ function TodayScreen({
   completed: number;
   progress: number;
   upcomingReminder?: Reminder;
+  coachSuggestions: CoachSuggestion[];
   onToggleTask: (id: string) => void;
   onTaskNote: (id: string, note: string) => void;
   onAddTask: () => void;
@@ -830,6 +888,8 @@ function TodayScreen({
   onDeleteTask: (id: string) => void;
   onOpenMemory: () => void;
   onOpenNotifications: () => void;
+  onCoachAction: (suggestion: CoachSuggestion) => void;
+  onDismissCoach: (id: string) => void;
 }) {
   const careMoments = getCareMoments(tasks);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
@@ -904,6 +964,38 @@ function TodayScreen({
           <p>Everything looks calm for today.</p>
         )}
       </section>
+
+      {coachSuggestions.length > 0 && (
+        <section className="coach-card">
+          <div className="section-heading">
+            <div>
+              <p className="label no-margin">Pawfolio Coach</p>
+              <h2>Helpful nudges</h2>
+            </div>
+            <Sparkles size={18} />
+          </div>
+          <div className="coach-list">
+            {coachSuggestions.slice(0, 3).map((suggestion) => (
+              <article className={`coach-suggestion coach-${suggestion.type}`} key={suggestion.id}>
+                <div>
+                  <h3>{suggestion.title}</h3>
+                  <p>{suggestion.body}</p>
+                </div>
+                <div className="coach-actions">
+                  <button className="btn btn-sm btn-secondary" type="button" onClick={() => onCoachAction(suggestion)}>
+                    {suggestion.actionLabel}
+                  </button>
+                  {suggestion.dismissible && (
+                    <button className="tiny-btn" type="button" aria-label={`Dismiss ${suggestion.title}`} onClick={() => onDismissCoach(suggestion.id)}>
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <p className="label">Quick log</p>
       <div className="quick-pills">
@@ -1515,9 +1607,10 @@ function ProfileScreen({
   onImportData,
   notificationPreferences,
   integrationSettings,
-  routineCoachSettings,
+  coachSettings,
   onTogglePreference,
   onToggleCoach,
+  onUpdateCoachSettings,
 }: {
   profile: DogProfile;
   diaryCount: number;
@@ -1528,11 +1621,33 @@ function ProfileScreen({
   onImportData: (file: File) => Promise<void>;
   notificationPreferences: PawfolioState["notificationPreferences"];
   integrationSettings: PawfolioState["integrationSettings"];
-  routineCoachSettings: PawfolioState["routineCoachSettings"];
+  coachSettings: CoachSettings;
   onTogglePreference: (key: keyof PawfolioState["notificationPreferences"]) => void;
   onToggleCoach: () => void;
+  onUpdateCoachSettings: (settings: Partial<CoachSettings>) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [locationStatus, setLocationStatus] = useState("");
+  const enableAutoLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationStatus("Location is not supported in this browser.");
+      onUpdateCoachSettings({ locationMode: "manual" });
+      return;
+    }
+    setLocationStatus("Checking broad region...");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const region = regionFromCoordinates(position.coords.latitude, position.coords.longitude);
+        onUpdateCoachSettings({ locationMode: "auto", careRegion: region });
+        setLocationStatus(`Using ${region} for broad seasonal care tips.`);
+      },
+      () => {
+        setLocationStatus("Location permission was not enabled. Manual region still works.");
+        onUpdateCoachSettings({ locationMode: "manual" });
+      },
+      { enableHighAccuracy: false, maximumAge: 86_400_000, timeout: 8000 },
+    );
+  };
 
   return (
     <section className="screen profile-screen">
@@ -1566,8 +1681,40 @@ function ProfileScreen({
       </section>
       <section className="card settings-card">
         <p className="label no-margin">Routine Coach</p>
-        <SettingRow label="Pattern suggestions" value="Local and private" checked={routineCoachSettings.enabled} onToggle={onToggleCoach} />
-        <p className="settings-note">Routine Coach uses local Pawfolio data for gentle suggestions. LLM help can come later after cloud/privacy is ready.</p>
+        <SettingRow label="Pattern suggestions" value="Local and private" checked={coachSettings.enabled} onToggle={onToggleCoach} />
+        <SettingRow
+          label="Seasonal tips"
+          value="Breed and season"
+          checked={coachSettings.seasonalTips}
+          onToggle={() => onUpdateCoachSettings({ seasonalTips: !coachSettings.seasonalTips })}
+        />
+        <div className="coach-location-settings">
+          <div className="setting-row static">
+            <span>
+              <strong>Care region</strong>
+              <small>{coachSettings.locationMode === "off" ? "Location off" : coachSettings.locationMode === "auto" ? "Auto broad region" : "Manual region"}</small>
+            </span>
+            <select
+              className="mini-select"
+              value={coachSettings.careRegion}
+              onChange={(event) => onUpdateCoachSettings({ locationMode: "manual", careRegion: event.target.value as CareRegion })}
+            >
+              {(["North America", "Europe", "Hot climate", "Cold climate", "Custom"] as CareRegion[]).map((region) => (
+                <option key={region} value={region}>{region}</option>
+              ))}
+            </select>
+          </div>
+          <div className="coach-location-actions">
+            <button className="btn btn-sm btn-secondary" type="button" onClick={enableAutoLocation}>
+              Use broad location
+            </button>
+            <button className="btn btn-sm btn-ghost" type="button" onClick={() => onUpdateCoachSettings({ locationMode: "off" })}>
+              Turn off
+            </button>
+          </div>
+          {locationStatus && <p className="settings-note">{locationStatus}</p>}
+        </div>
+        <p className="settings-note">Coach uses Pawfolio data on this device. Location is optional and only used for broad care context. LLM help can come later after cloud/privacy is ready.</p>
       </section>
       <section className="card settings-card">
         <p className="label no-margin">Cloud sync plan</p>

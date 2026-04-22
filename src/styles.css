@@ -486,6 +486,81 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   margin-right: 7px;
 }
 
+.coach-card {
+  background: linear-gradient(145deg, white, var(--primary-pale));
+  border: 1px solid oklch(91% 0.025 38);
+  border-radius: 18px;
+  box-shadow: var(--shadow-sm);
+  margin: 12px 0 16px;
+  padding: 14px;
+}
+
+.coach-card .section-heading {
+  margin-bottom: 9px;
+}
+
+.coach-card h2 {
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.coach-card svg {
+  color: var(--primary);
+}
+
+.coach-list {
+  display: grid;
+  gap: 8px;
+}
+
+.coach-suggestion {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  padding: 11px 12px;
+}
+
+.coach-suggestion h3 {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.18;
+  margin-bottom: 3px;
+}
+
+.coach-suggestion p {
+  color: var(--text-med);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.coach-suggestion.coach-care_gap {
+  border-left: 3px solid var(--green);
+}
+
+.coach-suggestion.coach-routine_pattern {
+  border-left: 3px solid var(--amber);
+}
+
+.coach-suggestion.coach-seasonal {
+  border-left: 3px solid var(--primary);
+}
+
+.coach-suggestion.coach-calendar {
+  border-left: 3px solid var(--blue);
+}
+
+.coach-actions,
+.coach-location-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
 .task-item {
   display: block;
   padding: 10px 12px;
@@ -1352,6 +1427,10 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   text-align: left;
 }
 
+.setting-row.static {
+  cursor: default;
+}
+
 .setting-row span:first-child {
   display: grid;
   gap: 1px;
@@ -1382,6 +1461,23 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 .toggle-pill.on {
   background: var(--green-light);
   color: var(--green);
+}
+
+.coach-location-settings {
+  display: grid;
+  gap: 8px;
+}
+
+.mini-select {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 850;
+  max-width: 132px;
+  min-width: 0;
+  padding: 7px 8px;
 }
 
 .profile-action {
