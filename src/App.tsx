@@ -3,6 +3,8 @@ import {
   CalendarDays,
   Camera,
   Check,
+  ChevronRight,
+  Download,
   Heart,
   HeartPulse,
   Home,
@@ -25,12 +27,15 @@ import {
   breedOptions,
   careStatus,
   careTypes,
+  daysTogether,
   getCareMoments,
   getUpcomingReminder,
   initialState,
   latestWeight,
   normalizeState,
   prettyDate,
+  recurrenceLabel,
+  reminderRecurrenceOptions,
   reminderTypes,
   storageKey,
   taskTime,
@@ -42,6 +47,7 @@ import {
   type DogProfile,
   type PawfolioState,
   type Reminder,
+  type ReminderRecurrence,
   type Tab,
 } from "./pawfolio";
 
@@ -193,6 +199,7 @@ export default function App() {
           profile={state.profile}
           diaryCount={state.diary.length}
           walkCount={state.tasks.filter((task) => /walk/i.test(task.title)).length}
+          careRecords={state.care}
           onSave={(profile) => setState((current) => ({ ...current, profile }))}
         />
       )}
@@ -610,6 +617,15 @@ function CareScreen({
   onEdit: (record: CareRecord) => void;
   onDelete: (id: string) => void;
 }) {
+  const careTabs = [
+    { label: "Meds", types: ["Medication"] },
+    { label: "Vaccines", types: ["Vaccine"] },
+    { label: "Vet visits", types: ["Vet visit", "Allergy", "Health note"] },
+    { label: "Weight", types: ["Weight"] },
+  ];
+  const [activeCareTab, setActiveCareTab] = useState(careTabs[0].label);
+  const activeTypes = careTabs.find((tabItem) => tabItem.label === activeCareTab)?.types || [];
+  const filteredRecords = records.filter((record) => activeTypes.includes(record.type));
   const displayWeight = latestWeight(records, profile.weight);
 
   return (
@@ -624,9 +640,14 @@ function CareScreen({
         }
       />
       <div className="seg-control">
-        {["Meds", "Vaccines", "Vet visits", "Weight"].map((label, index) => (
-          <button className={index === 0 ? "seg-btn active" : "seg-btn"} type="button" key={label}>
-            {label}
+        {careTabs.map((tabItem) => (
+          <button
+            className={activeCareTab === tabItem.label ? "seg-btn active" : "seg-btn"}
+            type="button"
+            key={tabItem.label}
+            onClick={() => setActiveCareTab(tabItem.label)}
+          >
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -635,13 +656,16 @@ function CareScreen({
         <StatCard icon={<Pill size={16} />} label="Meds" value={String(records.filter((record) => record.type === "Medication").length)} />
         <StatCard icon={<HeartPulse size={16} />} label="Records" value={String(records.length)} />
       </div>
-      {records.length === 0 ? (
-        <EmptyState title="No care records yet" text="Start with a weight check, vaccine, medication, or vet note." />
+      {filteredRecords.length === 0 ? (
+        <EmptyState
+          title={`No ${activeCareTab.toLowerCase()} yet`}
+          text="Tap Add to save a care record for this section."
+        />
       ) : (
-        records.map((record) => (
+        filteredRecords.map((record) => (
           <article className="care-item" key={record.id}>
-            <div className="care-icon-wrap badge-blue">
-              <HeartPulse size={18} />
+            <div className={record.type === "Medication" ? "care-icon-wrap badge-blue" : "care-icon-wrap badge-green"}>
+              {record.type === "Medication" ? <Pill size={18} /> : <HeartPulse size={18} />}
             </div>
             <div className="care-copy">
               <span className={careStatus(record) === "OK" ? "badge badge-green" : "badge badge-amber"}>
@@ -694,6 +718,7 @@ function CalendarScreen({
               <span>{new Date(`${reminder.date}T00:00`).toLocaleDateString("en", { month: "short" })}</span>
             </div>
             <div className="event-copy">
+              {reminder.recurrence !== "none" && <span className="badge badge-amber">{recurrenceLabel(reminder.recurrence)}</span>}
               <h2>{reminder.title}</h2>
               <p>{reminder.type} - {reminder.time || "Any time"} {reminder.note && `- ${reminder.note}`}</p>
             </div>
@@ -709,39 +734,40 @@ function ProfileScreen({
   profile,
   diaryCount,
   walkCount,
+  careRecords,
   onSave,
 }: {
   profile: DogProfile;
   diaryCount: number;
   walkCount: number;
+  careRecords: CareRecord[];
   onSave: (profile: DogProfile) => void;
 }) {
-  const [draft, setDraft] = useState(profile);
-  const [saved, setSaved] = useState(false);
+  const [editing, setEditing] = useState(false);
 
-  const updatePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const photo = await readFile(file);
-    setDraft((current) => ({ ...current, photo }));
+  const exportHealthRecords = () => {
+    const payload = {
+      pet: profile.name,
+      exportedAt: new Date().toISOString(),
+      careRecords,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${profile.name || "pawfolio"}-health-records.json`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
-    <form
-      className="screen"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSave(draft);
-        setSaved(true);
-        window.setTimeout(() => setSaved(false), 1500);
-      }}
-    >
-      <section className="profile-hero card">
-        <div className="profile-photo large">
-          {draft.photo ? <img src={draft.photo} alt={draft.name} /> : <DogAvatar avatar={draft.avatar} />}
+    <section className="screen profile-screen">
+      <section className="profile-hero">
+        <div className="profile-photo profile-photo-ring">
+          {profile.photo ? <img src={profile.photo} alt={profile.name} /> : <DogAvatar avatar={profile.avatar} small />}
         </div>
-        <h1>{draft.name}</h1>
-        <p>{draft.breed || "Breed not set"} - {ageLabel(draft.birthday)} - {draft.weight || "Weight not set"}</p>
+        <h1>{profile.name}</h1>
+        <p>{profile.breed || "Breed not set"} - {ageLabel(profile.birthday)} - {profile.weight || "Weight not set"}</p>
         <div className="quick-pills center">
           <span className="badge badge-amber">Playful</span>
           <span className="badge badge-green">Energetic</span>
@@ -751,12 +777,81 @@ function ProfileScreen({
       <div className="stats-grid">
         <StatCard icon={<NotebookPen size={16} />} label="Diary entries" value={String(diaryCount)} />
         <StatCard icon={<PawPrint size={16} />} label="Walks logged" value={String(walkCount)} />
-        <StatCard icon={<Heart size={16} />} label="Days together" value="1,131" />
+        <StatCard icon={<Heart size={16} />} label="Days together" value={daysTogether(profile.birthday)} />
       </div>
       <section className="card">
         <p className="label no-margin">Personality notes</p>
-        <p className="personality-text">{draft.personality || "Add little quirks, fears, favorite games, and care notes."}</p>
+        <p className="personality-text">{profile.personality || "Add little quirks, fears, favorite games, and care notes."}</p>
       </section>
+      <div className="profile-actions">
+        <ProfileAction icon={<Pencil size={18} />} label="Edit profile" onClick={() => setEditing(true)} />
+        <ProfileAction icon={<Bell size={18} />} label="Notifications" onClick={() => undefined} />
+        <ProfileAction icon={<Download size={18} />} label="Export health records" onClick={exportHealthRecords} />
+      </div>
+      {editing && (
+        <ProfileEditSheet
+          profile={profile}
+          onClose={() => setEditing(false)}
+          onSave={(updated) => {
+            onSave(updated);
+            setEditing(false);
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+function ProfileAction({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button className="profile-action card-sm" type="button" onClick={onClick}>
+      <span className="profile-action-icon">{icon}</span>
+      <span>{label}</span>
+      <ChevronRight size={17} />
+    </button>
+  );
+}
+
+function ProfileEditSheet({
+  profile,
+  onClose,
+  onSave,
+}: {
+  profile: DogProfile;
+  onClose: () => void;
+  onSave: (profile: DogProfile) => void;
+}) {
+  const [draft, setDraft] = useState(profile);
+
+  const updatePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const photo = await readFile(file);
+    setDraft((current) => ({ ...current, photo }));
+  };
+
+  return (
+    <Sheet title="Edit profile" onClose={onClose}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSave(draft);
+        }}
+      >
+        <section className="profile-preview card">
+          <div className="profile-photo">
+            {draft.photo ? <img src={draft.photo} alt={draft.name} /> : <DogAvatar avatar={draft.avatar} />}
+          </div>
+          <div>
+            <h2>{draft.name || "Your dog"}</h2>
+            <p>{draft.breed || "Breed not set"}</p>
+            <label className="btn btn-secondary upload-btn">
+              <Camera size={17} />
+              Change photo
+              <input type="file" accept="image/*" onChange={updatePhoto} />
+            </label>
+          </div>
+        </section>
       <Field label="Name">
         <input className="input" value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} />
       </Field>
@@ -784,14 +879,10 @@ function ProfileScreen({
       <Field label="Personality">
         <textarea className="input" value={draft.personality} onChange={(event) => setDraft((current) => ({ ...current, personality: event.target.value }))} />
       </Field>
-      <label className="btn btn-secondary upload-btn full">
-        <Camera size={17} />
-        Change photo
-        <input type="file" accept="image/*" onChange={updatePhoto} />
-      </label>
       <AvatarBuilder avatar={draft.avatar} onChange={(avatar) => setDraft((current) => ({ ...current, avatar }))} />
-      <button className="btn btn-primary">{saved ? "Saved" : "Save profile"}</button>
+      <button className="btn btn-primary">Save profile</button>
     </form>
+    </Sheet>
   );
 }
 
@@ -980,6 +1071,7 @@ function ReminderSheet({
     date: existing?.date || todayISO(),
     time: existing?.time || "",
     note: existing?.note || "",
+    recurrence: existing?.recurrence || ("none" as ReminderRecurrence),
   });
 
   const update = (key: keyof typeof reminder, value: string) => {
@@ -1009,6 +1101,19 @@ function ReminderSheet({
             <input className="input" type="time" value={reminder.time} onChange={(event) => update("time", event.target.value)} />
           </Field>
         </div>
+        <Field label="Repeat">
+          <select
+            className="input"
+            value={reminder.recurrence}
+            onChange={(event) => update("recurrence", event.target.value as ReminderRecurrence)}
+          >
+            {reminderRecurrenceOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Field label="Date">
           <input className="input" type="date" value={reminder.date} onChange={(event) => update("date", event.target.value)} />
         </Field>

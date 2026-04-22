@@ -2,14 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   ageLabel,
   careStatus,
+  daysTogether,
   getCareMoments,
   getUpcomingReminder,
   latestWeight,
   normalizeState,
   prettyDate,
+  recurrenceLabel,
   taskTime,
   todayISO,
   updateTaskTime,
+  withReminderRecurrence,
   withTaskTime,
   type CareRecord,
   type DailyTask,
@@ -25,6 +28,7 @@ describe("pawfolio helpers", () => {
   it("calculates dog age labels from a supplied current date", () => {
     expect(ageLabel("2021-05-12", new Date("2026-04-21T12:00:00"))).toBe("4 years old");
     expect(ageLabel("", new Date("2026-04-21T12:00:00"))).toBe("Birthday not set");
+    expect(daysTogether("2026-04-01", new Date("2026-04-21T12:00:00"))).toBe("20");
   });
 
   it("assigns expected routine times from task ids and titles", () => {
@@ -45,6 +49,21 @@ describe("pawfolio helpers", () => {
         reminders: [],
       } as unknown as Parameters<typeof normalizeState>[0]).tasks[0].time,
     ).toBe("7:00 AM");
+  });
+
+  it("normalizes older reminders with no recurrence", () => {
+    const oldReminder = { id: "med", title: "Heartgard", type: "Medication", date: "2026-05-01", time: "09:00", note: "" };
+
+    expect(withReminderRecurrence(oldReminder).recurrence).toBe("none");
+    expect(recurrenceLabel("monthly")).toBe("Every month");
+    expect(
+      normalizeState({
+        tasks: [],
+        diary: [],
+        care: [],
+        reminders: [oldReminder],
+      } as unknown as Parameters<typeof normalizeState>[0]).reminders[0].recurrence,
+    ).toBe("none");
   });
 
   it("updates task times immutably", () => {
@@ -78,8 +97,8 @@ describe("pawfolio helpers", () => {
 
   it("returns the earliest dated reminder", () => {
     const reminders: Reminder[] = [
-      { id: "2", title: "Grooming", type: "Grooming", date: "2026-05-02", time: "14:00", note: "" },
-      { id: "1", title: "Vet", type: "Vet", date: "2026-04-30", time: "10:30", note: "" },
+      { id: "2", title: "Grooming", type: "Grooming", date: "2026-05-02", time: "14:00", note: "", recurrence: "monthly" },
+      { id: "1", title: "Vet", type: "Vet", date: "2026-04-30", time: "10:30", note: "", recurrence: "yearly" },
     ];
 
     expect(getUpcomingReminder(reminders)?.title).toBe("Vet");

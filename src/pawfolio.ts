@@ -41,6 +41,8 @@ export type CareRecord = {
   note: string;
 };
 
+export type ReminderRecurrence = "none" | "daily" | "weekly" | "monthly" | "yearly";
+
 export type Reminder = {
   id: string;
   title: string;
@@ -48,6 +50,7 @@ export type Reminder = {
   date: string;
   time: string;
   note: string;
+  recurrence: ReminderRecurrence;
 };
 
 export type PawfolioState = {
@@ -99,6 +102,13 @@ export const avatarOptions = {
 
 export const careTypes = ["Weight", "Medication", "Vaccine", "Vet visit", "Allergy", "Health note"];
 export const reminderTypes = ["Vet", "Medication", "Grooming", "Walk", "Food", "Other"];
+export const reminderRecurrenceOptions: { value: ReminderRecurrence; label: string }[] = [
+  { value: "none", label: "Does not repeat" },
+  { value: "daily", label: "Every day" },
+  { value: "weekly", label: "Every week" },
+  { value: "monthly", label: "Every month" },
+  { value: "yearly", label: "Every year" },
+];
 
 export const routineTimes: Record<string, string> = {
   "morning-walk": "8:00 AM",
@@ -134,6 +144,15 @@ export function ageLabel(birthday: string, now = new Date()) {
   return `${years} ${years === 1 ? "year" : "years"} old`;
 }
 
+export function daysTogether(birthday: string, now = new Date()) {
+  if (!birthday) return "0";
+  const birth = new Date(`${birthday}T00:00`);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = today.getTime() - birth.getTime();
+  const days = Math.max(0, Math.floor(diff / 86_400_000));
+  return new Intl.NumberFormat("en").format(days);
+}
+
 export function taskTime(task: DailyTask) {
   if (task.time) return task.time;
   const title = task.title.toLowerCase();
@@ -152,6 +171,12 @@ export function withTaskTime(task: Omit<DailyTask, "time"> & { time?: string }):
   return { ...task, time: task.time || taskTime({ ...task, time: "" }) };
 }
 
+export function withReminderRecurrence(
+  reminder: Omit<Reminder, "recurrence"> & { recurrence?: ReminderRecurrence },
+): Reminder {
+  return { ...reminder, recurrence: reminder.recurrence || "none" };
+}
+
 export function updateTaskTime(tasks: DailyTask[], id: string, time: string) {
   return tasks.map((task) => (task.id === id ? { ...task, time } : task));
 }
@@ -167,7 +192,7 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
     tasks: (base.tasks?.length ? base.tasks : defaultTasks).map(withTaskTime),
     diary: base.diary || [],
     care: base.care || [],
-    reminders: base.reminders || [],
+    reminders: (base.reminders || []).map(withReminderRecurrence),
   };
 }
 
@@ -183,6 +208,10 @@ export function getUpcomingReminder(reminders: Reminder[]) {
   return [...reminders]
     .filter((reminder) => reminder.date)
     .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))[0];
+}
+
+export function recurrenceLabel(recurrence: ReminderRecurrence) {
+  return reminderRecurrenceOptions.find((option) => option.value === recurrence)?.label || "Does not repeat";
 }
 
 export function careStatus(record: CareRecord) {
