@@ -53,7 +53,7 @@ Current prototype behavior:
 - Daily routine completion tracked per date
 - Compact task notes that open only when needed
 - Custom daily tasks with editable times
-- Diary entries with optional photos
+- Diary entries with clickable detail views and up to 6 photos per memory
 - Adaptive photo compression with browser IndexedDB photo storage to avoid localStorage limits
 - Shared medication, vaccine, and vet visit items across Care and Calendar
 - Care records with type filtering, type-specific fields, next due dates, and weight trend
@@ -61,11 +61,19 @@ Current prototype behavior:
 - Calendar reminders with recurrence labels and calculated next occurrences
 - Medication frequency text can infer daily, weekly, monthly, or yearly reminders when it is clear
 - Calendar month navigation with clickable day details
-- In-app notification center with upcoming reminders and service-worker test notifications for installed PWA checks
+- Smart reminder timing defaults with per-reminder alert lead times
+- In-app notification center with Due now, Soon, and Upcoming reminder groups plus service-worker test notifications for installed PWA checks
 - Integration settings for Google Calendar, email, phone push, and cloud sync planning
 - Local rule-based Routine Coach suggestions
-- Full Pawfolio data export/import for localStorage safety
+- Full Pawfolio data export/import for localStorage and IndexedDB photo safety
+- Cuter dog-face PWA app icon for home-screen installs
 - Browser-local persistence
+
+Current data/auth note:
+
+- Pawfolio does not have login or a cloud database yet.
+- Data is private to the browser/app profile where it was created.
+- Planned cloud direction is Supabase Auth with Google sign-in and Postgres Row Level Security so each user only sees their own pet data.
 
 Run locally:
 

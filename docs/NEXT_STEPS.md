@@ -14,33 +14,36 @@ Implemented:
 - Daily routine completion tracked per date
 - Compact task notes
 - Custom daily tasks
-- Diary entries with optional photos
+- Diary entries with clickable detail views and up to 6 photos per memory
 - Care records with type tabs and type-specific fields
 - Care form validation, friendly empty states, and care history panels
 - Care next due dates for vaccines, medications, and follow-up care
 - Shared medication, vaccine, and vet visit items across Care and Calendar
-- Calendar reminders with recurrence labels, calculated next occurrences, month navigation, future-only upcoming items, and clickable day details
+- Calendar reminders with recurrence labels, calculated next occurrences, smart alert lead times, month navigation, future-only upcoming items, and clickable day details
 - Smart medication recurrence inference from clear frequency text
 - Unified green health styling for vaccine and vet calendar items
-- In-app notification center with upcoming reminders and service-worker test notifications for installed PWA checks
+- In-app notification center with Due now, Soon, and Upcoming groups plus service-worker test notifications for installed PWA checks
 - Integration settings for Google Calendar, email reminders, phone push, and cloud sync planning
 - Local Routine Coach suggestions
-- Profile screen with full data export/import and editable personality tags
-- Adaptive photo compression, IndexedDB photo storage, and safer local saves
+- Profile screen with full state/photo backup export/import and editable personality tags
+- Adaptive photo compression, IndexedDB photo storage, diary galleries, and safer local saves
+- Cute dog-face PWA app icon
 - localStorage persistence
 
 ## Immediate Next Improvements
 
-1. Connect Supabase Auth/Postgres with Google sign-in and RLS.
-2. Connect Google Calendar OAuth and real event sync.
-3. Add backend email reminders, likely through Vercel functions and Resend.
-4. Add real PWA push subscriptions and backend push sending.
-5. Continue installed PWA testing from Android Chrome:
+1. Continue installed PWA testing from Android Chrome:
    - Launches in standalone mode
-   - Saves localStorage data
+   - Shows the new dog-face home-screen icon
+   - Saves localStorage and IndexedDB photo data
    - Reopens with saved dog data
    - Loads the app shell after the first visit
-6. Decide when Routine Coach should move from rule-based local suggestions to an LLM-backed assistant.
+2. Connect Supabase Auth/Postgres with Google sign-in and RLS.
+3. Add an "Upload local Pawfolio to account" migration after Supabase is ready.
+4. Connect Google Calendar OAuth and real event sync.
+5. Add backend email reminders, likely through Vercel functions and Resend.
+6. Add real PWA push subscriptions and backend push sending.
+7. Decide when Routine Coach should move from rule-based local suggestions to an LLM-backed assistant.
 
 ## Prototype Content To Keep Improving
 
@@ -48,9 +51,9 @@ The user should continue entering their own dog information instead of relying o
 
 ## Decisions To Make Soon
 
-- Whether the next data layer should be local browser storage plus export/import, or a small backend database
+- Exact timing for the Supabase Auth/Postgres milestone
 - Whether GitHub repository should be public or private
-- When to add Supabase Auth/Postgres with Row Level Security for private user data
+- Whether cloud sync should stay single-owner first or include shared caregiver access in the first database design
 
 ## Not In The First Prototype
 

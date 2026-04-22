@@ -456,6 +456,36 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   justify-content: center;
 }
 
+.attention-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  margin: 12px 0 16px;
+  padding: 13px 14px;
+}
+
+.attention-card ul {
+  display: grid;
+  gap: 5px;
+  list-style: none;
+  margin-top: 8px;
+}
+
+.attention-card li,
+.attention-card p {
+  color: var(--text-med);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.attention-card li::before {
+  color: var(--primary);
+  content: "+";
+  font-weight: 900;
+  margin-right: 7px;
+}
+
 .task-item {
   display: block;
   padding: 10px 12px;
@@ -577,12 +607,51 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   overflow: hidden;
   margin-bottom: 14px;
   box-shadow: var(--shadow-sm);
+  position: relative;
+}
+
+.diary-open {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: block;
+  font-family: "Nunito", sans-serif;
+  text-align: left;
+  width: 100%;
+}
+
+.diary-photo-wrap {
+  position: relative;
 }
 
 .diary-photo {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
+  display: block;
+}
+
+.photo-loading {
+  background:
+    linear-gradient(90deg, var(--cream-med), white, var(--cream-med));
+  background-size: 220% 100%;
+  animation: photoPulse 1.4s ease-in-out infinite;
+}
+
+.photo-count,
+.diary-tap-hint {
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 999px;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 900;
+  padding: 4px 8px;
+}
+
+.photo-count {
+  position: absolute;
+  bottom: 9px;
+  right: 9px;
 }
 
 .photo-placeholder {
@@ -632,6 +701,85 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 8px;
+}
+
+.diary-card-actions {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+}
+
+.memory-detail {
+  display: grid;
+  gap: 12px;
+}
+
+.memory-gallery {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.memory-photo {
+  aspect-ratio: 1;
+  border-radius: 14px;
+  object-fit: cover;
+  overflow: hidden;
+  width: 100%;
+}
+
+.memory-photo.featured {
+  aspect-ratio: 4 / 3;
+  grid-column: 1 / -1;
+}
+
+.memory-note {
+  background: var(--primary-pale);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.memory-note p:last-child {
+  color: var(--text-med);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.photo-strip {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.photo-thumb {
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.photo-thumb img,
+.photo-thumb .photo-loading {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.thumb-remove {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.9);
+  border: 0;
+  border-radius: 999px;
+  color: var(--primary);
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  width: 24px;
 }
 
 .care-item {
@@ -1067,6 +1215,18 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 
 .notification-item {
   margin-bottom: 8px;
+}
+
+.notification-group .label {
+  margin-top: 12px;
+}
+
+.badge-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 3px;
 }
 
 .profile-screen {
@@ -1566,6 +1726,7 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes checkPop { 0% { transform: scale(1); } 35% { transform: scale(1.45); } 70% { transform: scale(0.85); } 100% { transform: scale(1); } }
+@keyframes photoPulse { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 
 @media (max-width: 520px) {
   #root {

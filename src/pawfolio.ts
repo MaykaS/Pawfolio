@@ -32,6 +32,7 @@ export type DiaryEntry = {
   body: string;
   date: string;
   photo?: string;
+  photos?: string[];
 };
 
 export type CareRecord = {
@@ -63,6 +64,7 @@ export type CareEvent = {
   note: string;
   nextDueDate?: string;
   recurrence: ReminderRecurrence;
+  notifyLeadMinutes?: number;
   dose?: string;
   frequency?: string;
   refillDate?: string;
@@ -79,6 +81,7 @@ export type Reminder = {
   time: string;
   note: string;
   recurrence: ReminderRecurrence;
+  notifyLeadMinutes?: number;
 };
 
 export type PawfolioNotificationStatus = "unsupported" | "default" | "granted" | "denied";
@@ -124,6 +127,7 @@ export type PawfolioState = {
 
 export const storageKey = "pawfolio-local-v1";
 export const photoRefPrefix = "pawfolio-photo:";
+export const maxDiaryPhotos = 6;
 
 export const defaultTasks: DailyTask[] = [
   { id: "breakfast", title: "Morning meal", time: "7:00 AM", done: false, note: "" },
@@ -190,6 +194,12 @@ export const reminderRecurrenceOptions: { value: ReminderRecurrence; label: stri
   { value: "weekly", label: "Every week" },
   { value: "monthly", label: "Every month" },
   { value: "yearly", label: "Every year" },
+];
+export const reminderLeadOptions = [
+  { value: 0, label: "At time" },
+  { value: 15, label: "15 min before" },
+  { value: 60, label: "1 hour before" },
+  { value: 1440, label: "1 day before" },
 ];
 
 export const routineTimes: Record<string, string> = {
@@ -259,6 +269,42 @@ export function withReminderRecurrence(
   return { ...reminder, recurrence: reminder.recurrence || "none" };
 }
 
+export function defaultReminderLeadMinutes(type: string) {
+  return type === "Medication" || type === "Food" || type === "Walk" ? 0 : 60;
+}
+
+export function withReminderNotification(
+  reminder: Omit<Reminder, "recurrence"> & { recurrence?: ReminderRecurrence; notifyLeadMinutes?: number },
+): Reminder {
+  const recurrenceReminder = withReminderRecurrence(reminder);
+  return {
+    ...recurrenceReminder,
+    notifyLeadMinutes:
+      typeof recurrenceReminder.notifyLeadMinutes === "number"
+        ? recurrenceReminder.notifyLeadMinutes
+        : defaultReminderLeadMinutes(recurrenceReminder.type),
+  };
+}
+
+export function diaryEntryPhotos(entry: Pick<DiaryEntry, "photo" | "photos">) {
+  const photos = entry.photos?.filter(Boolean) || [];
+  if (photos.length > 0) return photos.slice(0, maxDiaryPhotos);
+  return entry.photo ? [entry.photo] : [];
+}
+
+export function withDiaryPhotos(entry: DiaryEntry): DiaryEntry {
+  const photos = diaryEntryPhotos(entry);
+  return {
+    ...entry,
+    photo: entry.photo || photos[0],
+    photos,
+  };
+}
+
+export function limitDiaryPhotos(photos: string[]) {
+  return photos.filter(Boolean).slice(0, maxDiaryPhotos);
+}
+
 export function withCareSchedule(record: CareRecord): CareRecord {
   return {
     ...record,
@@ -279,6 +325,10 @@ export function withCareEventSchedule(event: Omit<CareEvent, "recurrence"> & { r
     ...event,
     nextDueDate: event.nextDueDate || "",
     recurrence: event.recurrence || "none",
+    notifyLeadMinutes:
+      typeof event.notifyLeadMinutes === "number"
+        ? event.notifyLeadMinutes
+        : defaultReminderLeadMinutes(careTypeToReminderType(event.type)),
     dose: event.dose || "",
     frequency: event.frequency || "",
     refillDate: event.refillDate || "",
@@ -348,6 +398,7 @@ export function careRecordToEvent(record: CareRecord): CareEvent {
     note: record.note,
     nextDueDate: record.nextDueDate || "",
     recurrence,
+    notifyLeadMinutes: defaultReminderLeadMinutes(careTypeToReminderType(type)),
     dose: record.dose || "",
     frequency: record.frequency || "",
     refillDate: record.refillDate || "",
@@ -368,6 +419,10 @@ export function reminderToCareEvent(reminder: Reminder): CareEvent | undefined {
     time: reminder.time,
     note: reminder.note,
     recurrence: reminder.recurrence || "none",
+    notifyLeadMinutes:
+      typeof reminder.notifyLeadMinutes === "number"
+        ? reminder.notifyLeadMinutes
+        : defaultReminderLeadMinutes(reminder.type),
     frequency: type === "Medication" && reminder.recurrence !== "none" ? recurrenceLabel(reminder.recurrence || "none") : "",
   };
 }
@@ -398,6 +453,10 @@ export function careEventToReminder(event: CareEvent): Reminder {
     time: event.time,
     note: event.note,
     recurrence: event.recurrence || "none",
+    notifyLeadMinutes:
+      typeof event.notifyLeadMinutes === "number"
+        ? event.notifyLeadMinutes
+        : defaultReminderLeadMinutes(careTypeToReminderType(event.type)),
   };
 }
 
@@ -416,6 +475,7 @@ function mergeCareEvent(events: CareEvent[], event: CareEvent) {
     "clinic",
     "vetName",
     "reason",
+    "notifyLeadMinutes",
   ];
 
   return events.map((item, index) =>
@@ -434,6 +494,7 @@ function mergeCareEvent(events: CareEvent[], event: CareEvent) {
           time: normalized.time,
           note: normalized.id === item.id || normalized.note ? normalized.note : item.note,
           recurrence: normalized.recurrence,
+          notifyLeadMinutes: normalized.notifyLeadMinutes,
         },
         )
       : item,
@@ -452,7 +513,7 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
     ...(state || {}),
   };
   const normalizedCare = (base.care || []).map(withCareSchedule);
-  const normalizedReminders = (base.reminders || []).map(withReminderRecurrence);
+  const normalizedReminders = (base.reminders || []).map(withReminderNotification);
   let careEvents = (base.careEvents || []).map(withCareEventSchedule);
 
   normalizedCare.filter((record) => isSharedCareType(record.type)).forEach((record) => {
@@ -471,7 +532,7 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
       : undefined,
     tasks: (base.tasks?.length ? base.tasks : defaultTasks).map(withTaskTime).map((task) => ({ ...task, done: false })),
     taskHistory: base.taskHistory || legacyTaskHistory(base.tasks || []),
-    diary: base.diary || [],
+    diary: (base.diary || []).map(withDiaryPhotos),
     care: normalizedCare.filter((record) => !isSharedCareType(record.type)),
     careEvents,
     reminders: normalizedReminders.filter((reminder) => !reminderTypeToCareType(reminder.type)),
@@ -538,7 +599,7 @@ export function saveReminderToState(state: PawfolioState, reminder: Reminder): P
 
   return {
     ...state,
-    reminders: upsertById(state.reminders, withReminderRecurrence(reminder)),
+    reminders: upsertById(state.reminders, withReminderNotification(reminder)),
     careEvents: state.careEvents.filter((item) => item.id !== reminder.id),
   };
 }
@@ -655,6 +716,50 @@ export function notificationBody(reminder?: Pick<Reminder, "title" | "date">) {
   return reminder
     ? `${reminder.title} is coming up ${prettyDate(reminder.date)}.`
     : "Notifications are ready for Pawfolio.";
+}
+
+function parseReminderClock(time: string) {
+  if (!time) return { hours: 9, minutes: 0 };
+  const match = time.match(/^(\d{1,2}):(\d{2})$/);
+  if (match) return { hours: Number(match[1]), minutes: Number(match[2]) };
+
+  const friendly = time.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if (!friendly) return { hours: 9, minutes: 0 };
+  let hours = Number(friendly[1]);
+  const minutes = Number(friendly[2] || "0");
+  const meridiem = friendly[3].toUpperCase();
+  if (meridiem === "PM" && hours < 12) hours += 12;
+  if (meridiem === "AM" && hours === 12) hours = 0;
+  return { hours, minutes };
+}
+
+export function reminderAlertDate(reminder: Reminder) {
+  const { hours, minutes } = parseReminderClock(reminder.time);
+  const alertDate = new Date(`${reminder.date}T00:00`);
+  alertDate.setHours(hours, minutes, 0, 0);
+  alertDate.setMinutes(alertDate.getMinutes() - (reminder.notifyLeadMinutes ?? defaultReminderLeadMinutes(reminder.type)));
+  return alertDate;
+}
+
+export function notificationLeadLabel(reminder: Pick<Reminder, "notifyLeadMinutes" | "type">) {
+  const minutes = reminder.notifyLeadMinutes ?? defaultReminderLeadMinutes(reminder.type);
+  return reminderLeadOptions.find((option) => option.value === minutes)?.label || `${minutes} min before`;
+}
+
+export function getNotificationGroups(reminders: Reminder[], now = new Date()) {
+  const upcoming = getUpcomingReminders(reminders, now);
+  const soonLimit = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+  return upcoming.reduce(
+    (groups, reminder) => {
+      const alertAt = reminderAlertDate(reminder);
+      if (alertAt.getTime() <= now.getTime()) groups.dueNow.push(reminder);
+      else if (alertAt.getTime() <= soonLimit.getTime()) groups.soon.push(reminder);
+      else groups.upcoming.push(reminder);
+      return groups;
+    },
+    { dueNow: [] as Reminder[], soon: [] as Reminder[], upcoming: [] as Reminder[] },
+  );
 }
 
 export function validateCareRecord(record: Partial<CareRecord>) {
@@ -782,6 +887,17 @@ export function eventCategoryColor(type: string) {
   if (type === "Walk") return "lavender";
   if (type === "Food") return "green";
   return "gray";
+}
+
+export function collectPhotoRefs(state: Pick<PawfolioState, "profile" | "diary">) {
+  const refs = new Set<string>();
+  if (state.profile?.photo && isStoredPhotoRef(state.profile.photo)) refs.add(state.profile.photo);
+  state.diary.forEach((entry) => {
+    diaryEntryPhotos(entry).forEach((photo) => {
+      if (isStoredPhotoRef(photo)) refs.add(photo);
+    });
+  });
+  return [...refs];
 }
 
 export function eventsForMonth(reminders: Reminder[], visibleMonth: Date) {

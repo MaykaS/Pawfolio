@@ -47,24 +47,26 @@ Current localStorage prototype data includes:
 
 - Dog profile with name, breed, birthday, weight, personality, editable tags, photo, and avatar settings
 - Daily tasks with title, saved time, optional note, and date-based completion history
-- Diary entries with title, body, date, and compressed optional photo
+- Diary entries with title, body, date, legacy single-photo support, and up to 6 IndexedDB-backed photos
 - Care records with type, title, record date, type-specific fields, optional next due date, and note
 - Shared care-calendar events for medications, vaccines, and vet visits
-- Calendar-only reminders with title, type, date, time, note, recurrence label, and calculated next occurrence
+- Calendar-only reminders with title, type, date, time, note, recurrence label, calculated next occurrence, and notification lead time
 - Medication frequency parsing that maps clear daily, weekly, monthly, or yearly text to shared calendar recurrence
 - Calendar helper views for future-only upcoming items, visible-month events, and selected-day event details
 - Care helper views for type-specific validation, empty states, weight trends, medication consistency, and follow-up histories
-- In-app notification center for future reminders and browser notification permission testing
+- In-app notification center for future reminders, Due now/Soon/Upcoming groups, alert lead labels, and browser notification permission testing
 - Local notification preferences and integration settings for in-app reminders, future phone push, email reminders, Google Calendar, and cloud sync
 - Google Calendar payload scaffolding for reminders and shared care events, without frontend secrets or OAuth tokens
 - Local rule-based Routine Coach settings and insights
-- Full local export/import payload for backup and restore
+- Full local export/import payload for backup and restore, including referenced IndexedDB photo records
 
 Older localStorage records are normalized on load so prototype changes do not break existing local data.
 
-Profile and diary photo uploads are adaptively compressed and stored in browser IndexedDB. localStorage keeps only small photo references, so repeated diary photos do not quickly exhaust the app's local state quota. Save failures are caught and shown in-app instead of crashing the prototype.
+Profile and diary photo uploads are adaptively compressed and stored in browser IndexedDB. localStorage keeps only small photo references, so repeated diary photos do not quickly exhaust the app's local state quota. Backup export now needs to include both the JSON state and referenced IndexedDB photo records. Save failures are caught and shown in-app instead of crashing the prototype.
 
 Future cloud persistence should use Supabase Auth plus Postgres Row Level Security. Google sign-in is the preferred first login path. Each user-owned row should include a `user_id`, with policies limiting access to the authenticated user's own data.
+
+There is no authentication or shared database in the current prototype. The installed PWA stores data inside the browser profile on that device. The first cloud milestone should add Supabase Auth, then upload the local Pawfolio state into private Postgres tables guarded by RLS.
 
 Likely future entities:
 
@@ -125,6 +127,7 @@ Reminder records should be designed with:
 - Due date/time
 - Repeat rule
 - Calculated next occurrence for recurring reminders
+- Alert lead time such as at time, 15 minutes before, 1 hour before, or 1 day before
 - Completion status
 - Pet association
 - Optional assigned user later

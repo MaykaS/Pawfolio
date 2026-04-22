@@ -116,9 +116,9 @@ Reason: A daily checklist should reset naturally each day while keeping the task
 
 ## 2026-04-22: Add Full Local Backup Before Cloud Sync
 
-Decision: Pawfolio supports exporting and importing the full local state before adding account-based cloud storage.
+Decision: Pawfolio supports exporting and importing the full local state and referenced IndexedDB photos before adding account-based cloud storage.
 
-Reason: localStorage is convenient for the prototype, but users need a way to protect their profile, photos, care records, reminders, diary, and routine history.
+Reason: localStorage and IndexedDB are convenient for the prototype, but users need a way to protect their profile, photos, care records, reminders, diary, and routine history.
 
 ## 2026-04-22: Scaffold Integrations Before Wiring Secrets
 
@@ -137,3 +137,21 @@ Reason: Google sign-in is also the preferred Supabase Auth direction, so Google 
 Decision: Routine Coach starts as an opt-in, local, rule-based helper instead of an LLM-backed assistant.
 
 Reason: The feature should feel useful immediately, but anything agentic that reads pet-care data needs clear privacy boundaries before using cloud or model services.
+
+## 2026-04-22: Add Smart Reminder Lead Times
+
+Decision: Reminders store an alert lead time. Medication, food, and walk reminders default to alerting at the scheduled time. Vet, vaccine, grooming, and other reminders default to one hour before.
+
+Reason: Different pet-care reminders need different urgency. Users should be able to override the default without Pawfolio pretending that real closed-app push scheduling exists before backend push infrastructure.
+
+## 2026-04-22: Keep Auth And Database As The Next Cloud Milestone
+
+Decision: Pawfolio remains local-first for this pass, and the planned cloud path is Supabase Auth with Google sign-in plus Postgres Row Level Security.
+
+Reason: The app needs private per-user data before syncing across devices. RLS with a `user_id` ownership model lets a new user see only their own data and gives Pawfolio a path toward shared caregiver access later.
+
+## 2026-04-22: Use A Dog-Face PWA Icon
+
+Decision: The installed PWA icon should be a cute dog face in Pawfolio colors rather than a generic mark.
+
+Reason: The home-screen icon is part of the app's emotional first impression, especially while Pawfolio is being tested as an installable Android PWA.

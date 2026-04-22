@@ -29,23 +29,30 @@ import {
   careStatus,
   careTypes,
   careEmptyState,
+  collectPhotoRefs,
+  defaultReminderLeadMinutes,
   deleteCalendarItemFromState,
   deleteCareItemFromState,
+  diaryEntryPhotos,
   daysTogether,
   estimateDataUrlBytes,
   eventCategory,
   eventsForDate,
   eventsForMonth,
   getCareMoments,
+  getNotificationGroups,
   getUpcomingReminder,
   getUpcomingReminders,
   initialState,
   isStoredPhotoRef,
+  limitDiaryPhotos,
   medicationConsistency,
   normalizeState,
   notificationBody,
+  notificationLeadLabel,
   photoRefPrefix,
   notificationPermissionStatus,
+  reminderLeadOptions,
   prettyDate,
   recurrenceLabel,
   reminderRecurrenceOptions,
@@ -79,6 +86,7 @@ type MemoryMode = { mode: "create" } | { mode: "edit"; entry: DiaryEntry };
 type CareMode = { mode: "create" } | { mode: "edit"; record: CareRecord };
 type ReminderMode = { mode: "create"; date?: string } | { mode: "edit"; reminder: Reminder };
 type PhotoRecord = { id: string; dataUrl: string; createdAt: string };
+type BackupPayload = { app: "Pawfolio"; version: number; exportedAt: string; state: PawfolioState; photos?: PhotoRecord[] };
 
 const photoDbName = "pawfolio-photos-v1";
 const photoStoreName = "photos";
@@ -124,6 +132,20 @@ async function savePhotoToStore(dataUrl: string) {
   return `${photoRefPrefix}${id}`;
 }
 
+async function savePhotoRecordToStore(record: PhotoRecord) {
+  const db = await openPhotoDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(photoStoreName, "readwrite");
+      transaction.objectStore(photoStoreName).put(record);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
 async function loadPhotoFromStore(ref: string) {
   if (!isStoredPhotoRef(ref)) return ref;
   const id = ref.slice(photoRefPrefix.length);
@@ -134,6 +156,38 @@ async function loadPhotoFromStore(ref: string) {
       const request = transaction.objectStore(photoStoreName).get(id);
       request.onsuccess = () => resolve((request.result as PhotoRecord | undefined)?.dataUrl || "");
       request.onerror = () => reject(request.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+async function loadPhotoRecordFromStore(ref: string) {
+  if (!isStoredPhotoRef(ref)) return undefined;
+  const id = ref.slice(photoRefPrefix.length);
+  const db = await openPhotoDb();
+  try {
+    return await new Promise<PhotoRecord | undefined>((resolve, reject) => {
+      const transaction = db.transaction(photoStoreName, "readonly");
+      const request = transaction.objectStore(photoStoreName).get(id);
+      request.onsuccess = () => resolve(request.result as PhotoRecord | undefined);
+      request.onerror = () => reject(request.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+async function deletePhotoFromStore(ref: string) {
+  if (!isStoredPhotoRef(ref)) return;
+  const id = ref.slice(photoRefPrefix.length);
+  const db = await openPhotoDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(photoStoreName, "readwrite");
+      transaction.objectStore(photoStoreName).delete(id);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
     });
   } finally {
     db.close();
@@ -247,7 +301,7 @@ function PhotoImage({ src, alt, className }: { src: string; alt: string; classNa
     };
   }, [src]);
 
-  if (!resolvedSrc) return null;
+  if (!resolvedSrc) return <div className={`${className || ""} photo-loading`} aria-label={`${alt} loading`} />;
   return <img className={className} src={resolvedSrc} alt={alt} />;
 }
 
@@ -263,6 +317,7 @@ export default function App() {
   const [careMode, setCareMode] = useState<CareMode | null>(null);
   const [reminderMode, setReminderMode] = useState<ReminderMode | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [selectedMemory, setSelectedMemory] = useState<DiaryEntry | null>(null);
   const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
@@ -285,13 +340,25 @@ export default function App() {
       }
 
       for (const entry of next.diary) {
-        if (entry.photo && !isStoredPhotoRef(entry.photo)) {
-          try {
-            entry.photo = await savePhotoToStore(entry.photo);
-            changed = true;
-          } catch {
-            // Keep the existing data URL if IndexedDB is unavailable.
-          }
+        const photos = diaryEntryPhotos(entry);
+        if (photos.some((photo) => photo && !isStoredPhotoRef(photo))) {
+          const migratedPhotos = await Promise.all(
+            photos.map(async (photo) => {
+              if (!photo || isStoredPhotoRef(photo)) return photo;
+              try {
+                return await savePhotoToStore(photo);
+              } catch {
+                return photo;
+              }
+            }),
+          );
+          entry.photos = limitDiaryPhotos(migratedPhotos);
+          entry.photo = entry.photos[0];
+          changed = true;
+        } else if (photos.length !== (entry.photos || []).length || entry.photo !== photos[0]) {
+          entry.photos = photos;
+          entry.photo = photos[0];
+          changed = true;
         }
       }
 
@@ -320,12 +387,16 @@ export default function App() {
     [calendarItems],
   );
 
-  const exportPawfolioData = () => {
-    const payload = {
+  const exportPawfolioData = async () => {
+    const photos = (
+      await Promise.all(collectPhotoRefs(state).map((ref) => loadPhotoRecordFromStore(ref)))
+    ).filter(Boolean) as PhotoRecord[];
+    const payload: BackupPayload = {
       app: "Pawfolio",
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       state,
+      photos,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -339,7 +410,14 @@ export default function App() {
   const importPawfolioData = async (file: File) => {
     try {
       const text = await file.text();
-      const parsed = JSON.parse(text) as { state?: PawfolioState } | PawfolioState;
+      const parsed = JSON.parse(text) as BackupPayload | PawfolioState;
+      if ("photos" in parsed && parsed.photos?.length) {
+        await Promise.all(
+          parsed.photos.map((photo) =>
+            savePhotoRecordToStore({ ...photo, createdAt: photo.createdAt || new Date().toISOString() }),
+          ),
+        );
+      }
       const importedState = "state" in parsed && parsed.state ? parsed.state : parsed;
       setState(normalizeState(importedState as Partial<PawfolioState>));
       setSaveError("");
@@ -366,6 +444,7 @@ export default function App() {
         <TodayScreen
           profile={state.profile}
           tasks={todayTasks}
+          careRecords={careRecords}
           completed={completed}
           progress={progress}
           upcomingReminder={upcomingReminder}
@@ -406,13 +485,19 @@ export default function App() {
           profile={state.profile}
           entries={state.diary}
           onOpenMemory={() => setMemoryMode({ mode: "create" })}
+          onOpenEntry={setSelectedMemory}
           onEdit={(entry) => setMemoryMode({ mode: "edit", entry })}
-          onDelete={(id) =>
+          onDelete={(id) => {
+            const entry = state.diary.find((item) => item.id === id);
+            diaryEntryPhotos(entry || ({} as DiaryEntry)).forEach((photo) => {
+              void deletePhotoFromStore(photo);
+            });
             setState((current) => ({
               ...current,
               diary: current.diary.filter((entry) => entry.id !== id),
-            }))
-          }
+            }));
+            if (selectedMemory?.id === id) setSelectedMemory(null);
+          }}
         />
       )}
 
@@ -506,6 +591,27 @@ export default function App() {
                   : [entry, ...current.diary],
             }));
             setMemoryMode(null);
+          }}
+        />
+      )}
+
+      {selectedMemory && (
+        <MemoryDetailSheet
+          entry={selectedMemory}
+          onClose={() => setSelectedMemory(null)}
+          onEdit={(entry) => {
+            setSelectedMemory(null);
+            setMemoryMode({ mode: "edit", entry });
+          }}
+          onDelete={(id) => {
+            diaryEntryPhotos(selectedMemory).forEach((photo) => {
+              void deletePhotoFromStore(photo);
+            });
+            setState((current) => ({
+              ...current,
+              diary: current.diary.filter((entry) => entry.id !== id),
+            }));
+            setSelectedMemory(null);
           }}
         />
       )}
@@ -690,6 +796,7 @@ function Onboarding({ onSave }: { onSave: (profile: DogProfile) => void }) {
 function TodayScreen({
   profile,
   tasks,
+  careRecords,
   completed,
   progress,
   upcomingReminder,
@@ -703,6 +810,7 @@ function TodayScreen({
 }: {
   profile: DogProfile;
   tasks: DailyTask[];
+  careRecords: CareRecord[];
   completed: number;
   progress: number;
   upcomingReminder?: Reminder;
@@ -716,6 +824,13 @@ function TodayScreen({
 }) {
   const careMoments = getCareMoments(tasks);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+  const attentionItems = [
+    tasks.length - completed > 0 ? `${tasks.length - completed} routine tasks left today` : "",
+    upcomingReminder ? `${upcomingReminder.title} is next` : "",
+    careRecords.find((record) => careStatus(record) !== "OK")
+      ? `${careRecords.find((record) => careStatus(record) !== "OK")?.title} needs care attention`
+      : "",
+  ].filter(Boolean);
 
   return (
     <section className="screen">
@@ -767,6 +882,19 @@ function TodayScreen({
           Memory
         </button>
       </div>
+
+      <section className="attention-card">
+        <p className="label no-margin">Today needs attention</p>
+        {attentionItems.length ? (
+          <ul>
+            {attentionItems.slice(0, 3).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        ) : (
+          <p>Everything looks calm for today.</p>
+        )}
+      </section>
 
       <p className="label">Quick log</p>
       <div className="quick-pills">
@@ -836,12 +964,14 @@ function DiaryScreen({
   profile,
   entries,
   onOpenMemory,
+  onOpenEntry,
   onEdit,
   onDelete,
 }: {
   profile: DogProfile;
   entries: DiaryEntry[];
   onOpenMemory: () => void;
+  onOpenEntry: (entry: DiaryEntry) => void;
   onEdit: (entry: DiaryEntry) => void;
   onDelete: (id: string) => void;
 }) {
@@ -859,28 +989,85 @@ function DiaryScreen({
       {entries.length === 0 ? (
         <EmptyState title="No memories yet" text="Save a hike, sleepy morning, or funny training win." />
       ) : (
-        entries.map((entry) => (
-          <article className="diary-entry" key={entry.id}>
-            {entry.photo ? (
-              <PhotoImage className="diary-photo" src={entry.photo} alt={entry.title} />
-            ) : (
-              <div className="diary-photo photo-placeholder">
-                <Camera size={18} />
-                <span>{entry.title.toLowerCase()}</span>
-              </div>
-            )}
-            <div className="diary-entry-body">
-              <div className="entry-head">
-                <span className="badge badge-amber">{prettyDate(entry.date)}</span>
+        entries.map((entry) => {
+          const photos = diaryEntryPhotos(entry);
+          return (
+            <article className="diary-entry" key={entry.id}>
+              <button className="diary-open" type="button" onClick={() => onOpenEntry(entry)}>
+                <div className="diary-photo-wrap">
+                  {photos[0] ? (
+                    <PhotoImage className="diary-photo" src={photos[0]} alt={entry.title} />
+                  ) : (
+                    <div className="diary-photo photo-placeholder">
+                      <Camera size={18} />
+                      <span>{entry.title.toLowerCase()}</span>
+                    </div>
+                  )}
+                  {photos.length > 1 && <span className="photo-count">1/{photos.length}</span>}
+                </div>
+                <div className="diary-entry-body">
+                  <div className="entry-head">
+                    <span className="badge badge-amber">{prettyDate(entry.date)}</span>
+                    <span className="diary-tap-hint">View</span>
+                  </div>
+                  <h2>{entry.title}</h2>
+                  <p>{entry.body || "No journal note yet."}</p>
+                </div>
+              </button>
+              <div className="diary-card-actions" onClick={(event) => event.stopPropagation()}>
                 <CardActions onEdit={() => onEdit(entry)} onDelete={() => onDelete(entry.id)} />
               </div>
-              <h2>{entry.title}</h2>
-              <p>{entry.body || "No journal note yet."}</p>
-            </div>
-          </article>
-        ))
+            </article>
+          );
+        })
       )}
     </section>
+  );
+}
+
+function MemoryDetailSheet({
+  entry,
+  onClose,
+  onEdit,
+  onDelete,
+}: {
+  entry: DiaryEntry;
+  onClose: () => void;
+  onEdit: (entry: DiaryEntry) => void;
+  onDelete: (id: string) => void;
+}) {
+  const photos = diaryEntryPhotos(entry);
+
+  return (
+    <Sheet title={entry.title || "Memory"} onClose={onClose}>
+      <div className="memory-detail">
+        <div className="entry-head">
+          <span className="badge badge-amber">{prettyDate(entry.date)}</span>
+          <CardActions onEdit={() => onEdit(entry)} onDelete={() => onDelete(entry.id)} />
+        </div>
+        {photos.length > 0 ? (
+          <div className="memory-gallery">
+            {photos.map((photo, index) => (
+              <PhotoImage
+                className={index === 0 ? "memory-photo featured" : "memory-photo"}
+                key={`${photo}-${index}`}
+                src={photo}
+                alt={`${entry.title} photo ${index + 1}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="memory-photo featured photo-placeholder">
+            <Camera size={20} />
+            <span>No photo saved</span>
+          </div>
+        )}
+        <section className="memory-note">
+          <p className="label no-margin">Journal note</p>
+          <p>{entry.body || "No journal note yet."}</p>
+        </section>
+      </div>
+    </Sheet>
   );
 }
 
@@ -1194,6 +1381,7 @@ function NotificationsSheet({
   const notificationApi = typeof Notification === "undefined" ? undefined : Notification;
   const [permission, setPermission] = useState(() => notificationPermissionStatus(notificationApi));
   const [testStatus, setTestStatus] = useState("");
+  const groups = getNotificationGroups(reminders);
   const upcoming = getUpcomingReminders(reminders).slice(0, 6);
   const supported = canUseBrowserNotifications(notificationApi);
 
@@ -1256,7 +1444,7 @@ function NotificationsSheet({
       {testStatus && <p className="notice-copy notice-status">{testStatus}</p>}
 
       <div className="label-row">
-        <p className="label no-margin">Upcoming</p>
+        <p className="label no-margin">Reminder timing</p>
         <span>{upcoming.length} active</span>
       </div>
       {upcoming.length === 0 ? (
@@ -1266,21 +1454,38 @@ function NotificationsSheet({
           <p>Add calendar reminders for medicine, vaccines, vet visits, grooming, food, walks, or other care.</p>
         </section>
       ) : (
-        upcoming.map((reminder) => (
-          <article className={`event-item notification-item event-${eventCategory(reminder.type)}`} key={reminder.id}>
-            <div className="event-date-block">
-              <strong>{new Date(`${reminder.date}T00:00`).getDate()}</strong>
-              <span>{new Date(`${reminder.date}T00:00`).toLocaleDateString("en", { month: "short" })}</span>
-            </div>
-            <div className="event-copy">
-              {reminder.recurrence !== "none" && <span className="badge badge-amber">{recurrenceLabel(reminder.recurrence)}</span>}
-              <h2>{reminder.title}</h2>
-              <p>{reminder.type} - {reminder.time || "Any time"}{reminder.note && ` - ${reminder.note}`}</p>
-            </div>
-          </article>
-        ))
+        <>
+          <NotificationGroup title="Due now" reminders={groups.dueNow} />
+          <NotificationGroup title="Soon" reminders={groups.soon} />
+          <NotificationGroup title="Upcoming" reminders={groups.upcoming.slice(0, 6)} />
+        </>
       )}
     </Sheet>
+  );
+}
+
+function NotificationGroup({ title, reminders }: { title: string; reminders: Reminder[] }) {
+  if (reminders.length === 0) return null;
+  return (
+    <section className="notification-group">
+      <p className="label">{title}</p>
+      {reminders.map((reminder) => (
+        <article className={`event-item notification-item event-${eventCategory(reminder.type)}`} key={reminder.id}>
+          <div className="event-date-block">
+            <strong>{new Date(`${reminder.date}T00:00`).getDate()}</strong>
+            <span>{new Date(`${reminder.date}T00:00`).toLocaleDateString("en", { month: "short" })}</span>
+          </div>
+          <div className="event-copy">
+            <div className="badge-row">
+              {reminder.recurrence !== "none" && <span className="badge badge-amber">{recurrenceLabel(reminder.recurrence)}</span>}
+              <span className="badge badge-green">{notificationLeadLabel(reminder)}</span>
+            </div>
+            <h2>{reminder.title}</h2>
+            <p>{reminder.type} - {reminder.time || "Any time"}{reminder.note && ` - ${reminder.note}`}</p>
+          </div>
+        </article>
+      ))}
+    </section>
   );
 }
 
@@ -1324,7 +1529,7 @@ function ProfileScreen({
     <section className="screen profile-screen">
       <section className="profile-hero">
         <div className="profile-photo profile-photo-ring">
-          {profile.photo ? <img src={profile.photo} alt={profile.name} /> : <DogAvatar avatar={profile.avatar} small />}
+          {profile.photo ? <PhotoImage src={profile.photo} alt={profile.name} /> : <DogAvatar avatar={profile.avatar} small />}
         </div>
         <h1>{profile.name}</h1>
         <p>{profile.breed || "Breed not set"} - {ageLabel(profile.birthday)} - {profile.weight || "Weight not set"}</p>
@@ -1357,7 +1562,7 @@ function ProfileScreen({
       </section>
       <section className="card settings-card">
         <p className="label no-margin">Cloud sync plan</p>
-        <p className="settings-note">Planned path: Supabase Auth with Google sign-in, Postgres, and Row Level Security. Local export/import stays as your safety net.</p>
+        <p className="settings-note">For now, Pawfolio data lives on this device/browser profile. Planned path: Supabase Auth with Google sign-in, Postgres, and Row Level Security. Local export/import stays as your safety net.</p>
       </section>
       <div className="profile-actions">
         <ProfileAction icon={<Pencil size={18} />} label="Edit profile" onClick={() => setEditing(true)} />
@@ -1642,17 +1847,23 @@ function MemorySheet({
   const [title, setTitle] = useState(existing?.title || "");
   const [body, setBody] = useState(existing?.body || "");
   const [date, setDate] = useState(existing?.date || todayISO());
-  const [photo, setPhoto] = useState<string | undefined>(existing?.photo);
+  const [photos, setPhotos] = useState<string[]>(() => diaryEntryPhotos(existing || ({} as DiaryEntry)));
 
   const updatePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const compressedPhoto = await readCompressedImage(file, 760, 0.72, 180_000);
-    try {
-      setPhoto(await savePhotoToStore(compressedPhoto));
-    } catch {
-      setPhoto(await readCompressedImage(file, 560, 0.58, 90_000));
-    }
+    const files = [...(event.target.files || [])].slice(0, Math.max(0, 6 - photos.length));
+    if (files.length === 0) return;
+    const nextPhotos = await Promise.all(
+      files.map(async (file) => {
+        const compressedPhoto = await readCompressedImage(file, 760, 0.72, 180_000);
+        try {
+          return await savePhotoToStore(compressedPhoto);
+        } catch {
+          return readCompressedImage(file, 560, 0.58, 90_000);
+        }
+      }),
+    );
+    setPhotos((current) => limitDiaryPhotos([...current, ...nextPhotos]));
+    event.target.value = "";
   };
 
   return (
@@ -1660,15 +1871,35 @@ function MemorySheet({
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          onSave({ id: existing?.id || uid("memory"), title, body, date, photo });
+          const savedPhotos = limitDiaryPhotos(photos);
+          onSave({ id: existing?.id || uid("memory"), title, body, date, photo: savedPhotos[0], photos: savedPhotos });
         }}
       >
         <Field label="Photo">
           <label className="btn btn-secondary upload-btn full">
             <Camera size={17} />
-            {photo ? "Photo ready" : "Choose photo"}
-            <input type="file" accept="image/*" onChange={updatePhoto} />
+            {photos.length ? `${photos.length}/6 photos ready` : "Choose photos"}
+            <input type="file" accept="image/*" multiple onChange={updatePhoto} />
           </label>
+          {photos.length > 0 && (
+            <div className="photo-strip">
+              {photos.map((photo, index) => (
+                <div className="photo-thumb" key={`${photo}-${index}`}>
+                  <PhotoImage src={photo} alt={`Memory photo ${index + 1}`} />
+                  <button
+                    className="thumb-remove"
+                    type="button"
+                    onClick={() => {
+                      setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index));
+                    }}
+                    aria-label={`Remove photo ${index + 1}`}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </Field>
         <Field label="Caption">
           <input className="input" value={title} onChange={(event) => setTitle(event.target.value)} required />
@@ -1834,6 +2065,7 @@ function ReminderSheet({
     time: existing?.time || "",
     note: existing?.note || "",
     recurrence: existing?.recurrence || ("none" as ReminderRecurrence),
+    notifyLeadMinutes: existing?.notifyLeadMinutes ?? defaultReminderLeadMinutes(existing?.type || "Vet"),
   });
 
   const update = (key: keyof typeof reminder, value: string) => {
@@ -1853,7 +2085,18 @@ function ReminderSheet({
         </Field>
         <div className="form-two">
           <Field label="Type">
-            <select className="input" value={reminder.type} onChange={(event) => update("type", event.target.value)}>
+            <select
+              className="input"
+              value={reminder.type}
+              onChange={(event) =>
+                setReminder((current) => ({
+                  ...current,
+                  type: event.target.value,
+                  notifyLeadMinutes:
+                    mode.mode === "create" ? defaultReminderLeadMinutes(event.target.value) : current.notifyLeadMinutes,
+                }))
+              }
+            >
               {reminderTypes.map((type) => (
                 <option key={type}>{type}</option>
               ))}
@@ -1870,6 +2113,19 @@ function ReminderSheet({
             onChange={(event) => update("recurrence", event.target.value as ReminderRecurrence)}
           >
             {reminderRecurrenceOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Notify">
+          <select
+            className="input"
+            value={reminder.notifyLeadMinutes}
+            onChange={(event) => setReminder((current) => ({ ...current, notifyLeadMinutes: Number(event.target.value) }))}
+          >
+            {reminderLeadOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

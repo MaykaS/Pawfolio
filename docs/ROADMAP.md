@@ -23,17 +23,17 @@ Included:
 - Daily tasks with checkbox completion, editable times, and compact notes
 - Custom daily tasks with editable times
 - Diary timeline
-- Diary entries with optional photos
+- Diary entries with clickable details and up to 6 photos per memory
 - Care screen
 - User-entered care records with type tabs and next due dates
 - Friendly care empty states and validation by record type
 - Weight trend and medication consistency summaries
 - Calendar/reminders screen
-- User-entered reminders with recurrence labels
+- User-entered reminders with recurrence labels and alert lead times
 - Month navigation, future-only upcoming items, and clickable day details
 - Profile screen
 - Health record export
-- Full local backup export/import
+- Full local backup export/import, including IndexedDB photos
 - Notification and integration settings scaffold
 - Local rule-based Routine Coach suggestions
 - Cute animated UI moments
@@ -59,7 +59,7 @@ Included:
 - Full local export/import while data remains local-first
 - Type-specific care forms for vaccines, medications, vet visits, and weight trends
 - Daily routine rollover so task completion is tracked per day
-- Local notification preferences
+- Local notification preferences and smart reminder lead times
 - Google Calendar payload mapping before OAuth
 - Routine Coach settings and local insight helpers
 - User account model
@@ -68,7 +68,7 @@ Included:
 - Reminder storage
 - Care record storage
 - Local image upload handling
-- Notification-ready reminder and calculated recurrence model
+- Notification-ready reminder, alert lead, and calculated recurrence model
 
 Success criteria:
 
@@ -104,6 +104,7 @@ Likely approach:
 - Supabase Postgres tables for pets, care, reminders, diary, routine history, preferences, integrations, and agent insights
 - Row Level Security so each authenticated user only reads and writes their own data
 - Local export/import remains available as a safety path
+- Upload local Pawfolio data into an account after sign-in
 
 Success criteria:
 

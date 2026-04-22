@@ -45,6 +45,14 @@ import {
   withReminderRecurrence,
   withTaskTime,
   canUseBrowserNotifications,
+  collectPhotoRefs,
+  defaultReminderLeadMinutes,
+  diaryEntryPhotos,
+  getNotificationGroups,
+  limitDiaryPhotos,
+  maxDiaryPhotos,
+  notificationLeadLabel,
+  reminderAlertDate,
   type CareRecord,
   type DailyTask,
   type Reminder,
@@ -109,6 +117,31 @@ describe("pawfolio helpers", () => {
     expect(normalized.notificationPreferences.inApp).toBe(true);
     expect(normalized.integrationSettings.googleCalendar).toBe("planned");
     expect(normalized.routineCoachSettings.enabled).toBe(true);
+    expect(normalized.careEvents[0].notifyLeadMinutes).toBe(0);
+  });
+
+  it("normalizes diary galleries from legacy single photos", () => {
+    const normalized = normalizeState({
+      tasks: [],
+      diary: [
+        { id: "old", title: "Hike", body: "", date: "2026-04-22", photo: "pawfolio-photo:old" },
+        {
+          id: "new",
+          title: "Park",
+          body: "",
+          date: "2026-04-23",
+          photo: "legacy-cover",
+          photos: ["pawfolio-photo:1", "pawfolio-photo:2"],
+        },
+      ],
+      care: [],
+      reminders: [],
+    });
+
+    expect(diaryEntryPhotos(normalized.diary[0])).toEqual(["pawfolio-photo:old"]);
+    expect(diaryEntryPhotos(normalized.diary[1])).toEqual(["pawfolio-photo:1", "pawfolio-photo:2"]);
+    expect(limitDiaryPhotos(["1", "2", "3", "4", "5", "6", "7"])).toHaveLength(maxDiaryPhotos);
+    expect(collectPhotoRefs(normalized)).toEqual(["pawfolio-photo:old", "pawfolio-photo:1", "pawfolio-photo:2"]);
   });
 
   it("validates care forms and returns friendly empty states", () => {
@@ -176,10 +209,11 @@ describe("pawfolio helpers", () => {
       time: "10:00",
       note: "Dr. Lee",
       recurrence: "yearly",
+      notifyLeadMinutes: 1440,
     });
 
     expect(visibleCareRecords(state).some((record) => record.type === "Vet visit" && record.title === "Annual checkup")).toBe(true);
-    expect(visibleReminders(state).some((reminder) => reminder.type === "Vet" && reminder.title === "Annual checkup")).toBe(true);
+    expect(visibleReminders(state).some((reminder) => reminder.type === "Vet" && reminder.title === "Annual checkup" && reminder.notifyLeadMinutes === 1440)).toBe(true);
 
     state = saveReminderToState(state, {
       id: "vaccine-calendar",
@@ -386,6 +420,28 @@ describe("pawfolio helpers", () => {
     expect(canUseBrowserNotifications({ permission: "denied" })).toBe(true);
     expect(notificationBody({ title: "Lyme 2", date: "2026-05-08" })).toBe("Lyme 2 is coming up May 8.");
     expect(notificationBody()).toBe("Notifications are ready for Pawfolio.");
+  });
+
+  it("applies reminder lead times and groups notification timing", () => {
+    const reminders = [
+      { id: "med", title: "Meds", type: "Medication", date: "2026-04-22", time: "10:00", note: "", recurrence: "none" },
+      { id: "vet", title: "Vet", type: "Vet", date: "2026-04-22", time: "12:00", note: "", recurrence: "none" },
+      { id: "groom", title: "Groom", type: "Grooming", date: "2026-04-24", time: "12:00", note: "", recurrence: "none", notifyLeadMinutes: 1440 },
+    ] satisfies Reminder[];
+    const normalized = normalizeState({ tasks: [], diary: [], care: [], reminders });
+    const visible = visibleReminders(normalized);
+
+    expect(defaultReminderLeadMinutes("Medication")).toBe(0);
+    expect(defaultReminderLeadMinutes("Vet")).toBe(60);
+    expect(visible.find((reminder) => reminder.id === "med")?.notifyLeadMinutes).toBe(0);
+    expect(visible.find((reminder) => reminder.id === "vet")?.notifyLeadMinutes).toBe(60);
+    expect(notificationLeadLabel(visible.find((reminder) => reminder.id === "vet")!)).toBe("1 hour before");
+    expect(reminderAlertDate(visible.find((reminder) => reminder.id === "vet")!).getHours()).toBe(11);
+
+    const groups = getNotificationGroups(visible, new Date("2026-04-22T11:15:00"));
+    expect(groups.dueNow.map((reminder) => reminder.id)).toEqual(["med", "vet"]);
+    expect(groups.soon).toEqual([]);
+    expect(groups.upcoming.map((reminder) => reminder.id)).toEqual(["groom"]);
   });
 
   it("filters month events and maps event categories consistently", () => {

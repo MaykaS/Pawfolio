@@ -70,6 +70,7 @@ A daily companion screen for the dog's routine:
 A timeline for memories:
 
 - Photos
+- Multiple photos per memory
 - Captions
 - Journal text
 - Date
@@ -98,6 +99,7 @@ A schedule and reminder area for:
 - Grooming
 - Medications
 - Recurring reminders
+- Smart alert timing, such as at time or before an appointment
 - Clickable day details to see what happened or is scheduled on a date
 - Future Google Calendar sync
 - Walks
@@ -134,6 +136,7 @@ The first version should be local and rule-based. Later, an agentic version can 
 - Calendar sync
 - Private cloud sync with account-based data
 - Google sign-in
+- Full local backup including photos before cloud sync
 - Routine Coach with richer agentic suggestions
 - GPS walk tracking
 - Pet photo gallery search
