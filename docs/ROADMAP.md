@@ -20,8 +20,8 @@ Included:
 - Dog photo upload
 - Stylized dog avatar studio
 - Today screen
-- Daily tasks with checkbox completion, editable times, and compact notes
-- Custom daily tasks with editable times
+- Daily tasks with checkbox completion, structured editable times, chronological sorting, and compact notes
+- Custom daily tasks with structured editable times
 - Diary timeline
 - Diary entries with clickable details and up to 6 photos per memory
 - Care screen

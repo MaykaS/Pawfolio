@@ -60,7 +60,7 @@ A daily companion screen for the dog's routine:
 - Meals
 - Walks
 - Medication
-- Editable task times
+- Structured editable task times sorted in routine order
 - Optional compact notes
 - Quick memory entry
 - Upcoming reminder

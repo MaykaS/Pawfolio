@@ -10,7 +10,7 @@ Implemented:
 - Breed suggestions
 - Profile photo upload
 - Stylized avatar studio
-- Today routine with editable task times
+- Today routine with structured editable task times sorted chronologically
 - Daily routine completion tracked per date
 - Compact task notes
 - Custom daily tasks

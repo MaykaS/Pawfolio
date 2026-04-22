@@ -128,15 +128,16 @@ export type PawfolioState = {
 export const storageKey = "pawfolio-local-v1";
 export const photoRefPrefix = "pawfolio-photo:";
 export const maxDiaryPhotos = 6;
+const anytimeSortMinutes = 24 * 60 + 1;
 
 export const defaultTasks: DailyTask[] = [
-  { id: "breakfast", title: "Morning meal", time: "7:00 AM", done: false, note: "" },
-  { id: "morning-walk", title: "Morning walk", time: "8:00 AM", done: false, note: "" },
-  { id: "heartgard-pill", title: "Heartgard pill", time: "9:00 AM", done: false, note: "" },
-  { id: "afternoon-meal", title: "Afternoon meal", time: "12:00 PM", done: false, note: "" },
-  { id: "afternoon-walk", title: "Afternoon walk", time: "4:00 PM", done: false, note: "" },
-  { id: "dinner", title: "Evening meal", time: "6:00 PM", done: false, note: "" },
-  { id: "evening-walk", title: "Evening walk", time: "7:30 PM", done: false, note: "" },
+  { id: "breakfast", title: "Morning meal", time: "07:00", done: false, note: "" },
+  { id: "morning-walk", title: "Morning walk", time: "08:00", done: false, note: "" },
+  { id: "heartgard-pill", title: "Heartgard pill", time: "09:00", done: false, note: "" },
+  { id: "afternoon-meal", title: "Afternoon meal", time: "12:00", done: false, note: "" },
+  { id: "afternoon-walk", title: "Afternoon walk", time: "16:00", done: false, note: "" },
+  { id: "dinner", title: "Evening meal", time: "18:00", done: false, note: "" },
+  { id: "evening-walk", title: "Evening walk", time: "19:30", done: false, note: "" },
 ];
 
 export const initialState: PawfolioState = {
@@ -203,14 +204,14 @@ export const reminderLeadOptions = [
 ];
 
 export const routineTimes: Record<string, string> = {
-  "morning-walk": "8:00 AM",
-  breakfast: "7:00 AM",
-  "heartgard-pill": "9:00 AM",
-  "afternoon-meal": "12:00 PM",
-  "afternoon-walk": "4:00 PM",
-  "evening-walk": "7:30 PM",
-  dinner: "6:00 PM",
-  "night-walk": "9:30 PM",
+  "morning-walk": "08:00",
+  breakfast: "07:00",
+  "heartgard-pill": "09:00",
+  "afternoon-meal": "12:00",
+  "afternoon-walk": "16:00",
+  "evening-walk": "19:30",
+  dinner: "18:00",
+  "night-walk": "21:30",
   training: "Anytime",
 };
 
@@ -245,22 +246,83 @@ export function daysTogether(birthday: string, now = new Date()) {
   return new Intl.NumberFormat("en").format(days);
 }
 
-export function taskTime(task: DailyTask) {
-  if (task.time) return task.time;
+function inferredTaskTime(task: Pick<DailyTask, "id" | "title">) {
   const title = task.title.toLowerCase();
   if (routineTimes[task.id]) return routineTimes[task.id];
-  if (title.includes("breakfast") || title.includes("morning meal")) return "7:00 AM";
-  if (title.includes("morning walk")) return "8:00 AM";
-  if (title.includes("pill") || title.includes("med")) return "9:00 AM";
-  if (title.includes("afternoon meal")) return "12:00 PM";
-  if (title.includes("afternoon walk")) return "4:00 PM";
-  if (title.includes("dinner") || title.includes("evening meal")) return "6:00 PM";
-  if (title.includes("evening walk")) return "7:30 PM";
+  if (title.includes("breakfast") || title.includes("morning meal")) return "07:00";
+  if (title.includes("morning walk")) return "08:00";
+  if (title.includes("pill") || title.includes("med")) return "09:00";
+  if (title.includes("afternoon meal")) return "12:00";
+  if (title.includes("afternoon walk")) return "16:00";
+  if (title.includes("dinner") || title.includes("evening meal")) return "18:00";
+  if (title.includes("evening walk")) return "19:30";
   return "Anytime";
 }
 
+export function parseTaskTimeMinutes(time = "") {
+  const normalized = time.trim();
+  if (!normalized || normalized.toLowerCase() === "anytime") return undefined;
+
+  const twentyFourHour = normalized.match(/^(\d{1,2}):(\d{2})$/);
+  if (twentyFourHour) {
+    const hours = Number(twentyFourHour[1]);
+    const minutes = Number(twentyFourHour[2]);
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) return hours * 60 + minutes;
+  }
+
+  const twelveHour = normalized.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?$/i);
+  if (!twelveHour) return undefined;
+  let hours = Number(twelveHour[1]);
+  const minutes = Number(twelveHour[2] || "0");
+  if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) return undefined;
+  const meridiem = twelveHour[3].toLowerCase();
+  if (meridiem === "p" && hours < 12) hours += 12;
+  if (meridiem === "a" && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+}
+
+function minutesToInputValue(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+export function toTimeInputValue(time = "") {
+  const minutes = parseTaskTimeMinutes(time);
+  return typeof minutes === "number" ? minutesToInputValue(minutes) : "";
+}
+
+export function formatTaskTime(time = "") {
+  const minutes = parseTaskTimeMinutes(time);
+  if (typeof minutes !== "number") return time || "Anytime";
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  const hour12 = hours % 12 || 12;
+  const meridiem = hours >= 12 ? "PM" : "AM";
+  return `${hour12}:${String(mins).padStart(2, "0")} ${meridiem}`;
+}
+
+export function taskTime(task: DailyTask) {
+  const canonical = toTimeInputValue(task.time || inferredTaskTime(task));
+  return canonical ? formatTaskTime(canonical) : "Anytime";
+}
+
 export function withTaskTime(task: Omit<DailyTask, "time"> & { time?: string }): DailyTask {
-  return { ...task, time: task.time || taskTime({ ...task, time: "" }) };
+  return {
+    ...task,
+    time: toTimeInputValue(task.time || inferredTaskTime(task)) || "Anytime",
+  };
+}
+
+export function compareTasksByTime(a: DailyTask, b: DailyTask) {
+  const aMinutes = parseTaskTimeMinutes(a.time) ?? anytimeSortMinutes;
+  const bMinutes = parseTaskTimeMinutes(b.time) ?? anytimeSortMinutes;
+  if (aMinutes !== bMinutes) return aMinutes - bMinutes;
+  return a.title.localeCompare(b.title);
+}
+
+export function sortTasksByTime(tasks: DailyTask[]) {
+  return [...tasks].sort(compareTasksByTime);
 }
 
 export function withReminderRecurrence(
@@ -339,12 +401,12 @@ export function withCareEventSchedule(event: Omit<CareEvent, "recurrence"> & { r
 }
 
 export function updateTaskTime(tasks: DailyTask[], id: string, time: string) {
-  return tasks.map((task) => (task.id === id ? { ...task, time } : task));
+  return sortTasksByTime(tasks.map((task) => (task.id === id ? withTaskTime({ ...task, time }) : task)));
 }
 
 export function tasksForDate(tasks: DailyTask[], taskHistory: TaskHistory, date: string) {
   const day = taskHistory[date] || {};
-  return tasks.map((task) => ({ ...task, done: Boolean(day[task.id]) }));
+  return sortTasksByTime(tasks.map((task) => ({ ...task, done: Boolean(day[task.id]) })));
 }
 
 export function setTaskDoneForDate(taskHistory: TaskHistory, date: string, taskId: string, done: boolean): TaskHistory {
@@ -530,7 +592,7 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
     profile: base.profile
       ? { ...base.profile, personalityTags: base.profile.personalityTags?.length ? base.profile.personalityTags : ["Playful", "Energetic", "Food-motivated"] }
       : undefined,
-    tasks: (base.tasks?.length ? base.tasks : defaultTasks).map(withTaskTime).map((task) => ({ ...task, done: false })),
+    tasks: sortTasksByTime((base.tasks?.length ? base.tasks : defaultTasks).map(withTaskTime).map((task) => ({ ...task, done: false }))),
     taskHistory: base.taskHistory || legacyTaskHistory(base.tasks || []),
     diary: (base.diary || []).map(withDiaryPhotos),
     care: normalizedCare.filter((record) => !isSharedCareType(record.type)),

@@ -49,10 +49,10 @@ Current prototype behavior:
 - User-created dog profile
 - Profile photo upload
 - Stylized dog avatar builder
-- Daily task checklist with editable saved times
+- Daily task checklist with structured saved times, sorted chronologically
 - Daily routine completion tracked per date
 - Compact task notes that open only when needed
-- Custom daily tasks with editable times
+- Custom daily tasks with editable structured times
 - Diary entries with clickable detail views and up to 6 photos per memory
 - Adaptive photo compression with browser IndexedDB photo storage to avoid localStorage limits
 - Shared medication, vaccine, and vet visit items across Care and Calendar

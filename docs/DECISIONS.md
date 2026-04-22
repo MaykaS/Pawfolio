@@ -44,9 +44,21 @@ Reason: This keeps iteration fast while the product flow, care model, and mobile
 
 ## 2026-04-22: Add Saved Times And Compact Notes To Daily Tasks
 
-Decision: Daily tasks store editable times and show notes only as a compact preview until opened.
+Decision: Daily tasks store editable structured times, sort chronologically, and show notes only as a compact preview until opened.
 
 Reason: The Today screen should stay clean and match the mobile routine-list inspiration while still supporting real notes.
+
+## 2026-04-22: Use Canonical Task Times
+
+Decision: Routine task times are stored as `HH:MM` strings and entered with a native time input. Older friendly strings are parsed and normalized where possible.
+
+Reason: Sorting by free-text time is unreliable. Structured input lets custom tasks appear in the correct daily order without making users type exact formatting.
+
+## 2026-04-22: Dismiss Sheets From Backdrop Or Keyboard
+
+Decision: Shared app sheets close from the close button, Escape key, or tapping/clicking outside the sheet content.
+
+Reason: Diary details and edit sheets should behave like a real mobile app modal while still preventing accidental closes from taps inside the sheet.
 
 ## 2026-04-22: Track Care Next Due Dates
 

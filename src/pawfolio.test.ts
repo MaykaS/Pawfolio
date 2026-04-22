@@ -46,13 +46,18 @@ import {
   withTaskTime,
   canUseBrowserNotifications,
   collectPhotoRefs,
+  compareTasksByTime,
   defaultReminderLeadMinutes,
   diaryEntryPhotos,
+  formatTaskTime,
   getNotificationGroups,
   limitDiaryPhotos,
   maxDiaryPhotos,
   notificationLeadLabel,
+  parseTaskTimeMinutes,
   reminderAlertDate,
+  sortTasksByTime,
+  toTimeInputValue,
   type CareRecord,
   type DailyTask,
   type Reminder,
@@ -71,15 +76,19 @@ describe("pawfolio helpers", () => {
   });
 
   it("assigns expected routine times from task ids and titles", () => {
-    expect(taskTime({ id: "breakfast", title: "Breakfast", time: "7:15 AM", done: false, note: "" })).toBe("7:15 AM");
+    expect(taskTime({ id: "breakfast", title: "Breakfast", time: "07:15", done: false, note: "" })).toBe("7:15 AM");
     expect(taskTime({ id: "custom", title: "Heartgard pill", time: "", done: false, note: "" })).toBe("9:00 AM");
     expect(taskTime({ id: "custom-2", title: "Puzzle toy", time: "", done: false, note: "" })).toBe("Anytime");
+    expect(parseTaskTimeMinutes("8:00 pM")).toBe(20 * 60);
+    expect(parseTaskTimeMinutes("08:00")).toBe(8 * 60);
+    expect(formatTaskTime("20:00")).toBe("8:00 PM");
+    expect(toTimeInputValue("8:00 PM")).toBe("20:00");
   });
 
   it("normalizes older tasks with missing times", () => {
     const oldTask = { id: "breakfast", title: "Breakfast", done: false, note: "" };
 
-    expect(withTaskTime(oldTask).time).toBe("7:00 AM");
+    expect(withTaskTime(oldTask).time).toBe("07:00");
     expect(
       normalizeState({
         tasks: [oldTask],
@@ -87,12 +96,30 @@ describe("pawfolio helpers", () => {
         care: [],
         reminders: [],
       } as unknown as Parameters<typeof normalizeState>[0]).tasks[0].time,
-    ).toBe("7:00 AM");
+    ).toBe("07:00");
+  });
+
+  it("sorts daily tasks by structured time and keeps anytime tasks last", () => {
+    const tasks: DailyTask[] = [
+      { id: "night", title: "Night walk", time: "22:00", done: false, note: "" },
+      { id: "treat", title: "Treat", time: "8:00 pM", done: false, note: "" },
+      { id: "dinner", title: "Dinner", time: "18:00", done: false, note: "" },
+      { id: "puzzle", title: "Puzzle", time: "Anytime", done: false, note: "" },
+    ];
+
+    expect(sortTasksByTime(tasks).map((task) => task.id)).toEqual(["dinner", "treat", "night", "puzzle"]);
+    expect(compareTasksByTime(tasks[1], tasks[2])).toBeGreaterThan(0);
+    expect(normalizeState({ tasks, diary: [], care: [], reminders: [] }).tasks.map((task) => task.time)).toEqual([
+      "18:00",
+      "20:00",
+      "22:00",
+      "Anytime",
+    ]);
   });
 
   it("tracks daily routine completion by date", () => {
     const tasks: DailyTask[] = [
-      { id: "walk", title: "Morning walk", time: "8:00 AM", done: false, note: "" },
+      { id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" },
     ];
     const history = setTaskDoneForDate({}, "2026-04-22", "walk", true);
 
@@ -344,24 +371,24 @@ describe("pawfolio helpers", () => {
 
   it("updates task times immutably", () => {
     const tasks: DailyTask[] = [
-      { id: "walk", title: "Morning walk", time: "8:00 AM", done: false, note: "" },
+      { id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" },
     ];
 
     expect(updateTaskTime(tasks, "walk", "8:45 AM")[0]).toEqual({
       id: "walk",
       title: "Morning walk",
-      time: "8:45 AM",
+      time: "08:45",
       done: false,
       note: "",
     });
-    expect(tasks[0].time).toBe("8:00 AM");
+    expect(tasks[0].time).toBe("08:00");
   });
 
   it("summarizes quick log care moments from completed tasks", () => {
     const tasks: DailyTask[] = [
-      { id: "meal", title: "Morning meal", time: "7:00 AM", done: true, note: "" },
-      { id: "walk", title: "Morning walk", time: "8:00 AM", done: false, note: "" },
-      { id: "med", title: "Heartgard pill", time: "9:00 AM", done: true, note: "" },
+      { id: "meal", title: "Morning meal", time: "07:00", done: true, note: "" },
+      { id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" },
+      { id: "med", title: "Heartgard pill", time: "09:00", done: true, note: "" },
     ];
 
     expect(getCareMoments(tasks)).toEqual([
@@ -498,7 +525,7 @@ describe("pawfolio helpers", () => {
 
   it("creates routine coach insights from local patterns", () => {
     const tasks: DailyTask[] = [
-      { id: "walk", title: "Evening walk", time: "7:30 PM", done: false, note: "" },
+      { id: "walk", title: "Evening walk", time: "19:30", done: false, note: "" },
     ];
     const insights = routineCoachInsights(
       tasks,

@@ -46,7 +46,7 @@ The first version should look like one user and one dog, with browser-local pers
 Current localStorage prototype data includes:
 
 - Dog profile with name, breed, birthday, weight, personality, editable tags, photo, and avatar settings
-- Daily tasks with title, saved time, optional note, and date-based completion history
+- Daily tasks with title, canonical `HH:MM` saved time, optional note, chronological sorting, and date-based completion history
 - Diary entries with title, body, date, legacy single-photo support, and up to 6 IndexedDB-backed photos
 - Care records with type, title, record date, type-specific fields, optional next due date, and note
 - Shared care-calendar events for medications, vaccines, and vet visits
@@ -61,6 +61,8 @@ Current localStorage prototype data includes:
 - Full local export/import payload for backup and restore, including referenced IndexedDB photo records
 
 Older localStorage records are normalized on load so prototype changes do not break existing local data.
+
+Routine task times are stored as canonical `HH:MM` strings for new edits, while older labels such as `8:00 PM` are parsed and normalized when possible. The Today routine sorts by parsed time, with unparseable/Anytime tasks last.
 
 Profile and diary photo uploads are adaptively compressed and stored in browser IndexedDB. localStorage keeps only small photo references, so repeated diary photos do not quickly exhaust the app's local state quota. Backup export now needs to include both the JSON state and referenced IndexedDB photo records. Save failures are caught and shown in-app instead of crashing the prototype.
 

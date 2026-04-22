@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import type { MouseEvent } from "react";
 import {
   ageLabel,
   avatarOptions,
@@ -62,10 +63,13 @@ import {
   saveCareRecordToState,
   saveReminderToState,
   setTaskDoneForDate,
+  sortTasksByTime,
   storageKey,
   taskTime,
   tasksForDate,
   todayISO,
+  toTimeInputValue,
+  withTaskTime,
   visibleCareRecords,
   visibleReminders,
   validateCareRecord,
@@ -462,9 +466,9 @@ export default function App() {
           onTaskNote={(id, note) =>
             setState((current) => ({
               ...current,
-              tasks: current.tasks.map((task) =>
+              tasks: sortTasksByTime(current.tasks.map((task) =>
                 task.id === id ? { ...task, note } : task,
-              ),
+              )),
             }))
           }
           onAddTask={() => setTaskMode({ mode: "create" })}
@@ -568,10 +572,11 @@ export default function App() {
           onSave={(task) => {
             setState((current) => ({
               ...current,
-              tasks:
+              tasks: sortTasksByTime(
                 taskMode.mode === "edit"
                   ? current.tasks.map((item) => (item.id === task.id ? task : item))
                   : [...current.tasks, task],
+              ),
             }));
             setTaskMode(null);
           }}
@@ -1805,7 +1810,7 @@ function TaskSheet({
 }) {
   const existing = mode.mode === "edit" ? mode.task : undefined;
   const [title, setTitle] = useState(existing?.title || "");
-  const [time, setTime] = useState(existing?.time || "8:00 AM");
+  const [time, setTime] = useState(toTimeInputValue(existing?.time || "08:00") || "08:00");
 
   return (
     <Sheet title={mode.mode === "edit" ? "Edit task" : "Add task"} onClose={onClose}>
@@ -1816,7 +1821,7 @@ function TaskSheet({
           onSave({
             id: existing?.id || uid("task"),
             title: title.trim(),
-            time: time.trim() || "Anytime",
+            time: withTaskTime({ ...(existing || { id: "preview", title: title.trim(), done: false, note: "" }), title: title.trim(), time }).time,
             done: existing?.done || false,
             note: existing?.note || "",
           });
@@ -1826,7 +1831,7 @@ function TaskSheet({
           <input className="input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Afternoon walk" required />
         </Field>
         <Field label="Time">
-          <input className="input" value={time} onChange={(event) => setTime(event.target.value)} placeholder="4:00 PM" required />
+          <input className="input" type="time" value={time} onChange={(event) => setTime(event.target.value)} required />
         </Field>
         <button className="btn btn-primary">{mode.mode === "edit" ? "Save task" : "Add task"}</button>
       </form>
@@ -2153,9 +2158,21 @@ function Sheet({
   children: React.ReactNode;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  const closeFromBackdrop = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) onClose();
+  };
+
   return (
-    <div className="overlay">
-      <section className="sheet">
+    <div className="overlay" onMouseDown={closeFromBackdrop}>
+      <section className="sheet" onMouseDown={(event) => event.stopPropagation()}>
         <div className="sheet-handle" />
         <div className="sheet-head">
           <h2 className="sheet-title">{title}</h2>
