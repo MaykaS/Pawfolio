@@ -20,6 +20,7 @@ export type DogProfile = {
 export type DailyTask = {
   id: string;
   title: string;
+  time: string;
   done: boolean;
   note: string;
 };
@@ -60,12 +61,13 @@ export type PawfolioState = {
 export const storageKey = "pawfolio-local-v1";
 
 export const defaultTasks: DailyTask[] = [
-  { id: "morning-walk", title: "Morning walk", done: false, note: "" },
-  { id: "breakfast", title: "Breakfast", done: false, note: "" },
-  { id: "evening-walk", title: "Evening walk", done: false, note: "" },
-  { id: "dinner", title: "Dinner", done: false, note: "" },
-  { id: "night-walk", title: "Night walk", done: false, note: "" },
-  { id: "training", title: "Treats or training", done: false, note: "" },
+  { id: "breakfast", title: "Morning meal", time: "7:00 AM", done: false, note: "" },
+  { id: "morning-walk", title: "Morning walk", time: "8:00 AM", done: false, note: "" },
+  { id: "heartgard-pill", title: "Heartgard pill", time: "9:00 AM", done: false, note: "" },
+  { id: "afternoon-meal", title: "Afternoon meal", time: "12:00 PM", done: false, note: "" },
+  { id: "afternoon-walk", title: "Afternoon walk", time: "4:00 PM", done: false, note: "" },
+  { id: "dinner", title: "Evening meal", time: "6:00 PM", done: false, note: "" },
+  { id: "evening-walk", title: "Evening walk", time: "7:30 PM", done: false, note: "" },
 ];
 
 export const initialState: PawfolioState = {
@@ -101,6 +103,9 @@ export const reminderTypes = ["Vet", "Medication", "Grooming", "Walk", "Food", "
 export const routineTimes: Record<string, string> = {
   "morning-walk": "8:00 AM",
   breakfast: "7:00 AM",
+  "heartgard-pill": "9:00 AM",
+  "afternoon-meal": "12:00 PM",
+  "afternoon-walk": "4:00 PM",
   "evening-walk": "7:30 PM",
   dinner: "6:00 PM",
   "night-walk": "9:30 PM",
@@ -130,6 +135,7 @@ export function ageLabel(birthday: string, now = new Date()) {
 }
 
 export function taskTime(task: DailyTask) {
+  if (task.time) return task.time;
   const title = task.title.toLowerCase();
   if (routineTimes[task.id]) return routineTimes[task.id];
   if (title.includes("breakfast") || title.includes("morning meal")) return "7:00 AM";
@@ -140,6 +146,29 @@ export function taskTime(task: DailyTask) {
   if (title.includes("dinner") || title.includes("evening meal")) return "6:00 PM";
   if (title.includes("evening walk")) return "7:30 PM";
   return "Anytime";
+}
+
+export function withTaskTime(task: Omit<DailyTask, "time"> & { time?: string }): DailyTask {
+  return { ...task, time: task.time || taskTime({ ...task, time: "" }) };
+}
+
+export function updateTaskTime(tasks: DailyTask[], id: string, time: string) {
+  return tasks.map((task) => (task.id === id ? { ...task, time } : task));
+}
+
+export function normalizeState(state: Partial<PawfolioState> | null | undefined): PawfolioState {
+  const base = {
+    ...initialState,
+    ...(state || {}),
+  };
+
+  return {
+    ...base,
+    tasks: (base.tasks?.length ? base.tasks : defaultTasks).map(withTaskTime),
+    diary: base.diary || [],
+    care: base.care || [],
+    reminders: base.reminders || [],
+  };
 }
 
 export function getCareMoments(tasks: DailyTask[]) {

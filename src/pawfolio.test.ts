@@ -5,9 +5,12 @@ import {
   getCareMoments,
   getUpcomingReminder,
   latestWeight,
+  normalizeState,
   prettyDate,
   taskTime,
   todayISO,
+  updateTaskTime,
+  withTaskTime,
   type CareRecord,
   type DailyTask,
   type Reminder,
@@ -25,16 +28,45 @@ describe("pawfolio helpers", () => {
   });
 
   it("assigns expected routine times from task ids and titles", () => {
-    expect(taskTime({ id: "breakfast", title: "Breakfast", done: false, note: "" })).toBe("7:00 AM");
-    expect(taskTime({ id: "custom", title: "Heartgard pill", done: false, note: "" })).toBe("9:00 AM");
-    expect(taskTime({ id: "custom-2", title: "Puzzle toy", done: false, note: "" })).toBe("Anytime");
+    expect(taskTime({ id: "breakfast", title: "Breakfast", time: "7:15 AM", done: false, note: "" })).toBe("7:15 AM");
+    expect(taskTime({ id: "custom", title: "Heartgard pill", time: "", done: false, note: "" })).toBe("9:00 AM");
+    expect(taskTime({ id: "custom-2", title: "Puzzle toy", time: "", done: false, note: "" })).toBe("Anytime");
+  });
+
+  it("normalizes older tasks with missing times", () => {
+    const oldTask = { id: "breakfast", title: "Breakfast", done: false, note: "" };
+
+    expect(withTaskTime(oldTask).time).toBe("7:00 AM");
+    expect(
+      normalizeState({
+        tasks: [oldTask],
+        diary: [],
+        care: [],
+        reminders: [],
+      } as unknown as Parameters<typeof normalizeState>[0]).tasks[0].time,
+    ).toBe("7:00 AM");
+  });
+
+  it("updates task times immutably", () => {
+    const tasks: DailyTask[] = [
+      { id: "walk", title: "Morning walk", time: "8:00 AM", done: false, note: "" },
+    ];
+
+    expect(updateTaskTime(tasks, "walk", "8:45 AM")[0]).toEqual({
+      id: "walk",
+      title: "Morning walk",
+      time: "8:45 AM",
+      done: false,
+      note: "",
+    });
+    expect(tasks[0].time).toBe("8:00 AM");
   });
 
   it("summarizes quick log care moments from completed tasks", () => {
     const tasks: DailyTask[] = [
-      { id: "meal", title: "Morning meal", done: true, note: "" },
-      { id: "walk", title: "Morning walk", done: false, note: "" },
-      { id: "med", title: "Heartgard pill", done: true, note: "" },
+      { id: "meal", title: "Morning meal", time: "7:00 AM", done: true, note: "" },
+      { id: "walk", title: "Morning walk", time: "8:00 AM", done: false, note: "" },
+      { id: "med", title: "Heartgard pill", time: "9:00 AM", done: true, note: "" },
     ];
 
     expect(getCareMoments(tasks)).toEqual([
