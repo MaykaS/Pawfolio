@@ -32,6 +32,7 @@ import {
   deleteCareItemFromState,
   daysTogether,
   eventCategory,
+  eventsForDate,
   eventsForMonth,
   getCareMoments,
   getUpcomingReminder,
@@ -65,7 +66,7 @@ import {
 type TaskMode = { mode: "create" } | { mode: "edit"; task: DailyTask };
 type MemoryMode = { mode: "create" } | { mode: "edit"; entry: DiaryEntry };
 type CareMode = { mode: "create" } | { mode: "edit"; record: CareRecord };
-type ReminderMode = { mode: "create" } | { mode: "edit"; reminder: Reminder };
+type ReminderMode = { mode: "create"; date?: string } | { mode: "edit"; reminder: Reminder };
 
 function loadState(): PawfolioState {
   try {
@@ -243,7 +244,7 @@ export default function App() {
       {tab === "calendar" && (
         <CalendarScreen
           reminders={calendarItems}
-          onOpenReminder={() => setReminderMode({ mode: "create" })}
+          onOpenReminder={(date) => setReminderMode({ mode: "create", date })}
           onEdit={(reminder) => setReminderMode({ mode: "edit", reminder })}
           onDelete={(id) =>
             setState((current) => deleteCalendarItemFromState(current, id))
@@ -747,17 +748,19 @@ function CalendarScreen({
   onDelete,
 }: {
   reminders: Reminder[];
-  onOpenReminder: () => void;
+  onOpenReminder: (date?: string) => void;
   onEdit: (reminder: Reminder) => void;
   onDelete: (id: string) => void;
 }) {
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const monthEvents = eventsForMonth(reminders, visibleMonth);
   const upcoming = getUpcomingReminders(reminders);
   const visibleUpcoming = showAllUpcoming ? upcoming : upcoming.slice(0, 3);
   const isCurrentMonth = monthKey(visibleMonth) === monthKey(currentMonth);
+  const selectedDateEvents = selectedDate ? eventsForDate(reminders, selectedDate) : [];
 
   const shiftMonth = (amount: number) => {
     setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
@@ -769,12 +772,12 @@ function CalendarScreen({
         <div>
           <p className="screen-kicker">Calendar</p>
           <div className="month-title-row">
-            <button className="tiny-btn" type="button" aria-label="Previous month" onClick={() => shiftMonth(-1)}>
-              <ChevronLeft size={16} />
+            <button className="calendar-arrow" type="button" aria-label="Previous month" onClick={() => shiftMonth(-1)}>
+              <ChevronLeft size={14} />
             </button>
             <h1 className="screen-title">{visibleMonth.toLocaleDateString("en", { month: "long", year: "numeric" })}</h1>
-            <button className="tiny-btn" type="button" aria-label="Next month" onClick={() => shiftMonth(1)}>
-              <ChevronRight size={16} />
+            <button className="calendar-arrow" type="button" aria-label="Next month" onClick={() => shiftMonth(1)}>
+              <ChevronRight size={14} />
             </button>
           </div>
         </div>
@@ -784,12 +787,17 @@ function CalendarScreen({
               Today
             </button>
           )}
-          <button className="btn btn-sm btn-secondary" type="button" onClick={onOpenReminder}>
+          <button className="btn btn-sm btn-secondary" type="button" onClick={() => onOpenReminder()}>
             + Add
           </button>
         </div>
       </header>
-      <MonthGrid visibleMonth={visibleMonth} reminders={monthEvents} />
+      <MonthGrid
+        visibleMonth={visibleMonth}
+        reminders={monthEvents}
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
+      />
       <div className="label-row">
         <p className="label no-margin">Upcoming</p>
         {upcoming.length > 3 && (
@@ -802,7 +810,7 @@ function CalendarScreen({
         <EmptyState title="No reminders yet" text="Add a vet appointment, medication, food refill, or grooming task." />
       ) : (
         visibleUpcoming.map((reminder) => (
-          <article className="event-item" key={reminder.id}>
+          <article className={`event-item event-${eventCategory(reminder.type)}`} key={reminder.id}>
             <div className="event-date-block">
               <strong>{new Date(`${reminder.date}T00:00`).getDate()}</strong>
               <span>{new Date(`${reminder.date}T00:00`).toLocaleDateString("en", { month: "short" })}</span>
@@ -816,7 +824,72 @@ function CalendarScreen({
           </article>
         ))
       )}
+      {selectedDate && (
+        <DayDetailSheet
+          date={selectedDate}
+          reminders={selectedDateEvents}
+          onAdd={() => {
+            onOpenReminder(selectedDate);
+            setSelectedDate(null);
+          }}
+          onEdit={(reminder) => {
+            onEdit(reminder);
+            setSelectedDate(null);
+          }}
+          onDelete={onDelete}
+          onClose={() => setSelectedDate(null)}
+        />
+      )}
     </section>
+  );
+}
+
+function DayDetailSheet({
+  date,
+  reminders,
+  onAdd,
+  onEdit,
+  onDelete,
+  onClose,
+}: {
+  date: string;
+  reminders: Reminder[];
+  onAdd: () => void;
+  onEdit: (reminder: Reminder) => void;
+  onDelete: (id: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Sheet title={prettyLongDate(date)} onClose={onClose}>
+      <div className="day-detail-head">
+        <p>{reminders.length ? `${reminders.length} calendar item${reminders.length === 1 ? "" : "s"}` : "Nothing saved for this day yet."}</p>
+        <button className="btn btn-sm btn-secondary" type="button" onClick={onAdd}>
+          + Add
+        </button>
+      </div>
+      {reminders.length === 0 ? (
+        <section className="day-empty">
+          <CalendarDays size={22} />
+          <h3>No plans here</h3>
+          <p>Add a medicine, vaccine, vet visit, grooming, walk, food note, or other reminder.</p>
+        </section>
+      ) : (
+        reminders.map((reminder) => (
+          <article className={`event-item day-event event-${eventCategory(reminder.type)}`} key={reminder.id}>
+            <div className="event-date-block">
+              <strong>{reminder.time || "--"}</strong>
+              <span>{reminder.time ? "time" : "any"}</span>
+            </div>
+            <div className="event-copy">
+              {reminder.recurrence !== "none" && <span className="badge badge-amber">{recurrenceLabel(reminder.recurrence)}</span>}
+              <h2>{reminder.title}</h2>
+              <p>{reminder.type}{reminder.note && ` - ${reminder.note}`}</p>
+            </div>
+            <CardActions onEdit={() => onEdit(reminder)} onDelete={() => onDelete(reminder.id)} />
+          </article>
+        ))
+      )}
+    </Sheet>
   );
 }
 
@@ -976,7 +1049,17 @@ function ProfileEditSheet({
   );
 }
 
-function MonthGrid({ visibleMonth, reminders }: { visibleMonth: Date; reminders: Reminder[] }) {
+function MonthGrid({
+  visibleMonth,
+  reminders,
+  selectedDate,
+  onSelectDate,
+}: {
+  visibleMonth: Date;
+  reminders: Reminder[];
+  selectedDate: string | null;
+  onSelectDate: (date: string) => void;
+}) {
   const now = new Date();
   const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate();
   const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1).getDay();
@@ -1002,11 +1085,25 @@ function MonthGrid({ visibleMonth, reminders }: { visibleMonth: Date; reminders:
             cell.day === String(now.getDate()) &&
             visibleMonth.getMonth() === now.getMonth() &&
             visibleMonth.getFullYear() === now.getFullYear();
+          const date = cell.day
+            ? `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}-${cell.day.padStart(2, "0")}`
+            : "";
+          const isSelected = Boolean(date && selectedDate === date);
           const categories = [...new Set(eventsByDay[cell.day] || [])].slice(0, 3);
 
+          if (!cell.day) {
+            return <span className="month-day blank" key={cell.key} />;
+          }
+
           return (
-            <span className={isToday ? "month-day today" : "month-day"} key={cell.key}>
-              {cell.day && <span>{cell.day}</span>}
+            <button
+              className={`${isToday ? "month-day today" : "month-day"} ${isSelected ? "selected" : ""}`}
+              key={cell.key}
+              type="button"
+              aria-label={`Open ${prettyLongDate(date)}`}
+              onClick={() => onSelectDate(date)}
+            >
+              <span>{cell.day}</span>
               {categories.length > 0 && (
                 <span className="event-dots">
                   {categories.map((category) => (
@@ -1014,7 +1111,7 @@ function MonthGrid({ visibleMonth, reminders }: { visibleMonth: Date; reminders:
                   ))}
                 </span>
               )}
-            </span>
+            </button>
           );
         })}
       </div>
@@ -1183,7 +1280,7 @@ function ReminderSheet({
   const [reminder, setReminder] = useState({
     title: existing?.title || "",
     type: existing?.type || "Vet",
-    date: existing?.date || todayISO(),
+    date: existing?.date || (mode.mode === "create" ? mode.date : undefined) || todayISO(),
     time: existing?.time || "",
     note: existing?.note || "",
     recurrence: existing?.recurrence || ("none" as ReminderRecurrence),

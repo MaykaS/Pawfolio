@@ -706,6 +706,7 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   border-radius: 14px;
   margin-bottom: 8px;
   box-shadow: var(--shadow-sm);
+  border-left: 3px solid var(--primary-light);
 }
 
 .event-date-block {
@@ -731,6 +732,51 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 
 .event-copy {
   flex: 1;
+  min-width: 0;
+}
+
+.event-medication {
+  border-left-color: var(--blue);
+}
+
+.event-medication .event-date-block {
+  color: var(--blue);
+  background: var(--blue-light);
+}
+
+.event-vaccine,
+.event-vet,
+.event-food {
+  border-left-color: var(--green);
+}
+
+.event-vaccine .event-date-block,
+.event-vet .event-date-block,
+.event-food .event-date-block {
+  color: var(--green);
+  background: var(--green-light);
+}
+
+.event-walk {
+  border-left-color: var(--lavender);
+}
+
+.event-walk .event-date-block {
+  color: var(--lavender);
+  background: var(--lavender-light);
+}
+
+.event-other {
+  border-left-color: var(--muted);
+}
+
+.event-other .event-date-block {
+  color: var(--text-med);
+  background: var(--cream-med);
+}
+
+.event-grooming {
+  border-left-color: var(--primary);
 }
 
 .calendar-head {
@@ -750,11 +796,33 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 .month-title-row {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .month-title-row .screen-title {
   min-width: 164px;
+}
+
+.calendar-arrow {
+  align-items: center;
+  background: var(--cream-med);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text-med);
+  display: inline-flex;
+  height: 26px;
+  justify-content: center;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  width: 26px;
+}
+
+.calendar-arrow:active {
+  transform: scale(0.94);
+}
+
+.calendar-arrow:hover {
+  background: white;
+  color: var(--primary);
 }
 
 .month-card {
@@ -770,6 +838,8 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 .weekday,
 .month-day {
   border-radius: 10px;
+  border: 0;
+  background: transparent;
   color: var(--text);
   flex-direction: column;
   gap: 2px;
@@ -782,6 +852,15 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   position: relative;
 }
 
+.month-day.blank {
+  cursor: default;
+  pointer-events: none;
+}
+
+.month-day:not(.blank):hover {
+  background: var(--primary-pale);
+}
+
 .weekday {
   color: var(--muted);
   font-size: 10px;
@@ -792,6 +871,15 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   background: var(--primary);
   color: white;
   border-radius: 10px;
+}
+
+.month-day.selected:not(.today) {
+  background: var(--green-light);
+  color: var(--green);
+}
+
+.month-day.selected.today {
+  box-shadow: inset 0 0 0 2px white;
 }
 
 .event-dots {
@@ -811,7 +899,7 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 
 .dot-medication { background: var(--blue); }
 .dot-vaccine { background: var(--green); }
-.dot-vet { background: var(--amber); }
+.dot-vet { background: var(--green); }
 .dot-grooming { background: var(--primary); }
 .dot-walk { background: var(--lavender); }
 .dot-food { background: var(--green); }
@@ -820,6 +908,56 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 .month-day.today .event-dot {
   background: white;
   opacity: 0.95;
+}
+
+.day-detail-head {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.day-detail-head p {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.day-event {
+  margin-bottom: 8px;
+}
+
+.day-event .event-date-block {
+  min-width: 46px;
+}
+
+.day-event .event-date-block strong {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.day-empty {
+  background: var(--primary-pale);
+  border-radius: 16px;
+  color: var(--muted);
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 20px 14px;
+  text-align: center;
+}
+
+.day-empty h3 {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.day-empty p {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .profile-screen {

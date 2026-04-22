@@ -89,3 +89,9 @@ Reason: Full-size phone photos can exceed browser storage limits and crash the l
 Decision: The planned future cloud path is Supabase Auth with Postgres Row Level Security.
 
 Reason: Pawfolio needs per-user private data where each user sees only their own pet records, and Supabase can start on a free tier while supporting a relational care model.
+
+## 2026-04-22: Use One Health Color For Vet And Vaccine Calendar Items
+
+Decision: Vet visits and vaccines keep separate record types, but share the same green health styling in Calendar views.
+
+Reason: Both represent health-care milestones, and a single health color makes the calendar easier to scan without weakening the underlying data model.

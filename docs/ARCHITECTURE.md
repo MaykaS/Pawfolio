@@ -51,6 +51,7 @@ Current localStorage prototype data includes:
 - Care records with type, title, record date, optional next due date, and note
 - Shared care-calendar events for medications, vaccines, and vet visits
 - Calendar-only reminders with title, type, date, time, note, and recurrence label
+- Calendar helper views for future-only upcoming items, visible-month events, and selected-day event details
 
 Older localStorage records are normalized on load so prototype changes do not break existing local data.
 
@@ -105,6 +106,7 @@ Reminder records should be designed with:
 - Type
 - Due date/time
 - Repeat rule
+- Calculated next occurrence for recurring reminders
 - Completion status
 - Pet association
 - Optional assigned user later

@@ -96,6 +96,7 @@ A schedule and reminder area for:
 - Grooming
 - Medications
 - Recurring reminders
+- Clickable day details to see what happened or is scheduled on a date
 - Walks
 - Play dates
 - Tasks such as scheduling appointments or buying food

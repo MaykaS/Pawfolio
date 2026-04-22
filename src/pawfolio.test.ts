@@ -7,6 +7,8 @@ import {
   daysTogether,
   estimateDataUrlBytes,
   eventCategory,
+  eventCategoryColor,
+  eventsForDate,
   eventsForMonth,
   getCareMoments,
   getUpcomingReminder,
@@ -257,6 +259,21 @@ describe("pawfolio helpers", () => {
     expect(eventCategory("Walk")).toBe("walk");
     expect(eventCategory("Food")).toBe("food");
     expect(eventCategory("Other")).toBe("other");
+    expect(eventCategoryColor("Vaccine")).toBe("green");
+    expect(eventCategoryColor("Vet")).toBe("green");
+    expect(eventCategoryColor("Medication")).toBe("blue");
+  });
+
+  it("returns selected day events sorted by time", () => {
+    const reminders: Reminder[] = [
+      { id: "late", title: "Dinner meds", type: "Medication", date: "2026-04-22", time: "18:00", note: "", recurrence: "none" },
+      { id: "other-day", title: "Grooming", type: "Grooming", date: "2026-04-23", time: "08:00", note: "", recurrence: "none" },
+      { id: "early", title: "Morning meds", type: "Medication", date: "2026-04-22", time: "08:00", note: "", recurrence: "none" },
+      { id: "any", title: "Vet note", type: "Vet", date: "2026-04-22", time: "", note: "", recurrence: "none" },
+    ];
+
+    expect(eventsForDate(reminders, "2026-04-22").map((reminder) => reminder.id)).toEqual(["early", "late", "any"]);
+    expect(eventsForDate(reminders, "2026-04-24")).toEqual([]);
   });
 
   it("derives care status and latest weight", () => {

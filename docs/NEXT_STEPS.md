@@ -17,27 +17,27 @@ Implemented:
 - Care records with type tabs
 - Care next due dates for vaccines, medications, and follow-up care
 - Shared medication, vaccine, and vet visit items across Care and Calendar
-- Calendar reminders with recurrence labels
+- Calendar reminders with recurrence labels, month navigation, future-only upcoming items, and clickable day details
+- Unified green health styling for vaccine and vet calendar items
 - Profile screen with health record export
 - Photo compression and safer local saves
 - localStorage persistence
 
 ## Immediate Next Improvements
 
-1. Deploy the PWA to Vercel and install it from Android Chrome.
-2. Test the installed home-screen app:
-   - Launches in standalone mode
-   - Saves localStorage data
-   - Reopens with saved dog data
-   - Loads the app shell after the first visit
-3. Improve care forms by type:
+1. Improve care forms by type:
    - Vaccines: next due date and vaccine notes
    - Medication: dose, frequency, refill/next dose
    - Vet visit: clinic, vet, follow-up date
    - Weight: numeric weight and trend display
-4. Make recurring reminders calculate the next upcoming occurrence automatically.
-5. Add full data export/import for localStorage safety.
-6. Add a daily rollover/reset model so completed routine tasks are tracked per day.
+2. Make recurring reminders calculate the next upcoming occurrence automatically.
+3. Add full data export/import for localStorage safety.
+4. Add a daily rollover/reset model so completed routine tasks are tracked per day.
+5. Continue installed PWA testing from Android Chrome:
+   - Launches in standalone mode
+   - Saves localStorage data
+   - Reopens with saved dog data
+   - Loads the app shell after the first visit
 
 ## Prototype Content To Keep Improving
 

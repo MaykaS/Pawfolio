@@ -57,6 +57,7 @@ Current prototype behavior:
 - Shared medication, vaccine, and vet visit items across Care and Calendar
 - Care records with type filtering, next due dates, and health export
 - Calendar reminders with recurrence labels
+- Calendar month navigation with clickable day details
 - Browser-local persistence
 
 Run locally:

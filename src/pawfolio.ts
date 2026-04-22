@@ -444,6 +444,15 @@ export function eventCategory(type: string) {
   return "other";
 }
 
+export function eventCategoryColor(type: string) {
+  if (type === "Medication") return "blue";
+  if (type === "Vaccine" || type === "Vet" || type === "Vet visit") return "green";
+  if (type === "Grooming") return "coral";
+  if (type === "Walk") return "lavender";
+  if (type === "Food") return "green";
+  return "gray";
+}
+
 export function eventsForMonth(reminders: Reminder[], visibleMonth: Date) {
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
@@ -452,6 +461,12 @@ export function eventsForMonth(reminders: Reminder[], visibleMonth: Date) {
     const date = new Date(`${reminder.date}T00:00`);
     return date.getFullYear() === year && date.getMonth() === month;
   });
+}
+
+export function eventsForDate(reminders: Reminder[], date: string) {
+  return reminders
+    .filter((reminder) => reminder.date === date)
+    .sort((a, b) => `${a.time || "99:99"} ${a.title}`.localeCompare(`${b.time || "99:99"} ${b.title}`));
 }
 
 export function recurrenceLabel(recurrence: ReminderRecurrence) {

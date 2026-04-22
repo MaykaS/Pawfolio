@@ -28,6 +28,7 @@ Included:
 - User-entered care records with type tabs and next due dates
 - Calendar/reminders screen
 - User-entered reminders with recurrence labels
+- Month navigation, future-only upcoming items, and clickable day details
 - Profile screen
 - Health record export
 - Cute animated UI moments
@@ -51,13 +52,15 @@ Included:
 
 - PWA install support or equivalent mobile testing packaging
 - Full local export/import while data remains local-first
+- Type-specific care forms for vaccines, medications, vet visits, and weight trends
+- Daily routine rollover so task completion is tracked per day
 - User account model
 - Pet profile storage
 - Diary entry storage
 - Reminder storage
 - Care record storage
 - Local image upload handling
-- Notification-ready reminder and recurrence model
+- Notification-ready reminder and calculated recurrence model
 
 Success criteria:
 
