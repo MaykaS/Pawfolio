@@ -53,8 +53,10 @@ Current prototype behavior:
 - Compact task notes that open only when needed
 - Custom daily tasks with editable times
 - Diary entries with optional photos
+- Compressed photo uploads to reduce localStorage crashes
+- Shared medication, vaccine, and vet visit items across Care and Calendar
 - Care records with type filtering, next due dates, and health export
-- Reminders with recurrence labels
+- Calendar reminders with recurrence labels
 - Browser-local persistence
 
 Run locally:

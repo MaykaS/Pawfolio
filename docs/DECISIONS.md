@@ -71,3 +71,21 @@ Reason: A PWA gives the current prototype a home-screen icon and standalone app 
 Decision: Use Vercel as the first hosted target for Pawfolio's installable PWA.
 
 Reason: Android Chrome needs HTTPS for the proper install and service-worker experience, and Vercel fits the existing Vite static build.
+
+## 2026-04-22: Share Care And Calendar Items
+
+Decision: Medications, vaccines, and vet visits use one shared care-calendar item that appears in both Care and Calendar.
+
+Reason: Pet care should not require entering the same medicine, vaccine, or visit in multiple places.
+
+## 2026-04-22: Compress Photos Before Saving Locally
+
+Decision: Profile and diary photo uploads are compressed before saving to localStorage, and save failures show an in-app warning.
+
+Reason: Full-size phone photos can exceed browser storage limits and crash the local-first prototype.
+
+## 2026-04-22: Plan Supabase For Personalized Cloud Data Later
+
+Decision: The planned future cloud path is Supabase Auth with Postgres Row Level Security.
+
+Reason: Pawfolio needs per-user private data where each user sees only their own pet records, and Supabase can start on a free tier while supporting a relational care model.

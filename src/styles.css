@@ -83,6 +83,23 @@ button {
   display: none;
 }
 
+.app-alert {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  right: 14px;
+  z-index: 500;
+  border: 1px solid oklch(82% 0.07 38);
+  background: oklch(98% 0.025 38);
+  color: var(--primary);
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .screen-head {
   display: flex;
   align-items: flex-start;

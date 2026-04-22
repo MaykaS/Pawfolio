@@ -47,11 +47,16 @@ Current localStorage prototype data includes:
 
 - Dog profile with name, breed, birthday, weight, personality, photo, and avatar settings
 - Daily tasks with title, completion state, saved time, and optional note
-- Diary entries with title, body, date, and optional photo
+- Diary entries with title, body, date, and compressed optional photo
 - Care records with type, title, record date, optional next due date, and note
-- Calendar reminders with title, type, date, time, note, and recurrence label
+- Shared care-calendar events for medications, vaccines, and vet visits
+- Calendar-only reminders with title, type, date, time, note, and recurrence label
 
 Older localStorage records are normalized on load so prototype changes do not break existing local data.
+
+Profile and diary photo uploads are compressed before localStorage writes. Save failures are caught and shown in-app instead of crashing the prototype.
+
+Future cloud persistence should use Supabase Auth plus Postgres Row Level Security. Each user-owned row should include a `user_id`, with policies limiting access to the authenticated user's own data.
 
 Likely future entities:
 

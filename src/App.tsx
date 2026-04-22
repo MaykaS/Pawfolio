@@ -27,6 +27,8 @@ import {
   breedOptions,
   careStatus,
   careTypes,
+  deleteCalendarItemFromState,
+  deleteCareItemFromState,
   daysTogether,
   getCareMoments,
   getUpcomingReminder,
@@ -37,9 +39,14 @@ import {
   recurrenceLabel,
   reminderRecurrenceOptions,
   reminderTypes,
+  safeSetLocalStorage,
+  saveCareRecordToState,
+  saveReminderToState,
   storageKey,
   taskTime,
   todayISO,
+  visibleCareRecords,
+  visibleReminders,
   type CareRecord,
   type DailyTask,
   type DiaryEntry,
@@ -79,6 +86,32 @@ function readFile(file: File): Promise<string> {
   });
 }
 
+async function readCompressedImage(file: File, maxDimension: number, quality = 0.78): Promise<string> {
+  if (!file.type.startsWith("image/")) return readFile(file);
+
+  const sourceUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = sourceUrl;
+    await image.decode();
+
+    const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) return readFile(file);
+    context.drawImage(image, 0, 0, width, height);
+    return canvas.toDataURL("image/jpeg", quality);
+  } catch {
+    return readFile(file);
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
+
 function countTasks(tasks: DailyTask[], pattern: RegExp) {
   return tasks.filter((task) => pattern.test(task.title) && task.done).length;
 }
@@ -106,21 +139,26 @@ export default function App() {
   const [memoryMode, setMemoryMode] = useState<MemoryMode | null>(null);
   const [careMode, setCareMode] = useState<CareMode | null>(null);
   const [reminderMode, setReminderMode] = useState<ReminderMode | null>(null);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(state));
+    const result = safeSetLocalStorage(localStorage, storageKey, state);
+    setSaveError(result.ok ? "" : result.message);
   }, [state]);
 
   const completed = state.tasks.filter((task) => task.done).length;
   const progress = state.tasks.length ? completed / state.tasks.length : 0;
+  const careRecords = useMemo(() => visibleCareRecords(state), [state]);
+  const calendarItems = useMemo(() => visibleReminders(state), [state]);
   const upcomingReminder = useMemo(
-    () => getUpcomingReminder(state.reminders),
-    [state.reminders],
+    () => getUpcomingReminder(calendarItems),
+    [calendarItems],
   );
 
   if (!state.profile) {
     return (
       <main className="app-root">
+        {saveError && <div className="app-alert">{saveError}</div>}
         <Onboarding
           onSave={(profile) => setState((current) => ({ ...current, profile }))}
         />
@@ -130,6 +168,7 @@ export default function App() {
 
   return (
     <main className="app-root">
+      {saveError && <div className="app-alert">{saveError}</div>}
       {tab === "today" && (
         <TodayScreen
           profile={state.profile}
@@ -184,28 +223,22 @@ export default function App() {
       {tab === "care" && (
         <CareScreen
           profile={state.profile}
-          records={state.care}
+          records={careRecords}
           onOpenCare={() => setCareMode({ mode: "create" })}
           onEdit={(record) => setCareMode({ mode: "edit", record })}
           onDelete={(id) =>
-            setState((current) => ({
-              ...current,
-              care: current.care.filter((record) => record.id !== id),
-            }))
+            setState((current) => deleteCareItemFromState(current, id))
           }
         />
       )}
 
       {tab === "calendar" && (
         <CalendarScreen
-          reminders={state.reminders}
+          reminders={calendarItems}
           onOpenReminder={() => setReminderMode({ mode: "create" })}
           onEdit={(reminder) => setReminderMode({ mode: "edit", reminder })}
           onDelete={(id) =>
-            setState((current) => ({
-              ...current,
-              reminders: current.reminders.filter((reminder) => reminder.id !== id),
-            }))
+            setState((current) => deleteCalendarItemFromState(current, id))
           }
         />
       )}
@@ -215,7 +248,7 @@ export default function App() {
           profile={state.profile}
           diaryCount={state.diary.length}
           walkCount={state.tasks.filter((task) => /walk/i.test(task.title)).length}
-          careRecords={state.care}
+          careRecords={careRecords}
           onSave={(profile) => setState((current) => ({ ...current, profile }))}
         />
       )}
@@ -261,13 +294,7 @@ export default function App() {
           mode={careMode}
           onClose={() => setCareMode(null)}
           onSave={(record) => {
-            setState((current) => ({
-              ...current,
-              care:
-                careMode.mode === "edit"
-                  ? current.care.map((item) => (item.id === record.id ? record : item))
-                  : [record, ...current.care],
-            }));
+            setState((current) => saveCareRecordToState(current, record));
             setCareMode(null);
           }}
         />
@@ -278,15 +305,7 @@ export default function App() {
           mode={reminderMode}
           onClose={() => setReminderMode(null)}
           onSave={(reminder) => {
-            setState((current) => ({
-              ...current,
-              reminders:
-                reminderMode.mode === "edit"
-                  ? current.reminders.map((item) =>
-                      item.id === reminder.id ? reminder : item,
-                    )
-                  : [...current.reminders, reminder],
-            }));
+            setState((current) => saveReminderToState(current, reminder));
             setReminderMode(null);
           }}
         />
@@ -339,7 +358,7 @@ function Onboarding({ onSave }: { onSave: (profile: DogProfile) => void }) {
   const updatePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const photo = await readFile(file);
+    const photo = await readCompressedImage(file, 512);
     setProfile((current) => ({ ...current, photo }));
   };
 
@@ -857,7 +876,7 @@ function ProfileEditSheet({
   const updatePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const photo = await readFile(file);
+    const photo = await readCompressedImage(file, 512);
     setDraft((current) => ({ ...current, photo }));
   };
 
@@ -1000,7 +1019,7 @@ function MemorySheet({
   const updatePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setPhoto(await readFile(file));
+    setPhoto(await readCompressedImage(file, 900, 0.74));
   };
 
   return (

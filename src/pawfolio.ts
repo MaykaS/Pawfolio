@@ -42,7 +42,19 @@ export type CareRecord = {
   nextDueDate?: string;
 };
 
+export type SharedCareType = "Medication" | "Vaccine" | "Vet visit";
 export type ReminderRecurrence = "none" | "daily" | "weekly" | "monthly" | "yearly";
+
+export type CareEvent = {
+  id: string;
+  type: SharedCareType;
+  title: string;
+  date: string;
+  time: string;
+  note: string;
+  nextDueDate?: string;
+  recurrence: ReminderRecurrence;
+};
 
 export type Reminder = {
   id: string;
@@ -59,6 +71,7 @@ export type PawfolioState = {
   tasks: DailyTask[];
   diary: DiaryEntry[];
   care: CareRecord[];
+  careEvents: CareEvent[];
   reminders: Reminder[];
 };
 
@@ -78,6 +91,7 @@ export const initialState: PawfolioState = {
   tasks: defaultTasks,
   diary: [],
   care: [],
+  careEvents: [],
   reminders: [],
 };
 
@@ -182,8 +196,111 @@ export function withCareSchedule(record: CareRecord): CareRecord {
   return { ...record, nextDueDate: record.nextDueDate || "" };
 }
 
+export function withCareEventSchedule(event: Omit<CareEvent, "recurrence"> & { recurrence?: ReminderRecurrence }): CareEvent {
+  return { ...event, nextDueDate: event.nextDueDate || "", recurrence: event.recurrence || "none" };
+}
+
 export function updateTaskTime(tasks: DailyTask[], id: string, time: string) {
   return tasks.map((task) => (task.id === id ? { ...task, time } : task));
+}
+
+export function isSharedCareType(type: string): type is SharedCareType {
+  return type === "Medication" || type === "Vaccine" || type === "Vet visit";
+}
+
+export function reminderTypeToCareType(type: string): SharedCareType | undefined {
+  if (type === "Medication") return "Medication";
+  if (type === "Vaccine") return "Vaccine";
+  if (type === "Vet") return "Vet visit";
+  return undefined;
+}
+
+export function careTypeToReminderType(type: SharedCareType) {
+  return type === "Vet visit" ? "Vet" : type;
+}
+
+function careEventKey(event: CareEvent) {
+  return `${event.type}|${event.title.trim().toLowerCase()}|${event.date}`;
+}
+
+export function careRecordToEvent(record: CareRecord): CareEvent {
+  const type = isSharedCareType(record.type) ? record.type : "Medication";
+  return {
+    id: record.id,
+    type,
+    title: record.title,
+    date: record.date,
+    time: "",
+    note: record.note,
+    nextDueDate: record.nextDueDate || "",
+    recurrence: "none",
+  };
+}
+
+export function reminderToCareEvent(reminder: Reminder): CareEvent | undefined {
+  const type = reminderTypeToCareType(reminder.type);
+  if (!type) return undefined;
+  return {
+    id: reminder.id,
+    type,
+    title: reminder.title,
+    date: reminder.date,
+    time: reminder.time,
+    note: reminder.note,
+    nextDueDate: "",
+    recurrence: reminder.recurrence || "none",
+  };
+}
+
+export function careEventToCareRecord(event: CareEvent): CareRecord {
+  return {
+    id: event.id,
+    type: event.type,
+    title: event.title,
+    date: event.date,
+    note: event.note,
+    nextDueDate: event.nextDueDate || "",
+  };
+}
+
+export function careEventToReminder(event: CareEvent): Reminder {
+  return {
+    id: event.id,
+    title: event.title,
+    type: careTypeToReminderType(event.type),
+    date: event.date,
+    time: event.time,
+    note: event.note,
+    recurrence: event.recurrence || "none",
+  };
+}
+
+function mergeCareEvent(events: CareEvent[], event: CareEvent) {
+  const normalized = withCareEventSchedule(event);
+  const existingIndex = events.findIndex(
+    (item) => item.id === normalized.id || careEventKey(item) === careEventKey(normalized),
+  );
+  if (existingIndex === -1) return [...events, normalized];
+
+  return events.map((item, index) =>
+    index === existingIndex
+      ? {
+          ...item,
+          ...normalized,
+          id: item.id,
+          time: normalized.time || item.time,
+          note: normalized.note || item.note,
+          nextDueDate: normalized.nextDueDate || item.nextDueDate || "",
+          recurrence: normalized.recurrence !== "none" ? normalized.recurrence : item.recurrence,
+        }
+      : item,
+  );
+}
+
+function upsertById<T extends { id: string }>(items: T[], item: T) {
+  return items.some((current) => current.id === item.id)
+    ? items.map((current) => (current.id === item.id ? item : current))
+    : [item, ...items];
 }
 
 export function normalizeState(state: Partial<PawfolioState> | null | undefined): PawfolioState {
@@ -191,14 +308,105 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
     ...initialState,
     ...(state || {}),
   };
+  const normalizedCare = (base.care || []).map(withCareSchedule);
+  const normalizedReminders = (base.reminders || []).map(withReminderRecurrence);
+  let careEvents = (base.careEvents || []).map(withCareEventSchedule);
+
+  normalizedCare.filter((record) => isSharedCareType(record.type)).forEach((record) => {
+    careEvents = mergeCareEvent(careEvents, careRecordToEvent(record));
+  });
+
+  normalizedReminders.forEach((reminder) => {
+    const event = reminderToCareEvent(reminder);
+    if (event) careEvents = mergeCareEvent(careEvents, event);
+  });
 
   return {
     ...base,
     tasks: (base.tasks?.length ? base.tasks : defaultTasks).map(withTaskTime),
     diary: base.diary || [],
-    care: (base.care || []).map(withCareSchedule),
-    reminders: (base.reminders || []).map(withReminderRecurrence),
+    care: normalizedCare.filter((record) => !isSharedCareType(record.type)),
+    careEvents,
+    reminders: normalizedReminders.filter((reminder) => !reminderTypeToCareType(reminder.type)),
   };
+}
+
+export function visibleCareRecords(state: Pick<PawfolioState, "care" | "careEvents">) {
+  return [...state.care, ...state.careEvents.map(careEventToCareRecord)];
+}
+
+export function visibleReminders(state: Pick<PawfolioState, "reminders" | "careEvents">) {
+  return [...state.reminders, ...state.careEvents.map(careEventToReminder)];
+}
+
+export function saveCareRecordToState(state: PawfolioState, record: CareRecord): PawfolioState {
+  if (isSharedCareType(record.type)) {
+    return {
+      ...state,
+      care: state.care.filter((item) => item.id !== record.id),
+      careEvents: mergeCareEvent(state.careEvents, careRecordToEvent(record)),
+    };
+  }
+
+  return {
+    ...state,
+    care: upsertById(state.care, withCareSchedule(record)),
+    careEvents: state.careEvents.filter((item) => item.id !== record.id),
+  };
+}
+
+export function saveReminderToState(state: PawfolioState, reminder: Reminder): PawfolioState {
+  const event = reminderToCareEvent(reminder);
+  if (event) {
+    return {
+      ...state,
+      reminders: state.reminders.filter((item) => item.id !== reminder.id),
+      careEvents: mergeCareEvent(state.careEvents, event),
+    };
+  }
+
+  return {
+    ...state,
+    reminders: upsertById(state.reminders, withReminderRecurrence(reminder)),
+    careEvents: state.careEvents.filter((item) => item.id !== reminder.id),
+  };
+}
+
+export function deleteCareItemFromState(state: PawfolioState, id: string): PawfolioState {
+  return {
+    ...state,
+    care: state.care.filter((record) => record.id !== id),
+    careEvents: state.careEvents.filter((event) => event.id !== id),
+  };
+}
+
+export function deleteCalendarItemFromState(state: PawfolioState, id: string): PawfolioState {
+  return {
+    ...state,
+    reminders: state.reminders.filter((reminder) => reminder.id !== id),
+    careEvents: state.careEvents.filter((event) => event.id !== id),
+  };
+}
+
+export function estimateDataUrlBytes(dataUrl: string) {
+  const encoded = dataUrl.split(",")[1] || "";
+  return Math.ceil((encoded.length * 3) / 4);
+}
+
+export function safeSetLocalStorage(
+  storage: Pick<Storage, "setItem">,
+  key: string,
+  value: unknown,
+): { ok: true } | { ok: false; message: string } {
+  try {
+    storage.setItem(key, JSON.stringify(value));
+    return { ok: true };
+  } catch {
+    return {
+      ok: false,
+      message: "Pawfolio could not save the latest change. Try a smaller photo or export your data before adding more photos.",
+    };
+  }
 }
 
 export function getCareMoments(tasks: DailyTask[]) {

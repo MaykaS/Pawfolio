@@ -2,16 +2,24 @@ import { describe, expect, it } from "vitest";
 import {
   ageLabel,
   careStatus,
+  deleteCalendarItemFromState,
+  deleteCareItemFromState,
   daysTogether,
+  estimateDataUrlBytes,
   getCareMoments,
   getUpcomingReminder,
   latestWeight,
   normalizeState,
   prettyDate,
   recurrenceLabel,
+  safeSetLocalStorage,
+  saveCareRecordToState,
+  saveReminderToState,
   taskTime,
   todayISO,
   updateTaskTime,
+  visibleCareRecords,
+  visibleReminders,
   withCareSchedule,
   withReminderRecurrence,
   withTaskTime,
@@ -57,14 +65,111 @@ describe("pawfolio helpers", () => {
 
     expect(withReminderRecurrence(oldReminder).recurrence).toBe("none");
     expect(recurrenceLabel("monthly")).toBe("Every month");
-    expect(
-      normalizeState({
-        tasks: [],
-        diary: [],
-        care: [],
-        reminders: [oldReminder],
-      } as unknown as Parameters<typeof normalizeState>[0]).reminders[0].recurrence,
-    ).toBe("none");
+    const normalized = normalizeState({
+      tasks: [],
+      diary: [],
+      care: [],
+      reminders: [oldReminder],
+    } as unknown as Parameters<typeof normalizeState>[0]);
+
+    expect(normalized.reminders).toEqual([]);
+    expect(normalized.careEvents[0].recurrence).toBe("none");
+  });
+
+  it("normalizes shared care and calendar records into one care event", () => {
+    const normalized = normalizeState({
+      tasks: [],
+      diary: [],
+      care: [{ id: "care-med", type: "Medication", title: "Heartgard", date: "2026-05-01", note: "given", nextDueDate: "" }],
+      reminders: [{ id: "rem-med", title: "Heartgard", type: "Medication", date: "2026-05-01", time: "09:00", note: "", recurrence: "monthly" }],
+    });
+
+    expect(normalized.care).toEqual([]);
+    expect(normalized.reminders).toEqual([]);
+    expect(normalized.careEvents).toHaveLength(1);
+    expect(normalized.careEvents[0]).toMatchObject({
+      title: "Heartgard",
+      type: "Medication",
+      time: "09:00",
+      recurrence: "monthly",
+      note: "given",
+    });
+  });
+
+  it("keeps calendar-only reminders and care-only records separate", () => {
+    const state = normalizeState({
+      tasks: [],
+      diary: [],
+      care: [{ id: "weight", type: "Weight", title: "27 lb", date: "2026-04-21", note: "" }],
+      reminders: [{ id: "groom", title: "Grooming", type: "Grooming", date: "2026-05-01", time: "11:00", note: "", recurrence: "none" }],
+    });
+
+    expect(state.careEvents).toEqual([]);
+    expect(visibleCareRecords(state).map((record) => record.type)).toEqual(["Weight"]);
+    expect(visibleReminders(state).map((reminder) => reminder.type)).toEqual(["Grooming"]);
+  });
+
+  it("syncs shared care records into calendar and shared calendar items into care", () => {
+    let state = normalizeState(undefined);
+    state = saveCareRecordToState(state, {
+      id: "vaccine",
+      type: "Vaccine",
+      title: "Rabies",
+      date: "2026-04-21",
+      note: "next in 3 years",
+      nextDueDate: "2029-04-21",
+    });
+
+    expect(visibleReminders(state)[0]).toMatchObject({ id: "vaccine", type: "Vaccine", title: "Rabies" });
+    expect(visibleCareRecords(state)[0]).toMatchObject({ id: "vaccine", type: "Vaccine", title: "Rabies" });
+
+    state = saveReminderToState(state, {
+      id: "vet",
+      title: "Annual checkup",
+      type: "Vet",
+      date: "2026-05-10",
+      time: "10:00",
+      note: "Dr. Lee",
+      recurrence: "yearly",
+    });
+
+    expect(visibleCareRecords(state).some((record) => record.type === "Vet visit" && record.title === "Annual checkup")).toBe(true);
+    expect(visibleReminders(state).some((reminder) => reminder.type === "Vet" && reminder.title === "Annual checkup")).toBe(true);
+  });
+
+  it("edits and deletes shared items from either side without duplicates", () => {
+    let state = saveReminderToState(normalizeState(undefined), {
+      id: "med",
+      title: "Heartgard",
+      type: "Medication",
+      date: "2026-05-01",
+      time: "09:00",
+      note: "",
+      recurrence: "monthly",
+    });
+
+    state = saveCareRecordToState(state, {
+      id: "med",
+      type: "Medication",
+      title: "Heartgard Plus",
+      date: "2026-05-01",
+      note: "with food",
+      nextDueDate: "2026-06-01",
+    });
+
+    expect(state.careEvents).toHaveLength(1);
+    expect(visibleReminders(state)[0]).toMatchObject({ title: "Heartgard Plus" });
+
+    expect(deleteCalendarItemFromState(state, "med").careEvents).toEqual([]);
+    state = saveCareRecordToState(normalizeState(undefined), {
+      id: "vet",
+      type: "Vet visit",
+      title: "Checkup",
+      date: "2026-05-01",
+      note: "",
+      nextDueDate: "",
+    });
+    expect(deleteCareItemFromState(state, "vet").careEvents).toEqual([]);
   });
 
   it("normalizes older care records and calculates next due status", () => {
@@ -77,7 +182,7 @@ describe("pawfolio helpers", () => {
         diary: [],
         care: [oldCareRecord],
         reminders: [],
-      }).care[0].nextDueDate,
+      }).careEvents[0].nextDueDate,
     ).toBe("");
     expect(careStatus({ ...oldCareRecord, nextDueDate: "2026-05-15" }, new Date("2026-04-21T12:00:00"))).toBe("Due soon");
     expect(careStatus({ ...oldCareRecord, nextDueDate: "2026-04-01" }, new Date("2026-04-21T12:00:00"))).toBe("Overdue");
@@ -131,5 +236,21 @@ describe("pawfolio helpers", () => {
     expect(latestWeight(records, "26 lb")).toBe("27.8 lb");
     expect(careStatus(records[1])).toBe("Due soon");
     expect(careStatus(records[0])).toBe("OK");
+  });
+
+  it("estimates data URL size and catches localStorage save failures", () => {
+    expect(estimateDataUrlBytes("data:image/jpeg;base64,AAAA")).toBe(3);
+    expect(safeSetLocalStorage({ setItem: () => undefined }, "pawfolio", { ok: true })).toEqual({ ok: true });
+    expect(
+      safeSetLocalStorage(
+        {
+          setItem: () => {
+            throw new DOMException("Quota exceeded", "QuotaExceededError");
+          },
+        },
+        "pawfolio",
+        { huge: true },
+      ).ok,
+    ).toBe(false);
   });
 });

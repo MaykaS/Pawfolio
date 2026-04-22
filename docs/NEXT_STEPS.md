@@ -16,8 +16,10 @@ Implemented:
 - Diary entries with optional photos
 - Care records with type tabs
 - Care next due dates for vaccines, medications, and follow-up care
+- Shared medication, vaccine, and vet visit items across Care and Calendar
 - Calendar reminders with recurrence labels
 - Profile screen with health record export
+- Photo compression and safer local saves
 - localStorage persistence
 
 ## Immediate Next Improvements
@@ -45,8 +47,7 @@ The user should continue entering their own dog information instead of relying o
 
 - Whether the next data layer should be local browser storage plus export/import, or a small backend database
 - Whether GitHub repository should be public or private
-- Whether to add PWA install support before backend/auth
-- Whether care reminders should be generated from care records automatically
+- When to add Supabase Auth/Postgres with Row Level Security for private user data
 
 ## Not In The First Prototype
 
