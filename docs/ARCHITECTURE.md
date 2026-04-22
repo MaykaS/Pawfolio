@@ -62,7 +62,7 @@ Current localStorage prototype data includes:
 
 Older localStorage records are normalized on load so prototype changes do not break existing local data.
 
-Profile and diary photo uploads are compressed before localStorage writes. Save failures are caught and shown in-app instead of crashing the prototype.
+Profile and diary photo uploads are adaptively compressed before localStorage writes. Save failures are caught and shown in-app instead of crashing the prototype.
 
 Future cloud persistence should use Supabase Auth plus Postgres Row Level Security. Google sign-in is the preferred first login path. Each user-owned row should include a `user_id`, with policies limiting access to the authenticated user's own data.
 

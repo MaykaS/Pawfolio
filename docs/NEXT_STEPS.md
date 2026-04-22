@@ -26,7 +26,7 @@ Implemented:
 - Integration settings for Google Calendar, email reminders, phone push, and cloud sync planning
 - Local Routine Coach suggestions
 - Profile screen with full data export/import and editable personality tags
-- Photo compression and safer local saves
+- Adaptive photo compression and safer local saves
 - localStorage persistence
 
 ## Immediate Next Improvements

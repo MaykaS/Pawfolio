@@ -32,6 +32,7 @@ import {
   deleteCalendarItemFromState,
   deleteCareItemFromState,
   daysTogether,
+  estimateDataUrlBytes,
   eventCategory,
   eventsForDate,
   eventsForMonth,
@@ -99,7 +100,12 @@ function readFile(file: File): Promise<string> {
   });
 }
 
-async function readCompressedImage(file: File, maxDimension: number, quality = 0.78): Promise<string> {
+async function readCompressedImage(
+  file: File,
+  maxDimension: number,
+  quality = 0.78,
+  targetBytes = 220_000,
+): Promise<string> {
   if (!file.type.startsWith("image/")) return readFile(file);
 
   const sourceUrl = URL.createObjectURL(file);
@@ -108,16 +114,32 @@ async function readCompressedImage(file: File, maxDimension: number, quality = 0
     image.src = sourceUrl;
     await image.decode();
 
-    const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
-    const width = Math.max(1, Math.round(image.naturalWidth * scale));
-    const height = Math.max(1, Math.round(image.naturalHeight * scale));
     const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
     const context = canvas.getContext("2d");
     if (!context) return readFile(file);
-    context.drawImage(image, 0, 0, width, height);
-    return canvas.toDataURL("image/jpeg", quality);
+
+    let dimension = maxDimension;
+    let outputQuality = quality;
+    let best = "";
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const scale = Math.min(1, dimension / Math.max(image.naturalWidth, image.naturalHeight));
+      const width = Math.max(1, Math.round(image.naturalWidth * scale));
+      const height = Math.max(1, Math.round(image.naturalHeight * scale));
+      canvas.width = width;
+      canvas.height = height;
+      context.clearRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+      best = canvas.toDataURL("image/jpeg", outputQuality);
+      if (estimateDataUrlBytes(best) <= targetBytes) return best;
+      if (outputQuality > 0.52) {
+        outputQuality -= 0.1;
+      } else {
+        dimension = Math.max(360, Math.round(dimension * 0.78));
+      }
+    }
+
+    return best;
   } catch {
     return readFile(file);
   } finally {
@@ -448,7 +470,7 @@ function Onboarding({ onSave }: { onSave: (profile: DogProfile) => void }) {
   const updatePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const photo = await readCompressedImage(file, 512);
+    const photo = await readCompressedImage(file, 512, 0.78, 120_000);
     setProfile((current) => ({ ...current, photo }));
   };
 
@@ -1305,7 +1327,7 @@ function ProfileEditSheet({
   const updatePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const photo = await readCompressedImage(file, 512);
+    const photo = await readCompressedImage(file, 512, 0.78, 120_000);
     setDraft((current) => ({ ...current, photo }));
   };
 
@@ -1506,7 +1528,7 @@ function MemorySheet({
   const updatePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setPhoto(await readCompressedImage(file, 900, 0.74));
+    setPhoto(await readCompressedImage(file, 760, 0.72, 180_000));
   };
 
   return (
