@@ -12,6 +12,7 @@ import {
   taskTime,
   todayISO,
   updateTaskTime,
+  withCareSchedule,
   withReminderRecurrence,
   withTaskTime,
   type CareRecord,
@@ -66,6 +67,23 @@ describe("pawfolio helpers", () => {
     ).toBe("none");
   });
 
+  it("normalizes older care records and calculates next due status", () => {
+    const oldCareRecord = { id: "rabies", type: "Vaccine", title: "Rabies", date: "2026-04-21", note: "" } as CareRecord;
+
+    expect(withCareSchedule(oldCareRecord).nextDueDate).toBe("");
+    expect(
+      normalizeState({
+        tasks: [],
+        diary: [],
+        care: [oldCareRecord],
+        reminders: [],
+      }).care[0].nextDueDate,
+    ).toBe("");
+    expect(careStatus({ ...oldCareRecord, nextDueDate: "2026-05-15" }, new Date("2026-04-21T12:00:00"))).toBe("Due soon");
+    expect(careStatus({ ...oldCareRecord, nextDueDate: "2026-04-01" }, new Date("2026-04-21T12:00:00"))).toBe("Overdue");
+    expect(careStatus({ ...oldCareRecord, nextDueDate: "2027-04-01" }, new Date("2026-04-21T12:00:00"))).toBe("OK");
+  });
+
   it("updates task times immutably", () => {
     const tasks: DailyTask[] = [
       { id: "walk", title: "Morning walk", time: "8:00 AM", done: false, note: "" },
@@ -107,7 +125,7 @@ describe("pawfolio helpers", () => {
   it("derives care status and latest weight", () => {
     const records: CareRecord[] = [
       { id: "weight", type: "Weight", title: "27.8 lb", date: "2026-04-21", note: "" },
-      { id: "med", type: "Medication", title: "Heartgard", date: "2026-04-21", note: "Next: May 1" },
+      { id: "med", type: "Medication", title: "Heartgard", date: "2026-04-21", note: "Next: May 1", nextDueDate: "" },
     ];
 
     expect(latestWeight(records, "26 lb")).toBe("27.8 lb");

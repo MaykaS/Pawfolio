@@ -39,6 +39,7 @@ export type CareRecord = {
   title: string;
   date: string;
   note: string;
+  nextDueDate?: string;
 };
 
 export type ReminderRecurrence = "none" | "daily" | "weekly" | "monthly" | "yearly";
@@ -177,6 +178,10 @@ export function withReminderRecurrence(
   return { ...reminder, recurrence: reminder.recurrence || "none" };
 }
 
+export function withCareSchedule(record: CareRecord): CareRecord {
+  return { ...record, nextDueDate: record.nextDueDate || "" };
+}
+
 export function updateTaskTime(tasks: DailyTask[], id: string, time: string) {
   return tasks.map((task) => (task.id === id ? { ...task, time } : task));
 }
@@ -191,7 +196,7 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
     ...base,
     tasks: (base.tasks?.length ? base.tasks : defaultTasks).map(withTaskTime),
     diary: base.diary || [],
-    care: base.care || [],
+    care: (base.care || []).map(withCareSchedule),
     reminders: (base.reminders || []).map(withReminderRecurrence),
   };
 }
@@ -214,7 +219,15 @@ export function recurrenceLabel(recurrence: ReminderRecurrence) {
   return reminderRecurrenceOptions.find((option) => option.value === recurrence)?.label || "Does not repeat";
 }
 
-export function careStatus(record: CareRecord) {
+export function careStatus(record: CareRecord, now = new Date()) {
+  if (record.nextDueDate) {
+    const due = new Date(`${record.nextDueDate}T00:00`);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const daysUntilDue = Math.ceil((due.getTime() - today.getTime()) / 86_400_000);
+    if (daysUntilDue < 0) return "Overdue";
+    if (daysUntilDue <= 45) return "Due soon";
+    return "OK";
+  }
   const note = record.note.toLowerCase();
   if (note.includes("due") || note.includes("next")) return "Due soon";
   return "OK";

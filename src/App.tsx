@@ -83,6 +83,22 @@ function countTasks(tasks: DailyTask[], pattern: RegExp) {
   return tasks.filter((task) => pattern.test(task.title) && task.done).length;
 }
 
+function careMeta(record: CareRecord) {
+  const parts = [record.type, prettyDate(record.date)];
+  if (record.nextDueDate) parts.push(`next ${prettyLongDate(record.nextDueDate)}`);
+  if (record.note) parts.push(record.note);
+  return parts.join(" - ");
+}
+
+function prettyLongDate(date: string) {
+  if (!date) return "No date";
+  return new Date(`${date}T00:00`).toLocaleDateString("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function App() {
   const [state, setState] = useState<PawfolioState>(() => loadState());
   const [tab, setTab] = useState<Tab>("today");
@@ -683,11 +699,11 @@ function CareScreen({
               {record.type === "Medication" ? <Pill size={18} /> : <HeartPulse size={18} />}
             </div>
             <div className="care-copy">
-              <span className={careStatus(record) === "OK" ? "badge badge-green" : "badge badge-amber"}>
+              <span className={careStatus(record) === "OK" ? "badge badge-green" : careStatus(record) === "Overdue" ? "badge badge-red" : "badge badge-amber"}>
                 {careStatus(record)}
               </span>
               <h2>{record.title}</h2>
-              <p>{record.type} - {prettyDate(record.date)} {record.note && `- ${record.note}`}</p>
+              <p>{careMeta(record)}</p>
             </div>
             <CardActions onEdit={() => onEdit(record)} onDelete={() => onDelete(record.id)} />
           </article>
@@ -1031,6 +1047,7 @@ function CareSheet({
     type: existing?.type || "Weight",
     title: existing?.title || "",
     date: existing?.date || todayISO(),
+    nextDueDate: existing?.nextDueDate || "",
     note: existing?.note || "",
   });
 
@@ -1060,6 +1077,9 @@ function CareSheet({
         </div>
         <Field label="Title">
           <input className="input" value={record.title} onChange={(event) => update("title", event.target.value)} required />
+        </Field>
+        <Field label="Next due date">
+          <input className="input" type="date" value={record.nextDueDate} onChange={(event) => update("nextDueDate", event.target.value)} />
         </Field>
         <Field label="Note">
           <textarea className="input" value={record.note} onChange={(event) => update("note", event.target.value)} />
