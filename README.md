@@ -42,7 +42,26 @@ Future versions may include:
 
 ## Current Status
 
-Planning and prototype setup.
+Prototype 0.1 is in progress as a Vite, React, and TypeScript mobile-style web app.
+
+Current prototype behavior:
+
+- User-created dog profile
+- Profile photo upload
+- Stylized dog avatar builder
+- Daily task checklist with notes
+- Custom daily tasks
+- Diary entries with optional photos
+- Care records
+- Reminders
+- Browser-local persistence
+
+Run locally:
+
+```bash
+npm install
+npm run dev
+```
 
 See:
 

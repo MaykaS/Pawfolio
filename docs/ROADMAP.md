@@ -11,26 +11,35 @@ Goal: Keep the project clear before building.
 
 ## Phase 1: Mobile-Style Web Prototype
 
-Goal: Build a clickable, polished prototype that feels like a mobile app.
+Goal: Build a clickable, polished prototype that feels like a mobile app and saves user input locally.
 
 Included:
 
 - Dog profile onboarding
 - Breed picker
+- Dog photo upload
+- Stylized dog avatar studio
 - Today screen
+- Daily tasks with checkbox completion and notes
+- Custom daily tasks
 - Diary timeline
+- Diary entries with optional photos
 - Care screen
+- User-entered care records
 - Calendar/reminders screen
+- User-entered reminders
 - Profile screen
 - Cute animated UI moments
 - Mobile-first layout with bottom navigation
+- Local browser persistence
 
 Success criteria:
 
 - The flow is easy to understand
 - The app feels cute and companion-like
 - Serious care information still feels organized
-- The prototype makes clear what should become real data later
+- The user can enter real dog information and see it persist in the browser
+- The prototype makes clear what should move to real account-based data later
 
 ## Phase 2: Real App Foundation
 

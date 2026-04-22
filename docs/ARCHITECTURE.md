@@ -6,9 +6,9 @@ Start with a mobile-first web prototype, then evolve into a real app foundation.
 
 Recommended stack for the prototype:
 
-- React or Next.js for the mobile-style web app
+- Vite, React, and TypeScript for the mobile-style web app
 - Component-based screens that can later inform a React Native/Expo app
-- Local mock data first
+- Local browser storage first
 - Real persistence after the interaction model feels right
 
 ## Why Not Native Android First
@@ -34,7 +34,7 @@ The likely mobile path is Expo/React Native because it can support:
 
 ## Data Model Direction
 
-The first version should look like one user and one dog, but the model should be ready for expansion.
+The first version should look like one user and one dog, with browser-local persistence. The model should be ready for expansion.
 
 Likely future entities:
 
