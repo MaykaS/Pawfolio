@@ -57,6 +57,8 @@ import {
   parseTaskTimeMinutes,
   reminderAlertDate,
   sortTasksByTime,
+  taskTimeFromParts,
+  taskTimeParts,
   toTimeInputValue,
   type CareRecord,
   type DailyTask,
@@ -83,6 +85,8 @@ describe("pawfolio helpers", () => {
     expect(parseTaskTimeMinutes("08:00")).toBe(8 * 60);
     expect(formatTaskTime("20:00")).toBe("8:00 PM");
     expect(toTimeInputValue("8:00 PM")).toBe("20:00");
+    expect(taskTimeParts("8:00 pM")).toEqual({ hour: "8", minute: "00", meridiem: "PM" });
+    expect(taskTimeFromParts("8", "00", "PM")).toBe("20:00");
   });
 
   it("normalizes older tasks with missing times", () => {

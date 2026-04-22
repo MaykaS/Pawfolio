@@ -202,6 +202,9 @@ export const reminderLeadOptions = [
   { value: 60, label: "1 hour before" },
   { value: 1440, label: "1 day before" },
 ];
+export const taskHourOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
+export const taskMinuteOptions = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, "0"));
+export const taskMeridiemOptions = ["AM", "PM"] as const;
 
 export const routineTimes: Record<string, string> = {
   "morning-walk": "08:00",
@@ -300,6 +303,28 @@ export function formatTaskTime(time = "") {
   const hour12 = hours % 12 || 12;
   const meridiem = hours >= 12 ? "PM" : "AM";
   return `${hour12}:${String(mins).padStart(2, "0")} ${meridiem}`;
+}
+
+export function taskTimeParts(time = "") {
+  const minutes = parseTaskTimeMinutes(time) ?? 8 * 60;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  const roundedMinutes = Math.min(55, Math.round(mins / 5) * 5);
+  return {
+    hour: String(hours % 12 || 12),
+    minute: String(roundedMinutes).padStart(2, "0"),
+    meridiem: hours >= 12 ? "PM" : "AM",
+  };
+}
+
+export function taskTimeFromParts(hour: string, minute: string, meridiem: string) {
+  let hours = Number(hour);
+  const mins = Number(minute);
+  if (!Number.isFinite(hours) || hours < 1 || hours > 12) hours = 8;
+  const safeMinutes = Number.isFinite(mins) && mins >= 0 && mins <= 59 ? mins : 0;
+  if (meridiem === "PM" && hours < 12) hours += 12;
+  if (meridiem === "AM" && hours === 12) hours = 0;
+  return `${String(hours).padStart(2, "0")}:${String(safeMinutes).padStart(2, "0")}`;
 }
 
 export function taskTime(task: DailyTask) {

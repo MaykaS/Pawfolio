@@ -65,10 +65,14 @@ import {
   setTaskDoneForDate,
   sortTasksByTime,
   storageKey,
+  taskHourOptions,
+  taskMeridiemOptions,
+  taskMinuteOptions,
+  taskTimeFromParts,
+  taskTimeParts,
   taskTime,
   tasksForDate,
   todayISO,
-  toTimeInputValue,
   withTaskTime,
   visibleCareRecords,
   visibleReminders,
@@ -1810,7 +1814,8 @@ function TaskSheet({
 }) {
   const existing = mode.mode === "edit" ? mode.task : undefined;
   const [title, setTitle] = useState(existing?.title || "");
-  const [time, setTime] = useState(toTimeInputValue(existing?.time || "08:00") || "08:00");
+  const [timeParts, setTimeParts] = useState(() => taskTimeParts(existing?.time || "08:00"));
+  const time = taskTimeFromParts(timeParts.hour, timeParts.minute, timeParts.meridiem);
 
   return (
     <Sheet title={mode.mode === "edit" ? "Edit task" : "Add task"} onClose={onClose}>
@@ -1831,11 +1836,63 @@ function TaskSheet({
           <input className="input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Afternoon walk" required />
         </Field>
         <Field label="Time">
-          <input className="input" type="time" value={time} onChange={(event) => setTime(event.target.value)} required />
+          <TaskTimePicker
+            hour={timeParts.hour}
+            minute={timeParts.minute}
+            meridiem={timeParts.meridiem}
+            onChange={(next) => setTimeParts((current) => ({ ...current, ...next }))}
+          />
         </Field>
         <button className="btn btn-primary">{mode.mode === "edit" ? "Save task" : "Add task"}</button>
       </form>
     </Sheet>
+  );
+}
+
+function TaskTimePicker({
+  hour,
+  minute,
+  meridiem,
+  onChange,
+}: {
+  hour: string;
+  minute: string;
+  meridiem: string;
+  onChange: (next: Partial<{ hour: string; minute: string; meridiem: string }>) => void;
+}) {
+  return (
+    <div className="task-time-picker" aria-label="Task time">
+      <label>
+        <span>Hour</span>
+        <select value={hour} onChange={(event) => onChange({ hour: event.target.value })}>
+          {taskHourOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span>Minute</span>
+        <select value={minute} onChange={(event) => onChange({ minute: event.target.value })}>
+          {taskMinuteOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span>AM/PM</span>
+        <select value={meridiem} onChange={(event) => onChange({ meridiem: event.target.value })}>
+          {taskMeridiemOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
   );
 }
 
