@@ -17,110 +17,34 @@ import {
   X,
 } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
-
-type Tab = "today" | "diary" | "care" | "calendar" | "profile";
-
-type DogAvatar = {
-  fur: string;
-  ears: string;
-  spot: string;
-  accessory: string;
-};
-
-type DogProfile = {
-  name: string;
-  breed: string;
-  birthday: string;
-  weight: string;
-  personality: string;
-  photo?: string;
-  avatar: DogAvatar;
-};
-
-type DailyTask = {
-  id: string;
-  title: string;
-  done: boolean;
-  note: string;
-};
-
-type DiaryEntry = {
-  id: string;
-  title: string;
-  body: string;
-  date: string;
-  photo?: string;
-};
-
-type CareRecord = {
-  id: string;
-  type: string;
-  title: string;
-  date: string;
-  note: string;
-};
-
-type Reminder = {
-  id: string;
-  title: string;
-  type: string;
-  date: string;
-  time: string;
-  note: string;
-};
-
-type PawfolioState = {
-  profile?: DogProfile;
-  tasks: DailyTask[];
-  diary: DiaryEntry[];
-  care: CareRecord[];
-  reminders: Reminder[];
-};
+import {
+  ageLabel,
+  avatarOptions,
+  breedOptions,
+  careStatus,
+  careTypes,
+  getCareMoments,
+  getUpcomingReminder,
+  initialState,
+  latestWeight,
+  prettyDate,
+  reminderTypes,
+  storageKey,
+  taskTime,
+  todayISO,
+  type CareRecord,
+  type DailyTask,
+  type DiaryEntry,
+  type DogAvatar,
+  type DogProfile,
+  type PawfolioState,
+  type Reminder,
+  type Tab,
+} from "./pawfolio";
 
 type MemoryMode = { mode: "create" } | { mode: "edit"; entry: DiaryEntry };
 type CareMode = { mode: "create" } | { mode: "edit"; record: CareRecord };
 type ReminderMode = { mode: "create" } | { mode: "edit"; reminder: Reminder };
-
-const storageKey = "pawfolio-local-v1";
-
-const defaultTasks: DailyTask[] = [
-  { id: "morning-walk", title: "Morning walk", done: false, note: "" },
-  { id: "breakfast", title: "Breakfast", done: false, note: "" },
-  { id: "evening-walk", title: "Evening walk", done: false, note: "" },
-  { id: "dinner", title: "Dinner", done: false, note: "" },
-  { id: "night-walk", title: "Night walk", done: false, note: "" },
-  { id: "training", title: "Treats or training", done: false, note: "" },
-];
-
-const initialState: PawfolioState = {
-  tasks: defaultTasks,
-  diary: [],
-  care: [],
-  reminders: [],
-};
-
-const breedOptions = [
-  "Great Pyrenees",
-  "Golden Retriever",
-  "Labrador Retriever",
-  "German Shepherd",
-  "Poodle",
-  "Australian Shepherd",
-  "Border Collie",
-  "Corgi",
-  "Cavalier King Charles Spaniel",
-  "Mixed Breed",
-];
-
-const avatarOptions = {
-  fur: ["#fff7df", "#f7d08a", "#d9a066", "#6f4d38", "#1f2933", "#fbfbf5"],
-  ears: ["floppy", "pointy", "round"],
-  spot: ["none", "eye", "back", "freckles"],
-  accessory: ["none", "bandana", "bow", "collar"],
-};
-
-const careTypes = ["Weight", "Medication", "Vaccine", "Vet visit", "Allergy", "Health note"];
-const reminderTypes = ["Vet", "Medication", "Grooming", "Walk", "Food", "Other"];
 
 function loadState(): PawfolioState {
   try {
@@ -130,10 +54,6 @@ function loadState(): PawfolioState {
   } catch {
     return initialState;
   }
-}
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function uid(prefix: string) {
@@ -147,25 +67,6 @@ function readFile(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-}
-
-function prettyDate(date: string) {
-  if (!date) return "No date";
-  return new Date(`${date}T00:00`).toLocaleDateString("en", {
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function ageLabel(birthday: string) {
-  if (!birthday) return "Birthday not set";
-  const birth = new Date(`${birthday}T00:00`);
-  const now = new Date();
-  const months =
-    (now.getFullYear() - birth.getFullYear()) * 12 + now.getMonth() - birth.getMonth();
-  if (months < 12) return `${Math.max(months, 0)} months old`;
-  const years = Math.floor(months / 12);
-  return `${years} ${years === 1 ? "year" : "years"} old`;
 }
 
 export default function App() {
@@ -182,11 +83,10 @@ export default function App() {
   const completed = state.tasks.filter((task) => task.done).length;
   const progress = state.tasks.length ? completed / state.tasks.length : 0;
 
-  const upcomingReminder = useMemo(() => {
-    return [...state.reminders]
-      .filter((reminder) => reminder.date)
-      .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))[0];
-  }, [state.reminders]);
+  const upcomingReminder = useMemo(
+    () => getUpcomingReminder(state.reminders),
+    [state.reminders],
+  );
 
   const saveProfile = (profile: DogProfile) => {
     setState((current) => ({ ...current, profile }));
@@ -206,7 +106,7 @@ export default function App() {
   return (
     <main className="app-bg">
       <section className="phone-shell">
-        <AppTopbar profile={state.profile} progress={progress} />
+        <AppTopbar profile={state.profile} progress={progress} tab={tab} />
 
         <div className="screen-scroll">
           {tab === "today" && (
@@ -258,6 +158,7 @@ export default function App() {
           )}
           {tab === "diary" && (
             <DiaryScreen
+              profile={state.profile}
               entries={state.diary}
               onOpenMemory={() => setMemoryMode({ mode: "create" })}
               onEdit={(entry) => setMemoryMode({ mode: "edit", entry })}
@@ -363,16 +264,39 @@ export default function App() {
   );
 }
 
-function AppTopbar({ profile, progress }: { profile: DogProfile; progress: number }) {
+function AppTopbar({
+  profile,
+  progress,
+  tab,
+}: {
+  profile: DogProfile;
+  progress: number;
+  tab: Tab;
+}) {
+  const titles: Record<Tab, string> = {
+    today: "Today",
+    diary: `${profile.name}'s Diary`,
+    care: `${profile.name}'s Health`,
+    calendar: `${profile.name}'s Calendar`,
+    profile: profile.name,
+  };
+
   return (
     <header className="app-topbar">
-      <div>
-        <p className="micro-label">Pawfolio</p>
-        <h1>{profile.name}</h1>
+      <div className="status-bar" aria-hidden="true">
+        <span>9:41</span>
+        <span className="phone-notch" />
+        <span>||| --</span>
       </div>
-      <div className="topbar-actions">
-        <span className="care-score">{Math.round(progress * 100)}%</span>
-        <AvatarBubble profile={profile} />
+      <div className="topbar-main">
+        <div>
+          <p className="micro-label">Pawfolio</p>
+          <h1>{titles[tab]}</h1>
+        </div>
+        <div className="topbar-actions">
+          <span className="care-score">{Math.round(progress * 100)}%</span>
+          <AvatarBubble profile={profile} />
+        </div>
       </div>
     </header>
   );
@@ -537,39 +461,39 @@ function TodayScreen({
   const [editingTask, setEditingTask] = useState<string | null>(null);
   const [taskTitle, setTaskTitle] = useState("");
 
-  const careMoments = [
-    { label: "Walk", active: tasks.some((task) => /walk/i.test(task.title) && task.done) },
-    { label: "Food", active: tasks.some((task) => /breakfast|dinner|food/i.test(task.title) && task.done) },
-    { label: "Play", active: tasks.some((task) => /treat|training|play/i.test(task.title) && task.done) },
-    { label: "Rest", active: progress >= 1 },
-  ];
+  const careMoments = getCareMoments(tasks);
 
   return (
     <div className="stack">
-      <section className="daily-card">
-        <div className="daily-copy">
-          <p className="micro-label">Today</p>
-          <h2>{profile.name}'s day</h2>
-          <p>{completed} of {tasks.length} care moments done</p>
+      <section className="daily-summary-card">
+        <div className="summary-ring">{Math.round(progress * 100)}%</div>
+        <div className="summary-copy">
+          <h2>{completed} of {tasks.length} done</h2>
+          <p>{tasks.length - completed} tasks remaining</p>
           <div className="progress-line">
             <span style={{ width: `${Math.round(progress * 100)}%` }} />
           </div>
+          <div className="summary-legend">
+            <span>Food</span>
+            <span>Walk</span>
+            <span>Med</span>
+          </div>
         </div>
-        <div className="daily-pet">
-          {profile.photo ? <img src={profile.photo} alt={profile.name} /> : <DogAvatar avatar={profile.avatar} />}
+        <div className="summary-pet">
+          {profile.photo ? <img src={profile.photo} alt={profile.name} /> : <DogAvatar avatar={profile.avatar} small />}
         </div>
       </section>
 
-      <section className="status-strip">
+      <section className="quick-log">
+        <p className="micro-label">Quick log</p>
         {careMoments.map((moment) => (
-          <div className={moment.active ? "status-chip active" : "status-chip"} key={moment.label}>
-            <span />
+          <button className={moment.active ? "quick-pill active" : "quick-pill"} type="button" key={moment.label}>
             {moment.label}
-          </div>
+          </button>
         ))}
       </section>
 
-      <section className="quick-grid">
+      <section className="action-row">
         <button type="button" onClick={onOpenMemory}>
           <ImagePlus size={18} />
           Memory
@@ -578,15 +502,15 @@ function TodayScreen({
           <Bell size={18} />
           Reminder
         </button>
-        <div className="mini-note">
-          <span>Next</span>
-          <strong>{upcomingReminder ? upcomingReminder.title : "No reminders"}</strong>
-          <small>{upcomingReminder ? `${prettyDate(upcomingReminder.date)} ${upcomingReminder.time}` : "Add one when ready"}</small>
-        </div>
       </section>
 
-      <section className="panel">
-        <SectionHeader eyebrow="Routine" title="Today's plan" />
+      <section className="routine-section">
+        <div className="list-heading">
+          <p className="micro-label">Today's routine</p>
+          {upcomingReminder && (
+            <span>{upcomingReminder.title} {upcomingReminder.time || ""}</span>
+          )}
+        </div>
         <div className="task-list compact">
           {tasks.map((task) => (
             <article className={`task-card ${task.done ? "done" : ""}`} key={task.id}>
@@ -615,7 +539,10 @@ function TodayScreen({
                   </form>
                 ) : (
                   <div className="task-title-row">
-                    <h3>{task.title}</h3>
+                    <div>
+                      <h3>{task.title}</h3>
+                      <p>{taskTime(task)}</p>
+                    </div>
                     <div className="row-actions">
                       <button
                         className="tiny-icon"
@@ -642,7 +569,7 @@ function TodayScreen({
                 <input
                   value={task.note}
                   onChange={(event) => onTaskNote(task.id, event.target.value)}
-                  placeholder="Small note"
+                  placeholder="Add note"
                 />
               </div>
             </article>
@@ -669,11 +596,13 @@ function TodayScreen({
 }
 
 function DiaryScreen({
+  profile,
   entries,
   onOpenMemory,
   onEdit,
   onDelete,
 }: {
+  profile: DogProfile;
   entries: DiaryEntry[];
   onOpenMemory: () => void;
   onEdit: (entry: DiaryEntry) => void;
@@ -683,13 +612,12 @@ function DiaryScreen({
 
   return (
     <div className="stack">
-      <ScreenTitle
-        icon={<NotebookPen size={19} />}
-        title="Diary"
-        text="Tiny moments, big memories."
-        action="Add"
-        onAction={onOpenMemory}
-      />
+      <section className="journal-cover">
+        <div className="photo-placeholder">
+          <Camera size={18} />
+          <span>{profile.name.toLowerCase()} sunshine golden hour</span>
+        </div>
+      </section>
 
       {photoEntries.length > 0 && (
         <section className="photo-grid">
@@ -702,12 +630,28 @@ function DiaryScreen({
       )}
 
       {entries.length === 0 ? (
-        <EmptyState title="No memories yet" text="Save a hike, sleepy morning, or funny training win." />
+        <>
+          <button className="add-card" type="button" onClick={onOpenMemory}>
+            <Plus size={17} />
+            Add memory
+          </button>
+          <EmptyState title="No memories yet" text="Save a hike, sleepy morning, or funny training win." />
+        </>
       ) : (
         <div className="card-list">
+          <button className="add-card" type="button" onClick={onOpenMemory}>
+            <Plus size={17} />
+            Add memory
+          </button>
           {entries.map((entry) => (
-            <article className="memory-card" key={entry.id}>
-              {entry.photo && <img src={entry.photo} alt={entry.title} />}
+            <article className={`memory-card ${entry.photo ? "" : "has-placeholder"}`} key={entry.id}>
+              {entry.photo ? (
+                <img src={entry.photo} alt={entry.title} />
+              ) : (
+                <div className="entry-placeholder">
+                  <Camera size={15} />
+                </div>
+              )}
               <div>
                 <p className="micro-label">{prettyDate(entry.date)}</p>
                 <h3>{entry.title}</h3>
@@ -735,24 +679,36 @@ function CareScreen({
   onEdit: (record: CareRecord) => void;
   onDelete: (id: string) => void;
 }) {
-  const latestWeight = records.find((record) => record.type === "Weight")?.title || profile.weight || "Not set";
+  const displayWeight = latestWeight(records, profile.weight);
 
   return (
     <div className="stack">
+      <section className="care-tabs" aria-label="Care categories">
+        {["Meds", "Vaccines", "Vet visits", "Weight"].map((type, index) => (
+          <button className={index === 0 ? "active" : ""} type="button" key={type}>
+            {type}
+          </button>
+        ))}
+      </section>
+
+      <section className="health-progress" aria-hidden="true">
+        <span />
+      </section>
+
       <section className="health-card">
         <div>
-          <p className="micro-label">Health book</p>
-          <h2>{profile.name}'s care</h2>
+          <p className="micro-label">Meds</p>
+          <h2>{profile.name}'s health list</h2>
           <p>{ageLabel(profile.birthday)}</p>
         </div>
         <button type="button" onClick={onOpenCare}>
           <Plus size={17} />
-          Record
+          Add
         </button>
       </section>
 
       <section className="care-grid">
-        <StatCard label="Weight" value={latestWeight} />
+        <StatCard label="Weight" value={displayWeight} />
         <StatCard label="Records" value={String(records.length)} />
         <StatCard label="Meds" value={String(records.filter((record) => record.type === "Medication").length)} />
         <StatCard label="Vaccines" value={String(records.filter((record) => record.type === "Vaccine").length)} />
@@ -770,11 +726,17 @@ function CareScreen({
         <div className="card-list">
           {records.map((record) => (
             <article className="record-card" key={record.id}>
+              <div className="record-icon">
+                <HeartPulse size={17} />
+              </div>
               <div>
                 <span>{record.type}</span>
                 <h3>{record.title}</h3>
                 <p>{prettyDate(record.date)} {record.note && `- ${record.note}`}</p>
               </div>
+              <span className={careStatus(record) === "OK" ? "status-badge ok" : "status-badge due"}>
+                {careStatus(record)}
+              </span>
               <CardActions onEdit={() => onEdit(record)} onDelete={() => onDelete(record.id)} />
             </article>
           ))}
@@ -796,28 +758,44 @@ function CalendarScreen({
   onDelete: (id: string) => void;
 }) {
   const sorted = [...reminders].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+  const now = new Date();
+  const monthLabel = now.toLocaleDateString("en", { month: "long", year: "numeric" });
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
+  const calendarCells = [
+    ...Array.from({ length: firstDay }, (_, index) => ({ key: `blank-${index}`, day: "" })),
+    ...Array.from({ length: daysInMonth }, (_, index) => ({
+      key: `day-${index + 1}`,
+      day: String(index + 1),
+    })),
+  ];
 
   return (
     <div className="stack">
-      <ScreenTitle
-        icon={<CalendarDays size={19} />}
-        title="Plan"
-        text="Appointments, refills, grooming, and care reminders."
-        action="Add"
-        onAction={onOpenReminder}
-      />
-
-      <section className="date-strip">
-        {[0, 1, 2, 3, 4].map((offset) => {
-          const date = new Date();
-          date.setDate(date.getDate() + offset);
-          return (
-            <div className="date-chip" key={offset}>
-              <span>{date.toLocaleDateString("en", { weekday: "short" })}</span>
-              <strong>{date.getDate()}</strong>
-            </div>
-          );
-        })}
+      <section className="calendar-panel">
+        <div className="calendar-head">
+          <div>
+            <p className="micro-label">Calendar</p>
+            <h2>{monthLabel}</h2>
+          </div>
+          <button type="button" onClick={onOpenReminder}>
+            <Plus size={16} />
+            Add
+          </button>
+        </div>
+        <div className="month-grid">
+          {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+            <span className="weekday" key={day}>{day}</span>
+          ))}
+          {calendarCells.map((cell) => (
+            <span
+              className={cell.day === String(now.getDate()) ? "month-day today" : "month-day"}
+              key={cell.key}
+            >
+              {cell.day}
+            </span>
+          ))}
+        </div>
       </section>
 
       {sorted.length === 0 ? (
@@ -826,7 +804,7 @@ function CalendarScreen({
         <div className="card-list">
           {sorted.map((reminder) => (
             <article className="reminder-card" key={reminder.id}>
-              <div className="date-tile">
+              <div className={`date-tile type-${reminder.type.toLowerCase().replace(/\s+/g, "-")}`}>
                 <span>{new Date(`${reminder.date}T00:00`).toLocaleString("en", { month: "short" })}</span>
                 <strong>{new Date(`${reminder.date}T00:00`).getDate()}</strong>
               </div>
@@ -865,23 +843,61 @@ function ProfileScreen({ profile, onSave }: { profile: DogProfile; onSave: (prof
         window.setTimeout(() => setSaved(false), 1600);
       }}
     >
-      <section className="passport-card">
+      <section className="profile-hero">
         <div className="profile-photo large">
           {draft.photo ? <img src={draft.photo} alt={draft.name} /> : <DogAvatar avatar={draft.avatar} />}
         </div>
-        <div>
-          <p className="micro-label">Pet passport</p>
-          <h2>{draft.name}</h2>
-          <p>{draft.breed} - {ageLabel(draft.birthday)}</p>
-          <label className="photo-button">
+        <h2>{draft.name}</h2>
+        <p>{draft.breed || "Breed not set"} - {ageLabel(draft.birthday)} - {draft.weight || "Weight not set"}</p>
+        <div className="trait-row">
+          {["Playful", "Energetic", "Food-motivated"].map((trait) => (
+            <span key={trait}>{trait}</span>
+          ))}
+        </div>
+      </section>
+
+      <section className="profile-stats">
+        <StatCard label="Diary entries" value="24" />
+        <StatCard label="Walks logged" value="183" />
+        <StatCard label="Days together" value="1,131" />
+      </section>
+
+      <section className="personality-card">
+        <p className="micro-label">Personality notes</p>
+        <p>{draft.personality || "Add little quirks, fears, favorite games, and care notes."}</p>
+      </section>
+
+      <section className="profile-menu">
+        <label className="menu-row">
+          <Pencil size={17} />
+          Edit photo
+          <span>&gt;</span>
+          <input type="file" accept="image/*" onChange={updatePhoto} />
+        </label>
+        <button className="menu-row" type="button">
+          <Bell size={17} />
+          Notifications
+          <span>&gt;</span>
+        </button>
+        <button className="menu-row" type="button">
+          <HeartPulse size={17} />
+          Export health records
+          <span>&gt;</span>
+        </button>
+      </section>
+
+      <section className="panel profile-edit-panel">
+        <div className="section-heading">
+          <div>
+            <p className="micro-label">Details</p>
+            <h2>Edit profile</h2>
+          </div>
+          <label className="photo-button compact">
             <Camera size={17} />
             Photo
             <input type="file" accept="image/*" onChange={updatePhoto} />
           </label>
         </div>
-      </section>
-
-      <section className="panel">
         <div className="form-grid">
           <label>
             Name
@@ -1010,34 +1026,6 @@ function AvatarBubble({ profile }: { profile: DogProfile }) {
     <div className="avatar-bubble">
       {profile.photo ? <img src={profile.photo} alt={profile.name} /> : <DogAvatar avatar={profile.avatar} small />}
     </div>
-  );
-}
-
-function ScreenTitle({
-  icon,
-  title,
-  text,
-  action,
-  onAction,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  text: string;
-  action: string;
-  onAction: () => void;
-}) {
-  return (
-    <section className="screen-title">
-      <div className="title-icon">{icon}</div>
-      <div>
-        <h2>{title}</h2>
-        <p>{text}</p>
-      </div>
-      <button onClick={onAction} type="button">
-        <Plus size={16} />
-        {action}
-      </button>
-    </section>
   );
 }
 
