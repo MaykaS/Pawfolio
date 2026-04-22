@@ -66,6 +66,8 @@ export type Reminder = {
   recurrence: ReminderRecurrence;
 };
 
+export type PawfolioNotificationStatus = "unsupported" | "default" | "granted" | "denied";
+
 export type PawfolioState = {
   profile?: DogProfile;
   tasks: DailyTask[];
@@ -432,6 +434,15 @@ export function getUpcomingReminders(reminders: Reminder[], now = new Date()) {
 
 export function getUpcomingReminder(reminders: Reminder[], now = new Date()) {
   return getUpcomingReminders(reminders, now)[0];
+}
+
+export function notificationPermissionStatus(notificationApi?: { permission?: NotificationPermission }): PawfolioNotificationStatus {
+  if (!notificationApi) return "unsupported";
+  return notificationApi.permission || "default";
+}
+
+export function canUseBrowserNotifications(notificationApi?: { permission?: NotificationPermission }) {
+  return notificationPermissionStatus(notificationApi) !== "unsupported";
 }
 
 export function eventCategory(type: string) {

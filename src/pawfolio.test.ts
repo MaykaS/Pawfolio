@@ -16,6 +16,7 @@ import {
   isFutureOrToday,
   latestWeight,
   normalizeState,
+  notificationPermissionStatus,
   prettyDate,
   recurrenceLabel,
   safeSetLocalStorage,
@@ -29,6 +30,7 @@ import {
   withCareSchedule,
   withReminderRecurrence,
   withTaskTime,
+  canUseBrowserNotifications,
   type CareRecord,
   type DailyTask,
   type Reminder,
@@ -242,6 +244,14 @@ describe("pawfolio helpers", () => {
       "Grooming",
     ]);
     expect(getUpcomingReminder(reminders, new Date("2026-04-22T12:00:00"))?.title).toBe("Morning meds");
+  });
+
+  it("reports browser notification support safely", () => {
+    expect(notificationPermissionStatus(undefined)).toBe("unsupported");
+    expect(canUseBrowserNotifications(undefined)).toBe(false);
+    expect(notificationPermissionStatus({ permission: "granted" })).toBe("granted");
+    expect(notificationPermissionStatus({ permission: "default" })).toBe("default");
+    expect(canUseBrowserNotifications({ permission: "denied" })).toBe(true);
   });
 
   it("filters month events and maps event categories consistently", () => {

@@ -19,6 +19,7 @@ Implemented:
 - Shared medication, vaccine, and vet visit items across Care and Calendar
 - Calendar reminders with recurrence labels, month navigation, future-only upcoming items, and clickable day details
 - Unified green health styling for vaccine and vet calendar items
+- In-app notification center with upcoming reminders and browser permission check
 - Profile screen with health record export
 - Photo compression and safer local saves
 - localStorage persistence
@@ -33,7 +34,8 @@ Implemented:
 2. Make recurring reminders calculate the next upcoming occurrence automatically.
 3. Add full data export/import for localStorage safety.
 4. Add a daily rollover/reset model so completed routine tasks are tracked per day.
-5. Continue installed PWA testing from Android Chrome:
+5. Plan real push notifications after recurrence and data safety are stable.
+6. Continue installed PWA testing from Android Chrome:
    - Launches in standalone mode
    - Saves localStorage data
    - Reopens with saved dog data

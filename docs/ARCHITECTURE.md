@@ -52,6 +52,7 @@ Current localStorage prototype data includes:
 - Shared care-calendar events for medications, vaccines, and vet visits
 - Calendar-only reminders with title, type, date, time, note, and recurrence label
 - Calendar helper views for future-only upcoming items, visible-month events, and selected-day event details
+- In-app notification center for future reminders and browser notification permission testing
 
 Older localStorage records are normalized on load so prototype changes do not break existing local data.
 
@@ -94,7 +95,9 @@ Likely roles:
 
 ## Notification Direction
 
-The app should eventually support:
+The current prototype has an in-app notification center. It shows future reminders, exposes browser notification permission status, and can trigger a test notification where the browser supports it.
+
+It does not yet schedule real background push reminders. The app should eventually support:
 
 - Push notifications for mobile
 - Email notifications

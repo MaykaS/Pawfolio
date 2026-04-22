@@ -95,3 +95,9 @@ Reason: Pawfolio needs per-user private data where each user sees only their own
 Decision: Vet visits and vaccines keep separate record types, but share the same green health styling in Calendar views.
 
 Reason: Both represent health-care milestones, and a single health color makes the calendar easier to scan without weakening the underlying data model.
+
+## 2026-04-22: Start Notifications As An In-App Center
+
+Decision: The notification button opens an in-app notification center before real background push scheduling is added.
+
+Reason: Upcoming reminders are useful immediately, but trustworthy push reminders need recurrence handling, data safety, and either PWA push infrastructure or native Expo push support.

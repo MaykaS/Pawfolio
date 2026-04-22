@@ -58,6 +58,7 @@ Current prototype behavior:
 - Care records with type filtering, next due dates, and health export
 - Calendar reminders with recurrence labels
 - Calendar month navigation with clickable day details
+- In-app notification center with upcoming reminders and browser permission check
 - Browser-local persistence
 
 Run locally:

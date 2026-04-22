@@ -26,6 +26,7 @@ import {
   ageLabel,
   avatarOptions,
   breedOptions,
+  canUseBrowserNotifications,
   careStatus,
   careTypes,
   deleteCalendarItemFromState,
@@ -40,6 +41,7 @@ import {
   initialState,
   latestWeight,
   normalizeState,
+  notificationPermissionStatus,
   prettyDate,
   recurrenceLabel,
   reminderRecurrenceOptions,
@@ -148,6 +150,7 @@ export default function App() {
   const [memoryMode, setMemoryMode] = useState<MemoryMode | null>(null);
   const [careMode, setCareMode] = useState<CareMode | null>(null);
   const [reminderMode, setReminderMode] = useState<ReminderMode | null>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
@@ -210,7 +213,7 @@ export default function App() {
             }))
           }
           onOpenMemory={() => setMemoryMode({ mode: "create" })}
-          onOpenReminder={() => setReminderMode({ mode: "create" })}
+          onOpenNotifications={() => setNotificationsOpen(true)}
         />
       )}
 
@@ -259,6 +262,7 @@ export default function App() {
           walkCount={state.tasks.filter((task) => /walk/i.test(task.title)).length}
           careRecords={careRecords}
           onSave={(profile) => setState((current) => ({ ...current, profile }))}
+          onOpenNotifications={() => setNotificationsOpen(true)}
         />
       )}
 
@@ -317,6 +321,13 @@ export default function App() {
             setState((current) => saveReminderToState(current, reminder));
             setReminderMode(null);
           }}
+        />
+      )}
+
+      {notificationsOpen && (
+        <NotificationsSheet
+          reminders={calendarItems}
+          onClose={() => setNotificationsOpen(false)}
         />
       )}
     </main>
@@ -478,7 +489,7 @@ function TodayScreen({
   onEditTask,
   onDeleteTask,
   onOpenMemory,
-  onOpenReminder,
+  onOpenNotifications,
 }: {
   profile: DogProfile;
   tasks: DailyTask[];
@@ -491,7 +502,7 @@ function TodayScreen({
   onEditTask: (task: DailyTask) => void;
   onDeleteTask: (id: string) => void;
   onOpenMemory: () => void;
-  onOpenReminder: () => void;
+  onOpenNotifications: () => void;
 }) {
   const careMoments = getCareMoments(tasks);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
@@ -506,7 +517,7 @@ function TodayScreen({
         })}
         title={`Good morning, ${profile.name}`}
         action={
-          <button className="icon-chip" type="button" onClick={onOpenReminder}>
+          <button className="icon-chip" type="button" aria-label="Open notifications" onClick={onOpenNotifications}>
             <Bell size={18} />
           </button>
         }
@@ -769,26 +780,26 @@ function CalendarScreen({
   return (
     <section className="screen">
       <header className="calendar-head">
-        <div>
+        <div className="calendar-topline">
           <p className="screen-kicker">Calendar</p>
-          <div className="month-title-row">
-            <button className="calendar-arrow" type="button" aria-label="Previous month" onClick={() => shiftMonth(-1)}>
-              <ChevronLeft size={14} />
-            </button>
-            <h1 className="screen-title">{visibleMonth.toLocaleDateString("en", { month: "long", year: "numeric" })}</h1>
-            <button className="calendar-arrow" type="button" aria-label="Next month" onClick={() => shiftMonth(1)}>
-              <ChevronRight size={14} />
+          <div className="calendar-actions">
+            {!isCurrentMonth && (
+              <button className="btn btn-sm btn-ghost" type="button" onClick={() => setVisibleMonth(currentMonth)}>
+                Today
+              </button>
+            )}
+            <button className="btn btn-sm btn-secondary" type="button" onClick={() => onOpenReminder()}>
+              + Add
             </button>
           </div>
         </div>
-        <div className="calendar-actions">
-          {!isCurrentMonth && (
-            <button className="btn btn-sm btn-ghost" type="button" onClick={() => setVisibleMonth(currentMonth)}>
-              Today
-            </button>
-          )}
-          <button className="btn btn-sm btn-secondary" type="button" onClick={() => onOpenReminder()}>
-            + Add
+        <div className="month-title-row">
+          <button className="calendar-arrow" type="button" aria-label="Previous month" onClick={() => shiftMonth(-1)}>
+            <ChevronLeft size={13} />
+          </button>
+          <h1 className="calendar-title">{visibleMonth.toLocaleDateString("en", { month: "long", year: "numeric" })}</h1>
+          <button className="calendar-arrow" type="button" aria-label="Next month" onClick={() => shiftMonth(1)}>
+            <ChevronRight size={13} />
           </button>
         </div>
       </header>
@@ -893,18 +904,100 @@ function DayDetailSheet({
   );
 }
 
+function NotificationsSheet({
+  reminders,
+  onClose,
+}: {
+  reminders: Reminder[];
+  onClose: () => void;
+}) {
+  const notificationApi = typeof Notification === "undefined" ? undefined : Notification;
+  const [permission, setPermission] = useState(() => notificationPermissionStatus(notificationApi));
+  const upcoming = getUpcomingReminders(reminders).slice(0, 6);
+  const supported = canUseBrowserNotifications(notificationApi);
+
+  const testNotification = async () => {
+    if (!supported || !notificationApi) return;
+    const nextPermission =
+      notificationApi.permission === "default" ? await notificationApi.requestPermission() : notificationApi.permission;
+    setPermission(nextPermission);
+    if (nextPermission === "granted") {
+      new Notification("Pawfolio reminder", {
+        body: upcoming[0]
+          ? `${upcoming[0].title} is coming up ${prettyDate(upcoming[0].date)}.`
+          : "Notifications are ready for Pawfolio.",
+      });
+    }
+  };
+
+  return (
+    <Sheet title="Notifications" onClose={onClose}>
+      <section className="notice-card">
+        <div>
+          <p className="label no-margin">Browser permission</p>
+          <h3>{supported ? permissionLabel(permission) : "Not supported here"}</h3>
+        </div>
+        {supported && (
+          <button className="btn btn-sm btn-secondary" type="button" onClick={testNotification}>
+            Test notification
+          </button>
+        )}
+      </section>
+
+      <p className="notice-copy">
+        Pawfolio can show this in-app notification center today. Real background push reminders come later with PWA push or the native app.
+      </p>
+
+      <div className="label-row">
+        <p className="label no-margin">Upcoming</p>
+        <span>{upcoming.length} active</span>
+      </div>
+      {upcoming.length === 0 ? (
+        <section className="day-empty">
+          <Bell size={22} />
+          <h3>No upcoming reminders</h3>
+          <p>Add calendar reminders for medicine, vaccines, vet visits, grooming, food, walks, or other care.</p>
+        </section>
+      ) : (
+        upcoming.map((reminder) => (
+          <article className={`event-item notification-item event-${eventCategory(reminder.type)}`} key={reminder.id}>
+            <div className="event-date-block">
+              <strong>{new Date(`${reminder.date}T00:00`).getDate()}</strong>
+              <span>{new Date(`${reminder.date}T00:00`).toLocaleDateString("en", { month: "short" })}</span>
+            </div>
+            <div className="event-copy">
+              {reminder.recurrence !== "none" && <span className="badge badge-amber">{recurrenceLabel(reminder.recurrence)}</span>}
+              <h2>{reminder.title}</h2>
+              <p>{reminder.type} - {reminder.time || "Any time"}{reminder.note && ` - ${reminder.note}`}</p>
+            </div>
+          </article>
+        ))
+      )}
+    </Sheet>
+  );
+}
+
+function permissionLabel(permission: string) {
+  if (permission === "granted") return "Allowed";
+  if (permission === "denied") return "Blocked";
+  if (permission === "default") return "Not decided yet";
+  return "Not supported here";
+}
+
 function ProfileScreen({
   profile,
   diaryCount,
   walkCount,
   careRecords,
   onSave,
+  onOpenNotifications,
 }: {
   profile: DogProfile;
   diaryCount: number;
   walkCount: number;
   careRecords: CareRecord[];
   onSave: (profile: DogProfile) => void;
+  onOpenNotifications: () => void;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -948,7 +1041,7 @@ function ProfileScreen({
       </section>
       <div className="profile-actions">
         <ProfileAction icon={<Pencil size={18} />} label="Edit profile" onClick={() => setEditing(true)} />
-        <ProfileAction icon={<Bell size={18} />} label="Notifications" onClick={() => undefined} />
+        <ProfileAction icon={<Bell size={18} />} label="Notifications" onClick={onOpenNotifications} />
         <ProfileAction icon={<Download size={18} />} label="Export health records" onClick={exportHealthRecords} />
       </div>
       {editing && (
