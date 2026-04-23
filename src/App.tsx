@@ -73,6 +73,7 @@ import {
   saveCareRecordToState,
   saveReminderToState,
   setTaskDoneForDate,
+  sortDiaryEntries,
   sortTasksByTime,
   storageKey,
   taskHourOptions,
@@ -676,10 +677,11 @@ export default function App() {
           onSave={(entry) => {
             setState((current) => ({
               ...current,
-              diary:
+              diary: sortDiaryEntries(
                 memoryMode.mode === "edit"
                   ? current.diary.map((item) => (item.id === entry.id ? entry : item))
                   : [entry, ...current.diary],
+              ),
             }));
             setMemoryMode(null);
           }}

@@ -452,6 +452,25 @@ export function withDiaryPhotos(entry: DiaryEntry): DiaryEntry {
   };
 }
 
+function diaryDateTime(date = "") {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined;
+  const value = new Date(`${date}T00:00`).getTime();
+  return Number.isFinite(value) ? value : undefined;
+}
+
+export function compareDiaryEntriesByDate(a: DiaryEntry, b: DiaryEntry) {
+  const aTime = diaryDateTime(a.date);
+  const bTime = diaryDateTime(b.date);
+  if (typeof aTime === "number" && typeof bTime === "number" && aTime !== bTime) return bTime - aTime;
+  if (typeof aTime === "number" && typeof bTime !== "number") return -1;
+  if (typeof aTime !== "number" && typeof bTime === "number") return 1;
+  return (a.title || a.id).localeCompare(b.title || b.id);
+}
+
+export function sortDiaryEntries(entries: DiaryEntry[]) {
+  return [...entries].sort(compareDiaryEntriesByDate);
+}
+
 export function limitDiaryPhotos(photos: string[]) {
   return photos.filter(Boolean).slice(0, maxDiaryPhotos);
 }
@@ -806,7 +825,7 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
       : undefined,
     tasks: sortTasksByTime((base.tasks?.length ? base.tasks : defaultTasks).map(withTaskTime).map((task) => ({ ...task, done: false }))),
     taskHistory: base.taskHistory || legacyTaskHistory(base.tasks || []),
-    diary: (base.diary || []).map(withDiaryPhotos),
+    diary: sortDiaryEntries((base.diary || []).map(withDiaryPhotos)),
     care: normalizedCare.filter((record) => !isSharedCareType(record.type)),
     careEvents,
     reminders: normalizedReminders.filter((reminder) => !reminderTypeToCareType(reminder.type)),

@@ -38,6 +38,7 @@ import {
   saveCareRecordToState,
   saveReminderToState,
   setTaskDoneForDate,
+  sortDiaryEntries,
   taskTime,
   tasksForDate,
   todayISO,
@@ -186,10 +187,38 @@ describe("pawfolio helpers", () => {
       reminders: [],
     });
 
-    expect(diaryEntryPhotos(normalized.diary[0])).toEqual(["pawfolio-photo:old"]);
-    expect(diaryEntryPhotos(normalized.diary[1])).toEqual(["pawfolio-photo:1", "pawfolio-photo:2"]);
+    expect(normalized.diary.map((entry) => entry.id)).toEqual(["new", "old"]);
+    expect(diaryEntryPhotos(normalized.diary[0])).toEqual(["pawfolio-photo:1", "pawfolio-photo:2"]);
+    expect(diaryEntryPhotos(normalized.diary[1])).toEqual(["pawfolio-photo:old"]);
     expect(limitDiaryPhotos(["1", "2", "3", "4", "5", "6", "7"])).toHaveLength(maxDiaryPhotos);
-    expect(collectPhotoRefs(normalized)).toEqual(["pawfolio-photo:old", "pawfolio-photo:1", "pawfolio-photo:2"]);
+    expect(collectPhotoRefs(normalized)).toEqual(["pawfolio-photo:1", "pawfolio-photo:2", "pawfolio-photo:old"]);
+  });
+
+  it("sorts diary entries newest first and keeps missing dates last", () => {
+    const entries = [
+      { id: "older", title: "Beach", body: "", date: "2026-04-18" },
+      { id: "missing", title: "Mystery", body: "", date: "" },
+      { id: "newer", title: "Park", body: "", date: "2026-04-22" },
+      { id: "middle", title: "Vet", body: "", date: "2026-04-20" },
+    ];
+
+    expect(sortDiaryEntries(entries).map((entry) => entry.id)).toEqual(["newer", "middle", "older", "missing"]);
+    expect(normalizeState({ tasks: [], diary: entries, care: [], reminders: [] }).diary.map((entry) => entry.id)).toEqual([
+      "newer",
+      "middle",
+      "older",
+      "missing",
+    ]);
+  });
+
+  it("moves edited diary entries into the correct chronological position", () => {
+    const entries = [
+      { id: "newer", title: "Park", body: "", date: "2026-04-22" },
+      { id: "older", title: "Beach", body: "", date: "2026-04-18" },
+    ];
+    const edited = entries.map((entry) => (entry.id === "older" ? { ...entry, date: "2026-04-24" } : entry));
+
+    expect(sortDiaryEntries(edited).map((entry) => entry.id)).toEqual(["older", "newer"]);
   });
 
   it("validates care forms and returns friendly empty states", () => {
