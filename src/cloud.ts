@@ -79,6 +79,13 @@ export async function uploadLocalPawfolioToAccount(state: PawfolioState) {
   if (error) throw error;
 }
 
+export async function getCloudSession() {
+  if (!supabase) throw new Error(missingCloudConfigMessage());
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return data.session;
+}
+
 function urlBase64ToUint8Array(value: string) {
   const padding = "=".repeat((4 - (value.length % 4)) % 4);
   const base64 = `${value}${padding}`.replace(/-/g, "+").replace(/_/g, "/");

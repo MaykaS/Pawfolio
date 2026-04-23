@@ -26,6 +26,7 @@ import type { Session } from "@supabase/supabase-js";
 import {
   cleanupAuthCallbackUrl,
   cloudConfigured,
+  getCloudSession,
   missingCloudConfigMessage,
   parseAuthCallbackUrl,
   pushConfigured,
@@ -708,12 +709,17 @@ export default function App() {
               .catch((error: Error) => setCloudStatus(error.message));
           }}
           onEnablePush={() => {
-            if (!session) {
-              setCloudStatus("Sign in before enabling phone push.");
-              return;
-            }
-            subscribeDeviceToPush(session)
-              .then(() => setCloudStatus("This phone is saved for Pawfolio push reminders."))
+            getCloudSession()
+              .then((activeSession) => {
+                if (!activeSession) {
+                  setCloudStatus("Sign in before enabling phone push.");
+                  return;
+                }
+                setSession(activeSession);
+                return subscribeDeviceToPush(activeSession).then(() =>
+                  setCloudStatus("This phone is saved for Pawfolio push reminders."),
+                );
+              })
               .catch((error: Error) => setCloudStatus(error.message));
           }}
           onTogglePreference={(key) =>
