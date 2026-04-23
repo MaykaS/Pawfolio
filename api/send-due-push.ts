@@ -44,6 +44,12 @@ export default async function handler(request: VercelRequest, response: VercelRe
     return sendJson(response, 401, { error: "Unauthorized" });
   }
 
+  const required = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "VAPID_SUBJECT", "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"];
+  const missing = required.filter((name) => !process.env[name]);
+  if (missing.length > 0) {
+    return sendJson(response, 200, { ok: true, configured: false, missing });
+  }
+
   webpush.setVapidDetails(
     requiredEnv("VAPID_SUBJECT"),
     requiredEnv("VAPID_PUBLIC_KEY"),
