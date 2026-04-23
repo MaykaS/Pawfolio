@@ -1996,7 +1996,7 @@ function ProfileScreen({
             <p>{session?.user.email || (isCloudConfigured ? "Google sign-in is ready." : missingCloudConfigMessage())}</p>
           </div>
           <button className="btn btn-sm btn-secondary" type="button" onClick={session ? onSignOut : onSignIn} disabled={!isCloudConfigured}>
-            {session ? "Sign out" : "Sign in"}
+            {session ? "Sign out" : "Google sign-in"}
           </button>
         </div>
         <button className="setting-row" type="button" onClick={onUploadCloud} disabled={!session}>
