@@ -1991,14 +1991,25 @@ function ProfileScreen({
       <section className="card settings-card">
         <p className="label no-margin">Cloud sync plan</p>
         <div className="cloud-card">
-          <div>
-            <h3>{session ? "Signed in" : "Private account"}</h3>
+          <div className="cloud-copy">
+            <div className="cloud-title-row">
+              <h3>{session ? "Signed in" : "Private account"}</h3>
+              <span className={session ? "badge badge-green" : "badge badge-gray"}>
+                {session ? "Connected" : "Not signed in"}
+              </span>
+            </div>
             <p>{session?.user.email || (isCloudConfigured ? "Google sign-in is ready." : missingCloudConfigMessage())}</p>
           </div>
           <button className="btn btn-sm btn-secondary" type="button" onClick={session ? onSignOut : onSignIn} disabled={!isCloudConfigured}>
             {session ? "Sign out" : "Google sign-in"}
           </button>
         </div>
+        {session && (
+          <div className="cloud-confirmation">
+            <span className="cloud-confirm-dot" aria-hidden="true" />
+            <p>Pawfolio is connected to your Google account.</p>
+          </div>
+        )}
         <button className="setting-row" type="button" onClick={onUploadCloud} disabled={!session}>
           <span>
             <strong>Upload local Pawfolio</strong>

@@ -1595,6 +1595,19 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   padding: 12px;
 }
 
+.cloud-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.cloud-title-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
 .cloud-card h3 {
   color: var(--text);
   font-size: 15px;
@@ -1606,6 +1619,30 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   font-size: 12px;
   font-weight: 800;
   line-height: 1.35;
+}
+
+.cloud-confirmation {
+  align-items: center;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  gap: 8px;
+  padding: 9px 10px;
+}
+
+.cloud-confirmation p {
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.cloud-confirm-dot {
+  background: var(--green);
+  border-radius: 999px;
+  display: inline-flex;
+  height: 8px;
+  width: 8px;
 }
 
 .setting-row span:first-child {
