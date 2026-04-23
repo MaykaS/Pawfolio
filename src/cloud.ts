@@ -13,10 +13,35 @@ export const supabase = cloudConfigured
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: true,
+        detectSessionInUrl: false,
+        flowType: "pkce",
       },
     })
   : undefined;
+
+type AuthCallbackState = {
+  requestedTab: string;
+  authReturn: boolean;
+  code: string;
+  error: string;
+};
+
+export function parseAuthCallbackUrl(input: string): AuthCallbackState {
+  const url = new URL(input, "https://pawfolio.local");
+  return {
+    requestedTab: url.searchParams.get("tab") || "",
+    authReturn: url.searchParams.get("auth-return") === "1",
+    code: url.searchParams.get("code") || "",
+    error: url.searchParams.get("error_description") || url.searchParams.get("error") || "",
+  };
+}
+
+export function cleanupAuthCallbackUrl(input: string) {
+  const url = new URL(input, "https://pawfolio.local");
+  ["auth-return", "code", "state", "error", "error_description"].forEach((key) => url.searchParams.delete(key));
+  const search = url.searchParams.toString();
+  return `${url.pathname}${search ? `?${search}` : ""}`;
+}
 
 export function missingCloudConfigMessage() {
   if (cloudConfigured) return "";

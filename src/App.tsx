@@ -24,8 +24,10 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
+  cleanupAuthCallbackUrl,
   cloudConfigured,
   missingCloudConfigMessage,
+  parseAuthCallbackUrl,
   pushConfigured,
   signInWithGoogle,
   subscribeDeviceToPush,
@@ -360,27 +362,64 @@ export default function App() {
   const [cloudStatus, setCloudStatus] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const requestedTab = params.get("tab");
-    if (requestedTab === "profile") setTab("profile");
-    if (params.get("auth-return") === "1") {
+    const callback = parseAuthCallbackUrl(window.location.href);
+    if (callback.requestedTab === "profile" || callback.authReturn || callback.code || callback.error) {
       setTab("profile");
-      setCloudStatus("Signed in. You can upload local Pawfolio and enable phone push now.");
-      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
   useEffect(() => {
-    if (!supabase) return undefined;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const client = supabase;
+    if (!client) return undefined;
+    let cancelled = false;
+
+    const finishAuthReturn = async () => {
+      const callback = parseAuthCallbackUrl(window.location.href);
+      if (callback.requestedTab === "profile" || callback.authReturn || callback.code || callback.error) {
+        setTab("profile");
+      }
+
+      if (callback.error) {
+        if (!cancelled) setCloudStatus(`Google sign-in didn't finish: ${callback.error}`);
+        window.history.replaceState({}, document.title, cleanupAuthCallbackUrl(window.location.href));
+        return;
+      }
+
+      if (callback.code) {
+        if (!cancelled) setCloudStatus("Finishing Google sign-in...");
+        const { data, error } = await client.auth.exchangeCodeForSession(callback.code);
+        if (cancelled) return;
+        if (error) {
+          setSession(null);
+          setCloudStatus(`Google sign-in didn't finish: ${error.message}`);
+        } else {
+          setSession(data.session);
+          setCloudStatus("Signed in. You can upload local Pawfolio and enable phone push now.");
+        }
+        window.history.replaceState({}, document.title, cleanupAuthCallbackUrl(window.location.href));
+        return;
+      }
+
+      const { data } = await client.auth.getSession();
+      if (!cancelled) setSession(data.session);
+    };
+
+    void finishAuthReturn();
+
+    const { data } = client.auth.onAuthStateChange((_event, nextSession) => {
+      if (cancelled) return;
       setSession(nextSession);
       if (nextSession) {
         setTab("profile");
         setCloudStatus("Signed in. You can upload local Pawfolio and enable phone push now.");
+        window.history.replaceState({}, document.title, cleanupAuthCallbackUrl(window.location.href));
       }
     });
-    return () => data.subscription.unsubscribe();
+
+    return () => {
+      cancelled = true;
+      data.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
