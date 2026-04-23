@@ -94,6 +94,7 @@ function urlBase64ToUint8Array(value: string) {
 }
 
 export async function subscribeDeviceToPush(session: Session) {
+  if (!supabase) throw new Error(missingCloudConfigMessage());
   if (!pushConfigured || !vapidPublicKey) {
     throw new Error("Add VITE_VAPID_PUBLIC_KEY in Vercel to enable phone push.");
   }
@@ -112,16 +113,14 @@ export async function subscribeDeviceToPush(session: Session) {
       applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
     }));
 
-  const response = await fetch("/api/push-subscriptions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ subscription }),
+  const { error } = await supabase.from("push_subscriptions").upsert({
+    user_id: session.user.id,
+    endpoint: subscription.endpoint,
+    subscription,
+    user_agent: navigator.userAgent || "",
+    updated_at: new Date().toISOString(),
+  }, {
+    onConflict: "endpoint",
   });
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || "Could not save this phone for push notifications.");
-  }
+  if (error) throw new Error(error.message || "Could not save this phone for push notifications.");
 }
