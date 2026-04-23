@@ -360,10 +360,25 @@ export default function App() {
   const [cloudStatus, setCloudStatus] = useState("");
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedTab = params.get("tab");
+    if (requestedTab === "profile") setTab("profile");
+    if (params.get("auth-return") === "1") {
+      setTab("profile");
+      setCloudStatus("Signed in. You can upload local Pawfolio and enable phone push now.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!supabase) return undefined;
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
+      if (nextSession) {
+        setTab("profile");
+        setCloudStatus("Signed in. You can upload local Pawfolio and enable phone push now.");
+      }
     });
     return () => data.subscription.unsubscribe();
   }, []);

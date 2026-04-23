@@ -25,7 +25,7 @@ export function missingCloudConfigMessage() {
 
 export async function signInWithGoogle() {
   if (!supabase) throw new Error(missingCloudConfigMessage());
-  const redirectTo = window.location.origin;
+  const redirectTo = `${window.location.origin}/?tab=profile&auth-return=1`;
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo },
