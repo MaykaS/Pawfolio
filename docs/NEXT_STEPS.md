@@ -26,8 +26,10 @@ Implemented:
 - In-app notification center with Due now, Soon, and Upcoming groups plus service-worker test notifications for installed PWA checks
 - Integration settings for Google Calendar, email reminders, phone push, and cloud sync planning
 - Supabase Google sign-in, private snapshot table schema, local-to-account upload, and signed-in auto-sync to cloud snapshots
+- Cloud restore back onto the current phone/browser from the latest snapshot
 - Phone push subscription save for the current signed-in device
 - Near-term local reminder notifications while the app is active/backgrounded with notification permission granted
+- Live phone-push/account status and diagnostics in Profile
 - Scheduled push sender scaffold for backend/cloud delivery
 - Floating PawPal companion with care gaps, missed routine nudges, breed/season tips, optional collapsed Climate care context, unified Today attention, dismissals, and one-tap actions
 - Profile screen with full state/photo backup export/import and editable personality tags
@@ -48,6 +50,7 @@ Implemented:
    - Reopens with saved dog data
    - Loads the app shell after the first visit
    - Delivers near-term local reminder notifications consistently
+   - Restores the latest cloud snapshot correctly on a second device/browser
 3. Polish PawPal suggestion actions:
    - Let more suggestions prefill care or reminder forms
    - Add more breed profiles and seasonal care signals

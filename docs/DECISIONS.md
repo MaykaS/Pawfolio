@@ -216,6 +216,12 @@ Decision: Pawfolio schedules near-term notifications locally in the client for r
 
 Reason: The current backend push path still depends on infrastructure that is not fully production-ready. Local scheduling gives the prototype a real reminder experience now, while closed-app precise push remains a separate backend milestone.
 
+## 2026-04-23: Show Live Phone Push Status Instead Of "Planned"
+
+Decision: The Profile surface should show live phone-push state such as `Active now`, `Off`, `Needs setup`, or `Blocked`, plus a diagnostics sheet, instead of a vague `Planned` label.
+
+Reason: The app now has working sign-in, device subscription save, and near-term local reminder delivery. User-facing status should reflect what is actually active on the current phone while still being honest that full closed-app backend delivery is still being hardened.
+
 ## 2026-04-22: Use A Dog-Face PWA Icon
 
 Decision: The installed PWA icon should be a cute dog face in Pawfolio colors rather than a generic mark.

@@ -1645,6 +1645,38 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   width: 8px;
 }
 
+.diagnostics-card {
+  display: grid;
+  gap: 8px;
+}
+
+.diagnostic-row {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.diagnostic-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.diagnostic-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.diagnostic-row strong {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: right;
+}
+
 .setting-row span:first-child {
   display: grid;
   gap: 1px;

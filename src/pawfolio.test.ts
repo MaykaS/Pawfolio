@@ -33,6 +33,7 @@ import {
   notificationPermissionStatus,
   parseMedicationRecurrence,
   prettyDate,
+  prettySyncTime,
   recurrenceLabel,
   reminderCompletionStatus,
   reminderLeadOptions,
@@ -73,6 +74,8 @@ import {
   normalizeMedicationDose,
   normalizeMedicationFrequency,
   parseTaskTimeMinutes,
+  pushStatusDetail,
+  pushStatusLabel,
   reminderAlertDate,
   regionFromCoordinates,
   regionalCareSignals,
@@ -177,6 +180,26 @@ describe("pawfolio helpers", () => {
 
     expect(tasksForDate(tasks, history, "2026-04-22")[0].done).toBe(true);
     expect(tasksForDate(tasks, history, "2026-04-23")[0].done).toBe(false);
+  });
+
+  it("reports phone push status in a user-facing way", () => {
+    expect(
+      pushStatusLabel({
+        configured: true,
+        supported: true,
+        permission: "granted",
+        hasSubscription: true,
+      }),
+    ).toBe("Active now");
+    expect(
+      pushStatusDetail({
+        configured: true,
+        supported: true,
+        permission: "granted",
+        hasSubscription: false,
+      }),
+    ).toContain("not been saved yet");
+    expect(prettySyncTime("2026-04-23T14:30:00.000Z")).toMatch(/Apr 23/);
   });
 
   it("detects missed routine nudges after local task time and hides them once marked done", () => {

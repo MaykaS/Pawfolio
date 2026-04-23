@@ -26,6 +26,7 @@ import type { Session } from "@supabase/supabase-js";
 import {
   cleanupAuthCallbackUrl,
   cloudConfigured,
+  downloadCloudPawfolioToLocal,
   getCloudSession,
   missingCloudConfigMessage,
   parseAuthCallbackUrl,
@@ -75,6 +76,9 @@ import {
   notificationLeadLabel,
   photoRefPrefix,
   notificationPermissionStatus,
+  prettySyncTime,
+  pushStatusDetail,
+  pushStatusLabel,
   reminderLeadOptions,
   reminderAlertDate,
   prettyDate,
@@ -109,12 +113,14 @@ import {
   type CareRegion,
   type CoachSettings,
   type CoachSuggestion,
+  type CloudSyncMeta,
   type DailyTask,
   type DiaryEntry,
   type DogAvatar,
   type DogProfile,
   type MedicationDoseUnit,
   type MedicationFrequencyType,
+  type PawfolioNotificationStatus,
   type PawfolioState,
   type Reminder,
   type ReminderCompletionStatus,
@@ -350,6 +356,11 @@ function monthKey(date: Date) {
   return `${date.getFullYear()}-${date.getMonth()}`;
 }
 
+function cloudSyncFingerprint(state: PawfolioState) {
+  const { cloudSyncMeta: _cloudSyncMeta, ...rest } = state;
+  return JSON.stringify(rest);
+}
+
 export default function App() {
   const [state, setState] = useState<PawfolioState>(() => loadState());
   const [tab, setTab] = useState<Tab>("today");
@@ -362,8 +373,12 @@ export default function App() {
   const [saveError, setSaveError] = useState("");
   const [session, setSession] = useState<Session | null>(null);
   const [cloudStatus, setCloudStatus] = useState("");
+  const [pushDiagnosticsOpen, setPushDiagnosticsOpen] = useState(false);
+  const [pushPermission, setPushPermission] = useState<PawfolioNotificationStatus>(notificationPermissionStatus(globalThis.Notification));
+  const [hasPushSubscription, setHasPushSubscription] = useState(false);
   const cloudSyncTimer = useRef<number | null>(null);
   const scheduledReminderTimers = useRef<number[]>([]);
+  const lastUploadedFingerprint = useRef("");
 
   useEffect(() => {
     const callback = parseAuthCallbackUrl(window.location.href);
@@ -483,10 +498,53 @@ export default function App() {
   }, [state]);
 
   useEffect(() => {
+    let active = true;
+
+    const refreshPushStatus = async () => {
+      setPushPermission(notificationPermissionStatus(globalThis.Notification));
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        if (active) setHasPushSubscription(false);
+        return;
+      }
+
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (active) setHasPushSubscription(Boolean(subscription));
+      } catch {
+        if (active) setHasPushSubscription(false);
+      }
+    };
+
+    void refreshPushStatus();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!session) return undefined;
+    const syncFingerprint = cloudSyncFingerprint(state);
+    if (syncFingerprint === lastUploadedFingerprint.current) return undefined;
     if (cloudSyncTimer.current) window.clearTimeout(cloudSyncTimer.current);
     cloudSyncTimer.current = window.setTimeout(() => {
-      uploadLocalPawfolioToAccount(state).catch(() => undefined);
+      uploadLocalPawfolioToAccount({ ...state, cloudSyncMeta: initialState.cloudSyncMeta })
+        .then(() => {
+          lastUploadedFingerprint.current = syncFingerprint;
+          setState((current) => ({
+            ...current,
+            integrationSettings: {
+              ...current.integrationSettings,
+              cloudSync: "enabled",
+            },
+            cloudSyncMeta: {
+              ...current.cloudSyncMeta,
+              lastUploadedAt: new Date().toISOString(),
+            },
+          }));
+        })
+        .catch(() => undefined);
     }, 1200);
 
     return () => {
@@ -751,11 +809,14 @@ export default function App() {
           onImportData={importPawfolioData}
           notificationPreferences={state.notificationPreferences}
           integrationSettings={state.integrationSettings}
+          cloudSyncMeta={state.cloudSyncMeta}
           coachSettings={state.coachSettings}
           session={session}
           cloudStatus={cloudStatus}
           cloudConfigured={cloudConfigured}
           pushConfigured={pushConfigured}
+          pushPermission={pushPermission}
+          hasPushSubscription={hasPushSubscription}
           onSignIn={() => {
             signInWithGoogle().catch((error: Error) => setCloudStatus(error.message));
           }}
@@ -764,8 +825,49 @@ export default function App() {
             setCloudStatus("Signed out.");
           }}
           onUploadCloud={() => {
-            uploadLocalPawfolioToAccount(state)
-              .then(() => setCloudStatus("Local Pawfolio uploaded to your account."))
+            const syncFingerprint = cloudSyncFingerprint(state);
+            uploadLocalPawfolioToAccount({ ...state, cloudSyncMeta: initialState.cloudSyncMeta })
+              .then(() => {
+                lastUploadedFingerprint.current = syncFingerprint;
+                setState((current) => ({
+                  ...current,
+                  integrationSettings: {
+                    ...current.integrationSettings,
+                    cloudSync: "enabled",
+                  },
+                  cloudSyncMeta: {
+                    ...current.cloudSyncMeta,
+                    lastUploadedAt: new Date().toISOString(),
+                  },
+                }));
+                setCloudStatus("Local Pawfolio uploaded to your account.");
+              })
+              .catch((error: Error) => setCloudStatus(error.message));
+          }}
+          onRestoreCloud={() => {
+            downloadCloudPawfolioToLocal()
+              .then((snapshot) => {
+                if (!snapshot?.state) {
+                  setCloudStatus("No cloud Pawfolio backup was found yet.");
+                  return;
+                }
+                const restoredState = normalizeState(snapshot.state as Partial<PawfolioState>);
+                const nextState = normalizeState({
+                  ...restoredState,
+                  cloudSyncMeta: {
+                    ...restoredState.cloudSyncMeta,
+                    lastUploadedAt: snapshot.updated_at || restoredState.cloudSyncMeta?.lastUploadedAt,
+                    lastRestoredAt: new Date().toISOString(),
+                  },
+                  integrationSettings: {
+                    ...restoredState.integrationSettings,
+                    cloudSync: "enabled",
+                  },
+                });
+                lastUploadedFingerprint.current = cloudSyncFingerprint(nextState);
+                setState(nextState);
+                setCloudStatus("Cloud Pawfolio restored to this phone.");
+              })
               .catch((error: Error) => setCloudStatus(error.message));
           }}
           onEnablePush={() => {
@@ -776,12 +878,30 @@ export default function App() {
                   return;
                 }
                 setSession(activeSession);
-                return subscribeDeviceToPush(activeSession).then(() =>
-                  setCloudStatus("This phone is saved for Pawfolio push reminders."),
-                );
+                return subscribeDeviceToPush(activeSession).then(() => {
+                  setPushPermission(notificationPermissionStatus(globalThis.Notification));
+                  setHasPushSubscription(true);
+                  setState((current) => ({
+                    ...current,
+                    notificationPreferences: {
+                      ...current.notificationPreferences,
+                      push: true,
+                    },
+                    integrationSettings: {
+                      ...current.integrationSettings,
+                      push: "enabled",
+                    },
+                    cloudSyncMeta: {
+                      ...current.cloudSyncMeta,
+                      lastPushRegisteredAt: new Date().toISOString(),
+                    },
+                  }));
+                  setCloudStatus("This phone is saved for Pawfolio push reminders.");
+                });
               })
               .catch((error: Error) => setCloudStatus(error.message));
           }}
+          onOpenPushDiagnostics={() => setPushDiagnosticsOpen(true)}
           onTogglePreference={(key) =>
             setState((current) => ({
               ...current,
@@ -923,6 +1043,18 @@ export default function App() {
             }))
           }
           onClose={() => setNotificationsOpen(false)}
+        />
+      )}
+
+      {pushDiagnosticsOpen && (
+        <PushDiagnosticsSheet
+          session={session}
+          cloudConfigured={cloudConfigured}
+          pushConfigured={pushConfigured}
+          pushPermission={pushPermission}
+          hasPushSubscription={hasPushSubscription}
+          cloudSyncMeta={state.cloudSyncMeta}
+          onClose={() => setPushDiagnosticsOpen(false)}
         />
       )}
     </main>
@@ -1943,6 +2075,82 @@ function permissionLabel(permission: string) {
   return "Not supported here";
 }
 
+function PushDiagnosticsSheet({
+  session,
+  cloudConfigured: isCloudConfigured,
+  pushConfigured: isPushConfigured,
+  pushPermission,
+  hasPushSubscription,
+  cloudSyncMeta,
+  onClose,
+}: {
+  session: Session | null;
+  cloudConfigured: boolean;
+  pushConfigured: boolean;
+  pushPermission: PawfolioNotificationStatus;
+  hasPushSubscription: boolean;
+  cloudSyncMeta: CloudSyncMeta;
+  onClose: () => void;
+}) {
+  const pushStatus = pushStatusLabel({
+    configured: isPushConfigured,
+    supported: canUseBrowserNotifications(globalThis.Notification),
+    permission: pushPermission,
+    hasSubscription: hasPushSubscription,
+  });
+
+  return (
+    <Sheet title="Phone push checks" onClose={onClose}>
+      <section className="notice-card">
+        <div>
+          <p className="label no-margin">Status</p>
+          <h3>{pushStatus}</h3>
+        </div>
+        <span className={pushStatus === "Active now" ? "badge badge-green" : pushStatus === "Blocked" ? "badge badge-red" : "badge badge-gray"}>
+          {pushStatus}
+        </span>
+      </section>
+      <p className="notice-copy">{pushStatusDetail({
+        configured: isPushConfigured,
+        supported: canUseBrowserNotifications(globalThis.Notification),
+        permission: pushPermission,
+        hasSubscription: hasPushSubscription,
+      })}</p>
+
+      <section className="card diagnostics-card">
+        <div className="diagnostic-row">
+          <span>Google account</span>
+          <strong>{session ? session.user.email || "Connected" : "Not signed in"}</strong>
+        </div>
+        <div className="diagnostic-row">
+          <span>Cloud sync</span>
+          <strong>{isCloudConfigured ? "Ready" : "Missing env"}</strong>
+        </div>
+        <div className="diagnostic-row">
+          <span>Notification permission</span>
+          <strong>{permissionLabel(pushPermission)}</strong>
+        </div>
+        <div className="diagnostic-row">
+          <span>This phone</span>
+          <strong>{hasPushSubscription ? "Saved for push" : "Not saved yet"}</strong>
+        </div>
+        <div className="diagnostic-row">
+          <span>Last cloud upload</span>
+          <strong>{prettySyncTime(cloudSyncMeta.lastUploadedAt)}</strong>
+        </div>
+        <div className="diagnostic-row">
+          <span>Last phone save</span>
+          <strong>{prettySyncTime(cloudSyncMeta.lastPushRegisteredAt)}</strong>
+        </div>
+      </section>
+
+      <p className="notice-copy">
+        Near-term reminders can alert on this phone now. Fully reliable closed-app scheduled delivery is still being hardened on the backend scheduler side.
+      </p>
+    </Sheet>
+  );
+}
+
 function ProfileScreen({
   profile,
   diaryCount,
@@ -1953,15 +2161,20 @@ function ProfileScreen({
   onImportData,
   notificationPreferences,
   integrationSettings,
+  cloudSyncMeta,
   coachSettings,
   session,
   cloudStatus,
   cloudConfigured: isCloudConfigured,
   pushConfigured: isPushConfigured,
+  pushPermission,
+  hasPushSubscription,
   onSignIn,
   onSignOut,
   onUploadCloud,
+  onRestoreCloud,
   onEnablePush,
+  onOpenPushDiagnostics,
   onTogglePreference,
   onToggleCoach,
   onUpdateCoachSettings,
@@ -1975,15 +2188,20 @@ function ProfileScreen({
   onImportData: (file: File) => Promise<void>;
   notificationPreferences: PawfolioState["notificationPreferences"];
   integrationSettings: PawfolioState["integrationSettings"];
+  cloudSyncMeta: CloudSyncMeta;
   coachSettings: CoachSettings;
   session: Session | null;
   cloudStatus: string;
   cloudConfigured: boolean;
   pushConfigured: boolean;
+  pushPermission: PawfolioNotificationStatus;
+  hasPushSubscription: boolean;
   onSignIn: () => void;
   onSignOut: () => void;
   onUploadCloud: () => void;
+  onRestoreCloud: () => void;
   onEnablePush: () => void;
+  onOpenPushDiagnostics: () => void;
   onTogglePreference: (key: keyof PawfolioState["notificationPreferences"]) => void;
   onToggleCoach: () => void;
   onUpdateCoachSettings: (settings: Partial<CoachSettings>) => void;
@@ -1991,6 +2209,18 @@ function ProfileScreen({
   const [editing, setEditing] = useState(false);
   const [climateOpen, setClimateOpen] = useState(false);
   const [locationStatus, setLocationStatus] = useState("");
+  const phonePushLabel = pushStatusLabel({
+    configured: isPushConfigured,
+    supported: canUseBrowserNotifications(globalThis.Notification),
+    permission: pushPermission,
+    hasSubscription: hasPushSubscription,
+  });
+  const phonePushDetail = pushStatusDetail({
+    configured: isPushConfigured,
+    supported: canUseBrowserNotifications(globalThis.Notification),
+    permission: pushPermission,
+    hasSubscription: hasPushSubscription,
+  });
   const enableAutoLocation = () => {
     if (!navigator.geolocation) {
       setLocationStatus("Location is not supported in this browser.");
@@ -2039,8 +2269,9 @@ function ProfileScreen({
         <p className="label no-margin">Integrations</p>
         <SettingRow label="Google Calendar" value={integrationStatusLabel(integrationSettings.googleCalendar)} checked={notificationPreferences.googleCalendar} onToggle={() => onTogglePreference("googleCalendar")} />
         <SettingRow label="Email reminders" value={integrationStatusLabel(integrationSettings.email)} checked={notificationPreferences.email} onToggle={() => onTogglePreference("email")} />
-        <SettingRow label="Phone push" value={integrationStatusLabel(integrationSettings.push)} checked={notificationPreferences.push} onToggle={() => onTogglePreference("push")} />
+        <SettingRow label="Phone push" value={phonePushLabel} checked={notificationPreferences.push || hasPushSubscription} onToggle={() => onTogglePreference("push")} />
         <SettingRow label="In-app reminders" value="Active now" checked={notificationPreferences.inApp} onToggle={() => onTogglePreference("inApp")} />
+        <p className="settings-note">{phonePushDetail}</p>
       </section>
       <section className="card settings-card">
         <p className="label no-margin">PawPal</p>
@@ -2094,11 +2325,11 @@ function ProfileScreen({
         <p className="settings-note">PawPal uses Pawfolio data on this device. Location is optional and only used for broad care context. LLM help can come later after cloud/privacy is ready.</p>
       </section>
       <section className="card settings-card">
-        <p className="label no-margin">Cloud sync plan</p>
+        <p className="label no-margin">Cloud & phone</p>
         <div className="cloud-card">
           <div className="cloud-copy">
             <div className="cloud-title-row">
-              <h3>{session ? "Signed in" : "Private account"}</h3>
+              <h3>{session ? "Private account" : "Private account"}</h3>
               <span className={session ? "badge badge-green" : "badge badge-gray"}>
                 {session ? "Connected" : "Not signed in"}
               </span>
@@ -2115,6 +2346,22 @@ function ProfileScreen({
             <p>Pawfolio is connected to your Google account.</p>
           </div>
         )}
+        <div className="setting-row static">
+          <span>
+            <strong>Cloud sync</strong>
+            <small>Last upload {prettySyncTime(cloudSyncMeta.lastUploadedAt)}</small>
+          </span>
+          <span className={session ? "badge badge-green" : "badge badge-gray"}>{session ? "Active now" : "Off"}</span>
+        </div>
+        <div className="setting-row static">
+          <span>
+            <strong>Phone push</strong>
+            <small>{phonePushDetail}</small>
+          </span>
+          <span className={phonePushLabel === "Active now" ? "badge badge-green" : phonePushLabel === "Blocked" ? "badge badge-red" : "badge badge-gray"}>
+            {phonePushLabel}
+          </span>
+        </div>
         <button className="setting-row" type="button" onClick={onUploadCloud} disabled={!session}>
           <span>
             <strong>Upload local Pawfolio</strong>
@@ -2122,10 +2369,24 @@ function ProfileScreen({
           </span>
           <ChevronRight size={17} />
         </button>
+        <button className="setting-row" type="button" onClick={onRestoreCloud} disabled={!session}>
+          <span>
+            <strong>Restore cloud Pawfolio</strong>
+            <small>Pull your latest saved account snapshot back onto this phone.</small>
+          </span>
+          <ChevronRight size={17} />
+        </button>
         <button className="setting-row" type="button" onClick={onEnablePush} disabled={!session || !isPushConfigured}>
           <span>
-            <strong>Enable phone push</strong>
-            <small>{isPushConfigured ? "Save this phone for scheduled reminders." : "Add VAPID keys first."}</small>
+            <strong>{hasPushSubscription ? "Refresh phone push" : "Enable phone push"}</strong>
+            <small>{isPushConfigured ? "Save this phone for Pawfolio reminders." : "Add VAPID keys first."}</small>
+          </span>
+          <ChevronRight size={17} />
+        </button>
+        <button className="setting-row" type="button" onClick={onOpenPushDiagnostics}>
+          <span>
+            <strong>Push diagnostics</strong>
+            <small>Check account, phone permission, saved device, and latest sync times.</small>
           </span>
           <ChevronRight size={17} />
         </button>

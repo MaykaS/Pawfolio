@@ -65,9 +65,10 @@ Current prototype behavior:
 - Smart reminder timing defaults with compact per-reminder alert lead chips, including at time, 15 min, 30 min, 1 hour, same day, and 1 day
 - In-app notification center with Due now, Soon, and Upcoming reminder groups plus service-worker test notifications for installed PWA checks
 - Signed-in auto-sync of local Pawfolio state to a private Supabase snapshot row
+- One-tap cloud restore from the latest private Supabase snapshot
 - Phone push subscription save for the current signed-in device
 - Near-term local reminder notifications while the app is open or backgrounded with notification permission granted
-- Integration settings for Google Calendar, email, phone push, and cloud sync planning
+- Integration settings for Google Calendar, email, phone push, and cloud sync, with live push/account status
 - Floating PawPal companion with local rule-based care gaps, missed routine nudges, breed/season tips, optional collapsed Climate care context, unified Today attention, dismissible suggestions, and one-tap actions
 - Full Pawfolio data export/import for localStorage and IndexedDB photo safety
 - Supabase Google sign-in, private cloud snapshot upload, and PWA push subscription setup
@@ -78,6 +79,7 @@ Current data/auth note:
 
 - Pawfolio now supports Google sign-in through Supabase when the project is configured.
 - Signed-in users can upload or auto-sync local state into their own private Supabase snapshot row.
+- Signed-in users can also restore the latest cloud snapshot back onto the phone/browser.
 - Browser-local data still remains the source of truth for the current prototype UX.
 - `Upload local Pawfolio` means copying the data already on this phone/browser into the signed-in private account as a backup and cloud handoff step.
 - Full normalized cloud sync across devices is still a later milestone.
@@ -126,6 +128,7 @@ Notes:
 - Data is still local-first and stored in that phone browser/app profile.
 - The local network dev URL is useful for testing, but HTTPS is needed for the proper install/offline PWA experience.
 - Phone subscription setup and near-term local reminder notifications now work in the app.
+- The Profile account area now shows live cloud sync time, phone-push status, and a push diagnostics sheet.
 - Fully reliable closed-app scheduled phone push still remains a backend milestone. It needs a healthy server-side sender path plus a scheduler that can run more frequently than the current Hobby-plan daily cron.
 
 See:

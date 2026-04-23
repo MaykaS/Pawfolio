@@ -79,6 +79,22 @@ export async function uploadLocalPawfolioToAccount(state: PawfolioState) {
   if (error) throw error;
 }
 
+export async function downloadCloudPawfolioToLocal() {
+  if (!supabase) throw new Error(missingCloudConfigMessage());
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  const user = userData.user;
+  if (!user) throw new Error("Sign in before restoring Pawfolio.");
+
+  const { data, error } = await supabase
+    .from("pawfolio_snapshots")
+    .select("state,updated_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 export async function getCloudSession() {
   if (!supabase) throw new Error(missingCloudConfigMessage());
   const { data, error } = await supabase.auth.getSession();

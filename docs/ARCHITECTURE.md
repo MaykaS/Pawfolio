@@ -72,7 +72,7 @@ Future cloud persistence should use Supabase Auth plus Postgres Row Level Securi
 
 The app now has live Supabase Google auth, private snapshot upload, signed-in auto-sync, and push subscription storage. The browser-local model still drives the prototype UX, while Supabase currently acts as the private cloud backup and push foundation.
 
-The first cloud migration uses `pawfolio_snapshots`: after Google sign-in, `Upload local Pawfolio` copies the current local state JSON into the user's private row. Signed-in state changes are also auto-synced after edits. This protects existing phone data before later splitting records into fully normalized cloud tables.
+The first cloud migration uses `pawfolio_snapshots`: after Google sign-in, `Upload local Pawfolio` copies the current local state JSON into the user's private row. Signed-in state changes are also auto-synced after edits, and the Profile screen can restore the latest snapshot back onto the current phone/browser. This protects existing phone data before later splitting records into fully normalized cloud tables.
 
 Likely future entities:
 
@@ -123,6 +123,7 @@ The app now includes these reminder-delivery layers:
 - Signed-in device subscription storage in `push_subscriptions`
 - Signed-in auto-sync of local reminder data into `pawfolio_snapshots`
 - Near-term local reminder scheduling in the client for reminders due within roughly the next hour while the app is active or backgrounded
+- Profile-level push diagnostics showing account, permission, saved-device, and latest cloud timing state
 - A backend Vercel cron/API sender scaffold for closed-app push delivery from cloud snapshots
 
 Current limitation: the closed-app push sender path is not yet production-complete. It still depends on a healthy backend service-role key path plus a scheduler that can run more frequently than the current Vercel Hobby daily cron. That means local/foreground reminder delivery is usable now, while true precise closed-app scheduled push remains a follow-on infrastructure milestone.

@@ -111,8 +111,14 @@ export type NotificationPreferences = {
 export type IntegrationSettings = {
   googleCalendar: "not_connected" | "planned" | "connected";
   email: "not_configured" | "planned" | "configured";
-  push: "not_enabled" | "planned" | "enabled";
+  push: "not_enabled" | "planned" | "enabled" | "local_only";
   cloudSync: "local_only" | "planned" | "enabled";
+};
+
+export type CloudSyncMeta = {
+  lastUploadedAt?: string;
+  lastRestoredAt?: string;
+  lastPushRegisteredAt?: string;
 };
 
 export type GoogleCalendarSyncState = {
@@ -169,6 +175,7 @@ export type PawfolioState = {
   notificationPreferences: NotificationPreferences;
   integrationSettings: IntegrationSettings;
   googleCalendarSyncState: GoogleCalendarSyncState;
+  cloudSyncMeta: CloudSyncMeta;
   routineCoachSettings: RoutineCoachSettings;
   coachSettings: CoachSettings;
   coachDismissals: string[];
@@ -214,6 +221,7 @@ export const initialState: PawfolioState = {
   googleCalendarSyncState: {
     connected: false,
   },
+  cloudSyncMeta: {},
   routineCoachSettings: {
     enabled: true,
     missedRoutineNudges: true,
@@ -914,6 +922,10 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
       ...initialState.googleCalendarSyncState,
       ...(base.googleCalendarSyncState || {}),
     },
+    cloudSyncMeta: {
+      ...initialState.cloudSyncMeta,
+      ...(base.cloudSyncMeta || {}),
+    },
     routineCoachSettings: {
       ...initialState.routineCoachSettings,
       ...(base.routineCoachSettings || {}),
@@ -1134,6 +1146,40 @@ export function reminderAlertDate(reminder: Reminder) {
 export function notificationLeadLabel(reminder: Pick<Reminder, "notifyLeadMinutes" | "type">) {
   const minutes = reminder.notifyLeadMinutes ?? defaultReminderLeadMinutes(reminder.type);
   return reminderLeadOptions.find((option) => option.value === minutes)?.label || `${minutes} min before`;
+}
+
+export type PushStatusInput = {
+  configured: boolean;
+  supported: boolean;
+  permission: PawfolioNotificationStatus;
+  hasSubscription: boolean;
+};
+
+export function pushStatusLabel({ configured, supported, permission, hasSubscription }: PushStatusInput) {
+  if (!configured || !supported) return "Unavailable";
+  if (permission === "denied") return "Blocked";
+  if (hasSubscription && permission === "granted") return "Active now";
+  if (permission === "granted") return "Needs setup";
+  return "Off";
+}
+
+export function pushStatusDetail({ configured, supported, permission, hasSubscription }: PushStatusInput) {
+  if (!configured) return "Push keys are not configured yet.";
+  if (!supported) return "This browser does not support phone push notifications.";
+  if (permission === "denied") return "Notifications are blocked in browser or phone settings.";
+  if (hasSubscription && permission === "granted") return "This phone can receive Pawfolio reminders.";
+  if (permission === "granted") return "Notifications are allowed, but this phone has not been saved yet.";
+  return "Enable notifications to save this phone for Pawfolio reminders.";
+}
+
+export function prettySyncTime(value?: string) {
+  if (!value) return "Not yet";
+  return new Date(value).toLocaleString("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 export function getNotificationGroups(
