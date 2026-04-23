@@ -126,6 +126,12 @@ Decision: Daily routine completion is stored in a date-keyed history instead of 
 
 Reason: A daily checklist should reset naturally each day while keeping the task definitions, notes, and times stable.
 
+## 2026-04-23: Use Local Dates For Daily Reset
+
+Decision: Routine history keys use the phone/browser's local calendar date instead of UTC date strings.
+
+Reason: A mobile user should not see yesterday's completed checklist after local midnight because their time zone differs from UTC.
+
 ## 2026-04-22: Add Full Local Backup Before Cloud Sync
 
 Decision: Pawfolio supports exporting and importing the full local state and referenced IndexedDB photos before adding account-based cloud storage.
@@ -155,6 +161,18 @@ Reason: The feature should feel useful immediately, but anything agentic that re
 Decision: Reminders store an alert lead time. Medication, food, and walk reminders default to alerting at the scheduled time. Vet, vaccine, grooming, and other reminders default to one hour before.
 
 Reason: Different pet-care reminders need different urgency. Users should be able to override the default without Pawfolio pretending that real closed-app push scheduling exists before backend push infrastructure.
+
+## 2026-04-23: Keep Missed Routine Nudges In-App Until Push Exists
+
+Decision: Missed routine nudges appear in PawPal and Today attention after a task's scheduled time plus a grace period, but do not send closed-app phone push yet.
+
+Reason: Useful local attention items can ship now, while trustworthy phone push needs auth, device subscriptions, and a backend sender.
+
+## 2026-04-23: Collapse Climate Care Settings
+
+Decision: Profile shows Climate care as a compact row that expands into region chips and broad-location controls only when tapped.
+
+Reason: Optional location context is helpful for PawPal, but it should not take over the Profile screen when the user is not actively editing it.
 
 ## 2026-04-22: Keep Auth And Database As The Next Cloud Milestone
 

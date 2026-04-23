@@ -46,7 +46,7 @@ The first version should look like one user and one dog, with browser-local pers
 Current localStorage prototype data includes:
 
 - Dog profile with name, breed, birthday, weight, personality, editable tags, photo, and avatar settings
-- Daily tasks with title, canonical `HH:MM` saved time, optional note, chronological sorting, and date-based completion history
+- Daily tasks with title, canonical `HH:MM` saved time, optional note, chronological sorting, and local-date completion history
 - Diary entries with title, body, date, legacy single-photo support, and up to 6 IndexedDB-backed photos
 - Care records with type, title, record date, type-specific fields, optional next due date, and note
 - Shared care-calendar events for medications, vaccines, and vet visits
@@ -55,15 +55,15 @@ Current localStorage prototype data includes:
 - Medication schedule helpers that map structured daily, weekly, monthly, or yearly frequency to shared calendar recurrence, while still normalizing simple legacy text
 - Calendar helper views for future-only upcoming items, visible-month events, and selected-day event details
 - Care helper views for type-specific validation, empty states, weight trends, medication consistency, and follow-up histories
-- In-app notification center for future reminders, Due now/Soon/Upcoming groups, alert lead labels, and browser notification permission testing
+- In-app notification center for future reminders, Due now/Soon/Upcoming groups, compact alert lead labels, and browser notification permission testing
 - Local notification preferences and integration settings for in-app reminders, future phone push, email reminders, Google Calendar, and cloud sync
 - Google Calendar payload scaffolding for reminders and shared care events, without frontend secrets or OAuth tokens
-- PawPal companion settings, dismissals, care-gap/routine suggestions, breed/season signals, optional broad location context, unified Today attention, and one-tap suggestion actions
+- PawPal companion settings, dismissals, care-gap/routine suggestions, same-day missed routine nudges, breed/season signals, optional collapsed Climate care context, unified Today attention, and one-tap suggestion actions
 - Full local export/import payload for backup and restore, including referenced IndexedDB photo records
 
 Older localStorage records are normalized on load so prototype changes do not break existing local data.
 
-Routine task times are stored as canonical `HH:MM` strings for new edits, while older labels such as `8:00 PM` are parsed and normalized when possible. The Today routine sorts by parsed time, with unparseable/Anytime tasks last.
+Routine task times are stored as canonical `HH:MM` strings for new edits, while older labels such as `8:00 PM` are parsed and normalized when possible. The Today routine sorts by parsed time, with unparseable/Anytime tasks last. Routine completion keys use the device's local calendar date so phone users do not carry yesterday's completed checks into today because of UTC drift.
 
 Profile and diary photo uploads are adaptively compressed and stored in browser IndexedDB. localStorage keeps only small photo references, so repeated diary photos do not quickly exhaust the app's local state quota. Backup export now needs to include both the JSON state and referenced IndexedDB photo records. Save failures are caught and shown in-app instead of crashing the prototype.
 
@@ -114,7 +114,7 @@ Likely roles:
 
 The current prototype has an in-app notification center. It shows future reminders, exposes browser notification permission status, and can trigger a service-worker-backed test notification where the installed PWA/browser supports it.
 
-It does not yet schedule real background push reminders. The app also exposes preference toggles for future in-app, phone push, email reminders, and Google Calendar sync so the settings model is ready before backend secrets exist.
+It does not yet schedule real background push reminders. The app also exposes preference toggles for future in-app, phone push, email reminders, and Google Calendar sync so the settings model is ready before backend secrets exist. Missed routine reminders currently appear as local PawPal/Today attention items after a task's scheduled time plus a grace period.
 
 The app should eventually support:
 
@@ -130,12 +130,12 @@ Reminder records should be designed with:
 - Due date/time
 - Repeat rule
 - Calculated next occurrence for recurring reminders
-- Alert lead time such as at time, 15 minutes before, 1 hour before, or 1 day before
+- Alert lead time such as at time, 15 minutes before, 30 minutes before, 1 hour before, same-day morning, or 1 day before
 - Completion status
 - Pet association
 - Optional assigned user later
 
-Real push should be handled by PWA Push API plus a backend push sender, or by Expo push in the native app phase. Email and Google Calendar sync must happen through server-side code so secrets are not exposed in the browser.
+Real push should be handled by Supabase-backed auth/device subscriptions plus PWA Push API and a backend push sender, or by Expo push in the native app phase. Email and Google Calendar sync must happen through server-side code so secrets are not exposed in the browser.
 
 ## Agentic Direction
 
@@ -146,6 +146,7 @@ Current version:
 - Runs locally with simple rules
 - Reviews routine completion, medication detail quality, upcoming reminders, care gaps, diary/care backup needs, breed, season, and optional broad care region
 - Opens from a floating PawPal companion button above the five-tab bottom nav and also feeds urgent items into Today needs attention
+- Detects same-day missed routine tasks after their scheduled time, using local date/time and a grace period
 - Supports dismissible suggestions and one-tap actions such as adding a tick check task, opening a care record, opening reminder creation, or exporting a backup
 - Uses shared dismissals so a done/dismissed suggestion disappears from PawPal and Today
 - Is controlled by opt-in settings for PawPal, seasonal tips, and optional location/manual region context

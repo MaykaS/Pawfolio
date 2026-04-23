@@ -26,6 +26,7 @@ import {
   isFutureOrToday,
   latestWeight,
   medicationConsistency,
+  missedRoutineTasks,
   nextOccurrenceDate,
   normalizeState,
   notificationBody,
@@ -33,6 +34,7 @@ import {
   parseMedicationRecurrence,
   prettyDate,
   recurrenceLabel,
+  reminderLeadOptions,
   reminderTypes,
   safeSetLocalStorage,
   saveCareRecordToState,
@@ -42,6 +44,7 @@ import {
   taskTime,
   tasksForDate,
   todayISO,
+  toLocalISO,
   updateTaskTime,
   validateCareRecord,
   visibleCareRecords,
@@ -87,6 +90,9 @@ describe("pawfolio helpers", () => {
   it("formats dates without timezone drift", () => {
     expect(prettyDate("2026-04-21")).toBe("Apr 21");
     expect(todayISO(new Date("2026-04-21T15:30:00.000Z"))).toBe("2026-04-21");
+    const localLateNight = new Date(2026, 3, 22, 23, 30);
+    expect(toLocalISO(localLateNight)).toBe("2026-04-22");
+    expect(todayISO(localLateNight)).toBe("2026-04-22");
   });
 
   it("calculates dog age labels from a supplied current date", () => {
@@ -149,6 +155,20 @@ describe("pawfolio helpers", () => {
     expect(tasksForDate(tasks, history, "2026-04-23")[0].done).toBe(false);
   });
 
+  it("detects missed routine nudges after local task time and hides them once marked done", () => {
+    const tasks: DailyTask[] = [
+      { id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" },
+      { id: "dinner", title: "Dinner", time: "18:00", done: false, note: "" },
+    ];
+
+    expect(missedRoutineTasks(tasks, {}, new Date(2026, 3, 22, 8, 20), 30)).toEqual([]);
+    expect(missedRoutineTasks(tasks, {}, new Date(2026, 3, 22, 8, 31), 30).map((task) => task.id)).toEqual(["walk"]);
+
+    const history = setTaskDoneForDate({}, "2026-04-22", "walk", true);
+    expect(missedRoutineTasks(tasks, history, new Date(2026, 3, 22, 8, 31), 30)).toEqual([]);
+    expect(tasksForDate(tasks, history, "2026-04-23").map((task) => task.done)).toEqual([false, false]);
+  });
+
   it("normalizes older reminders with no recurrence", () => {
     const oldReminder = { id: "med", title: "Heartgard", type: "Medication", date: "2026-05-01", time: "09:00", note: "" };
 
@@ -166,6 +186,8 @@ describe("pawfolio helpers", () => {
     expect(normalized.notificationPreferences.inApp).toBe(true);
     expect(normalized.integrationSettings.googleCalendar).toBe("planned");
     expect(normalized.routineCoachSettings.enabled).toBe(true);
+    expect(normalized.routineCoachSettings.missedRoutineNudges).toBe(true);
+    expect(normalized.routineCoachSettings.missedRoutineGraceMinutes).toBe(30);
     expect(normalized.careEvents[0].notifyLeadMinutes).toBe(0);
   });
 
@@ -550,10 +572,17 @@ describe("pawfolio helpers", () => {
 
     expect(defaultReminderLeadMinutes("Medication")).toBe(0);
     expect(defaultReminderLeadMinutes("Vet")).toBe(60);
+    expect(reminderLeadOptions.map((option) => option.value)).toEqual([0, 15, 30, 60, 720, 1440]);
     expect(visible.find((reminder) => reminder.id === "med")?.notifyLeadMinutes).toBe(0);
     expect(visible.find((reminder) => reminder.id === "vet")?.notifyLeadMinutes).toBe(60);
     expect(notificationLeadLabel(visible.find((reminder) => reminder.id === "vet")!)).toBe("1 hour before");
     expect(reminderAlertDate(visible.find((reminder) => reminder.id === "vet")!).getHours()).toBe(11);
+    expect(
+      notificationLeadLabel({ type: "Vet", notifyLeadMinutes: 720 }),
+    ).toBe("Same day");
+    expect(
+      reminderAlertDate({ id: "same-day", title: "Annual check", type: "Vet", date: "2026-04-24", time: "14:00", note: "", recurrence: "none", notifyLeadMinutes: 720 }).getHours(),
+    ).toBe(9);
 
     const groups = getNotificationGroups(visible, new Date("2026-04-22T11:15:00"));
     expect(groups.dueNow.map((reminder) => reminder.id)).toEqual(["med", "vet"]);
@@ -656,6 +685,26 @@ describe("pawfolio helpers", () => {
     expect(suggestions.some((suggestion) => suggestion.id === "med-details-med")).toBe(true);
     expect(suggestions.some((suggestion) => suggestion.id === "vaccine-next-vaccine")).toBe(true);
     expect(rankCoachSuggestions([{ ...suggestions[0], priority: 1 }, { ...suggestions[1], priority: 99 }])[0].priority).toBe(99);
+  });
+
+  it("adds same-day missed routine tasks to PawPal and today attention", () => {
+    const state = normalizeState({
+      tasks: [{ id: "morning-walk", title: "Morning walk", time: "08:00", done: false, note: "" }],
+      taskHistory: {},
+      diary: [],
+      care: [],
+      reminders: [{ id: "future", title: "Vet", type: "Vet", date: "2026-06-01", time: "09:00", note: "", recurrence: "none" }],
+    });
+
+    const suggestions = buildCoachSuggestions(state, new Date(2026, 3, 22, 8, 45));
+    expect(suggestions.map((suggestion) => suggestion.id)).toContain("missed-task-2026-04-22-morning-walk");
+    expect(buildTodayAttentionItems(state, new Date(2026, 3, 22, 8, 45)).map((item) => item.id)).toContain("missed-task-2026-04-22-morning-walk");
+
+    const done = {
+      ...state,
+      taskHistory: setTaskDoneForDate(state.taskHistory, "2026-04-22", "morning-walk", true),
+    };
+    expect(buildCoachSuggestions(done, new Date(2026, 3, 22, 8, 45)).map((suggestion) => suggestion.id)).not.toContain("missed-task-2026-04-22-morning-walk");
   });
 
   it("keeps PawPal as a floating screen instead of a crowded bottom nav item", () => {

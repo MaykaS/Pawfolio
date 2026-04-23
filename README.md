@@ -50,7 +50,7 @@ Current prototype behavior:
 - Profile photo upload
 - Stylized dog avatar builder
 - Daily task checklist with structured saved times, sorted chronologically
-- Daily routine completion tracked per date
+- Daily routine completion tracked by the phone's local calendar date so the checklist resets day to day
 - Compact task notes that open only when needed
 - Custom daily tasks with editable structured times
 - Diary entries with clickable detail views and up to 6 photos per memory
@@ -61,10 +61,10 @@ Current prototype behavior:
 - Calendar reminders with recurrence labels and calculated next occurrences
 - Medication dose and frequency are saved in structured fields, with legacy text normalized when it is clear
 - Calendar month navigation with clickable day details
-- Smart reminder timing defaults with per-reminder alert lead times
+- Smart reminder timing defaults with compact per-reminder alert lead chips, including at time, 15 min, 30 min, 1 hour, same day, and 1 day
 - In-app notification center with Due now, Soon, and Upcoming reminder groups plus service-worker test notifications for installed PWA checks
 - Integration settings for Google Calendar, email, phone push, and cloud sync planning
-- Floating PawPal companion with local rule-based care gaps, routine patterns, breed/season tips, optional broad location context, unified Today attention, dismissible suggestions, and one-tap actions
+- Floating PawPal companion with local rule-based care gaps, missed routine nudges, breed/season tips, optional collapsed Climate care context, unified Today attention, dismissible suggestions, and one-tap actions
 - Full Pawfolio data export/import for localStorage and IndexedDB photo safety
 - Cuter dog-face PWA app icon for home-screen installs
 - Browser-local persistence
@@ -111,6 +111,7 @@ Notes:
 
 - Data is still local-first and stored in that phone browser/app profile.
 - The local network dev URL is useful for testing, but HTTPS is needed for the proper install/offline PWA experience.
+- Real closed-app phone push reminders are a later backend milestone. They need auth/device subscriptions and a server push sender; the current app prepares reminder timing and in-app/PawPal attention without pretending to schedule phone push while closed.
 
 See:
 

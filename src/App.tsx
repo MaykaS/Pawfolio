@@ -425,6 +425,10 @@ export default function App() {
       if (record) setCareMode({ mode: "edit", record });
       return;
     }
+    if (suggestion.action.type === "open_today") {
+      setTab("today");
+      return;
+    }
     if (suggestion.action.type === "open_reminder") {
       setTab("calendar");
       setReminderMode({ mode: "create" });
@@ -619,6 +623,7 @@ export default function App() {
                 enabled: !current.coachSettings.enabled,
               },
               routineCoachSettings: {
+                ...current.routineCoachSettings,
                 enabled: !current.coachSettings.enabled,
               },
             }))
@@ -632,7 +637,7 @@ export default function App() {
               },
               routineCoachSettings:
                 typeof settings.enabled === "boolean"
-                  ? { enabled: settings.enabled }
+                  ? { ...current.routineCoachSettings, enabled: settings.enabled }
                   : current.routineCoachSettings,
             }))
           }
@@ -1703,6 +1708,7 @@ function ProfileScreen({
   onUpdateCoachSettings: (settings: Partial<CoachSettings>) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [climateOpen, setClimateOpen] = useState(false);
   const [locationStatus, setLocationStatus] = useState("");
   const enableAutoLocation = () => {
     if (!navigator.geolocation) {
@@ -1764,35 +1770,45 @@ function ProfileScreen({
           checked={coachSettings.seasonalTips}
           onToggle={() => onUpdateCoachSettings({ seasonalTips: !coachSettings.seasonalTips })}
         />
-        <div className="coach-location-settings cute-region">
-          <div className="companion-setting-head">
+        <div className={climateOpen ? "coach-location-settings cute-region open" : "coach-location-settings cute-region"}>
+          <button
+            className="climate-care-toggle"
+            type="button"
+            onClick={() => setClimateOpen((current) => !current)}
+            aria-expanded={climateOpen}
+          >
             <span className="companion-mini-icon"><Sparkles size={15} /></span>
             <span>
-              <strong>Care region</strong>
-              <small>{coachSettings.locationMode === "off" ? "Location off" : coachSettings.locationMode === "auto" ? "Auto broad region" : "Manual region"}</small>
+              <strong>Climate care</strong>
+              <small>{coachSettings.locationMode === "off" ? "Location off" : coachSettings.locationMode === "auto" ? `Using ${coachSettings.careRegion}` : coachSettings.careRegion}</small>
             </span>
-          </div>
-          <div className="region-chip-grid">
-            {(["North America", "Europe", "Hot climate", "Cold climate", "Custom"] as CareRegion[]).map((region) => (
-              <button
-                className={coachSettings.locationMode !== "off" && coachSettings.careRegion === region ? "region-chip active" : "region-chip"}
-                key={region}
-                type="button"
-                onClick={() => onUpdateCoachSettings({ locationMode: "manual", careRegion: region })}
-              >
-                <span>{region}</span>
-              </button>
-            ))}
-          </div>
-          <div className="coach-location-actions">
-            <button className="btn btn-sm btn-secondary" type="button" onClick={enableAutoLocation}>
-              Use broad location
-            </button>
-            <button className="btn btn-sm btn-ghost" type="button" onClick={() => onUpdateCoachSettings({ locationMode: "off" })}>
-              Turn off
-            </button>
-          </div>
-          {locationStatus && <p className="settings-note">{locationStatus}</p>}
+            <ChevronRight className="climate-chevron" size={16} />
+          </button>
+          {climateOpen && (
+            <>
+              <div className="region-chip-grid">
+                {(["North America", "Europe", "Hot climate", "Cold climate", "Custom"] as CareRegion[]).map((region) => (
+                  <button
+                    className={coachSettings.locationMode !== "off" && coachSettings.careRegion === region ? "region-chip active" : "region-chip"}
+                    key={region}
+                    type="button"
+                    onClick={() => onUpdateCoachSettings({ locationMode: "manual", careRegion: region })}
+                  >
+                    <span>{region}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="coach-location-actions">
+                <button className="btn btn-sm btn-secondary" type="button" onClick={enableAutoLocation}>
+                  Use broad location
+                </button>
+                <button className="btn btn-sm btn-ghost" type="button" onClick={() => onUpdateCoachSettings({ locationMode: "off" })}>
+                  Turn off
+                </button>
+              </div>
+              {locationStatus && <p className="settings-note">{locationStatus}</p>}
+            </>
+          )}
         </div>
         <p className="settings-note">PawPal uses Pawfolio data on this device. Location is optional and only used for broad care context. LLM help can come later after cloud/privacy is ready.</p>
       </section>
@@ -1870,6 +1886,33 @@ function integrationStatusLabel(status: string) {
   if (status === "planned") return "Planned";
   if (status === "local_only") return "Local only";
   return "Not connected";
+}
+
+function isSharedCareTypeLabel(type: string) {
+  return type === "Medication" || type === "Vaccine" || type === "Vet visit";
+}
+
+function ReminderLeadChips({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="choice-chip-row reminder-lead-row">
+      {reminderLeadOptions.map((option) => (
+        <button
+          className={value === option.value ? "choice-chip active" : "choice-chip"}
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+        >
+          {option.label.replace(" before", "")}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function ProfileEditSheet({
@@ -2226,6 +2269,7 @@ function CareSheet({
     frequencyType: normalizedExisting?.frequencyType || ("monthly" as MedicationFrequencyType),
     frequencyInterval: normalizedExisting?.frequencyInterval || 1,
     refillDate: normalizedExisting?.refillDate || "",
+    notifyLeadMinutes: normalizedExisting?.notifyLeadMinutes ?? defaultReminderLeadMinutes(normalizedExisting?.type || "Weight"),
     clinic: normalizedExisting?.clinic || "",
     vetName: normalizedExisting?.vetName || "",
     reason: normalizedExisting?.reason || "",
@@ -2257,7 +2301,19 @@ function CareSheet({
       >
         <div className="form-two">
           <Field label="Type">
-            <select className="input" value={record.type} onChange={(event) => update("type", event.target.value)}>
+            <select
+              className="input"
+              value={record.type}
+              onChange={(event) =>
+                setRecord((current) => ({
+                  ...current,
+                  type: event.target.value,
+                  notifyLeadMinutes: isSharedCareTypeLabel(event.target.value)
+                    ? defaultReminderLeadMinutes(event.target.value === "Vet visit" ? "Vet" : event.target.value)
+                    : current.notifyLeadMinutes,
+                }))
+              }
+            >
               {careTypes.map((type) => (
                 <option key={type}>{type}</option>
               ))}
@@ -2392,6 +2448,14 @@ function CareSheet({
             </Field>
           </>
         )}
+        {isSharedCareTypeLabel(record.type) && (
+          <Field label="Reminder">
+            <ReminderLeadChips
+              value={record.notifyLeadMinutes}
+              onChange={(value) => setRecord((current) => ({ ...current, notifyLeadMinutes: value }))}
+            />
+          </Field>
+        )}
         <Field label="Note">
           <textarea className="input" value={record.note} onChange={(event) => update("note", event.target.value)} />
         </Field>
@@ -2473,17 +2537,10 @@ function ReminderSheet({
           </select>
         </Field>
         <Field label="Notify">
-          <select
-            className="input"
+          <ReminderLeadChips
             value={reminder.notifyLeadMinutes}
-            onChange={(event) => setReminder((current) => ({ ...current, notifyLeadMinutes: Number(event.target.value) }))}
-          >
-            {reminderLeadOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => setReminder((current) => ({ ...current, notifyLeadMinutes: value }))}
+          />
         </Field>
         <Field label="Date">
           <input className="input" type="date" value={reminder.date} onChange={(event) => update("date", event.target.value)} />

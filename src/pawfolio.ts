@@ -43,6 +43,7 @@ export type CareRecord = {
   date: string;
   note: string;
   nextDueDate?: string;
+  notifyLeadMinutes?: number;
   dose?: string;
   doseAmount?: string;
   doseUnit?: MedicationDoseUnit;
@@ -120,6 +121,8 @@ export type GoogleCalendarSyncState = {
 
 export type RoutineCoachSettings = {
   enabled: boolean;
+  missedRoutineNudges: boolean;
+  missedRoutineGraceMinutes: number;
 };
 
 export type CoachLocationMode = "off" | "auto" | "manual";
@@ -134,6 +137,7 @@ export type CoachSettings = {
 
 export type CoachSuggestionAction =
   | { type: "add_task"; title: string; time: string }
+  | { type: "open_today" }
   | { type: "open_care"; recordId?: string }
   | { type: "open_reminder" }
   | { type: "open_calendar" }
@@ -205,6 +209,8 @@ export const initialState: PawfolioState = {
   },
   routineCoachSettings: {
     enabled: true,
+    missedRoutineNudges: true,
+    missedRoutineGraceMinutes: 30,
   },
   coachSettings: {
     enabled: true,
@@ -247,7 +253,9 @@ export const reminderRecurrenceOptions: { value: ReminderRecurrence; label: stri
 export const reminderLeadOptions = [
   { value: 0, label: "At time" },
   { value: 15, label: "15 min before" },
+  { value: 30, label: "30 min before" },
   { value: 60, label: "1 hour before" },
+  { value: 720, label: "Same day" },
   { value: 1440, label: "1 day before" },
 ];
 export const medicationDoseUnits: { value: MedicationDoseUnit; label: string }[] = [
@@ -283,7 +291,7 @@ export const routineTimes: Record<string, string> = {
 };
 
 export function todayISO(now = new Date()) {
-  return now.toISOString().slice(0, 10);
+  return toLocalISO(now);
 }
 
 export function prettyDate(date: string) {
@@ -479,6 +487,12 @@ export function withCareSchedule(record: CareRecord): CareRecord {
   const scheduled = {
     ...record,
     nextDueDate: record.nextDueDate || "",
+    notifyLeadMinutes:
+      typeof record.notifyLeadMinutes === "number"
+        ? record.notifyLeadMinutes
+        : isSharedCareType(record.type)
+          ? defaultReminderLeadMinutes(careTypeToReminderType(record.type))
+          : undefined,
     dose: record.dose || "",
     doseAmount: record.doseAmount || "",
     doseUnit: record.doseUnit,
@@ -535,6 +549,22 @@ export function setTaskDoneForDate(taskHistory: TaskHistory, date: string, taskI
       [taskId]: done,
     },
   };
+}
+
+export function missedRoutineTasks(
+  tasks: DailyTask[],
+  taskHistory: TaskHistory,
+  now = new Date(),
+  graceMinutes = initialState.routineCoachSettings.missedRoutineGraceMinutes,
+) {
+  const date = todayISO(now);
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  return tasksForDate(tasks, taskHistory, date).filter((task) => {
+    if (task.done) return false;
+    const taskMinutes = parseTaskTimeMinutes(task.time);
+    if (typeof taskMinutes !== "number") return false;
+    return currentMinutes >= taskMinutes + graceMinutes;
+  });
 }
 
 export function isSharedCareType(type: string): type is SharedCareType {
@@ -670,7 +700,10 @@ export function careRecordToEvent(record: CareRecord): CareEvent {
     note: scheduled.note,
     nextDueDate: scheduled.nextDueDate || "",
     recurrence,
-    notifyLeadMinutes: defaultReminderLeadMinutes(careTypeToReminderType(type)),
+    notifyLeadMinutes:
+      typeof scheduled.notifyLeadMinutes === "number"
+        ? scheduled.notifyLeadMinutes
+        : defaultReminderLeadMinutes(careTypeToReminderType(type)),
     dose: scheduled.dose || "",
     doseAmount: scheduled.doseAmount || "",
     doseUnit: scheduled.doseUnit,
@@ -714,6 +747,10 @@ export function careEventToCareRecord(event: CareEvent): CareRecord {
     date: event.date,
     note: event.note,
     nextDueDate: event.nextDueDate || "",
+    notifyLeadMinutes:
+      typeof event.notifyLeadMinutes === "number"
+        ? event.notifyLeadMinutes
+        : defaultReminderLeadMinutes(careTypeToReminderType(event.type)),
     dose: event.dose || "",
     doseAmount: event.doseAmount || "",
     doseUnit: event.doseUnit,
@@ -842,6 +879,8 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
       ...(base.googleCalendarSyncState || {}),
     },
     routineCoachSettings: {
+      ...initialState.routineCoachSettings,
+      ...(base.routineCoachSettings || {}),
       enabled: coachSettings.enabled,
     },
     coachSettings,
@@ -954,7 +993,7 @@ export function isFutureOrToday(date: string, now = new Date()) {
   return eventDate.getTime() >= today.getTime();
 }
 
-function toLocalISO(date: Date) {
+export function toLocalISO(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
@@ -1031,7 +1070,13 @@ export function reminderAlertDate(reminder: Reminder) {
   const { hours, minutes } = parseReminderClock(reminder.time);
   const alertDate = new Date(`${reminder.date}T00:00`);
   alertDate.setHours(hours, minutes, 0, 0);
-  alertDate.setMinutes(alertDate.getMinutes() - (reminder.notifyLeadMinutes ?? defaultReminderLeadMinutes(reminder.type)));
+  const leadMinutes = reminder.notifyLeadMinutes ?? defaultReminderLeadMinutes(reminder.type);
+  if (leadMinutes === 720) {
+    const sameDay = new Date(alertDate);
+    sameDay.setHours(9, 0, 0, 0);
+    return sameDay.getTime() <= alertDate.getTime() ? sameDay : alertDate;
+  }
+  alertDate.setMinutes(alertDate.getMinutes() - leadMinutes);
   return alertDate;
 }
 
@@ -1257,6 +1302,29 @@ export function buildCoachSuggestions(state: PawfolioState, now = new Date()) {
       actionLabel: "Review care",
       action: { type: "open_care", recordId: urgentCare.id },
       dismissible: true,
+    });
+  }
+
+  const routineSettings = state.routineCoachSettings || initialState.routineCoachSettings;
+  if (routineSettings.enabled && routineSettings.missedRoutineNudges) {
+    missedRoutineTasks(
+      state.tasks,
+      state.taskHistory,
+      now,
+      routineSettings.missedRoutineGraceMinutes,
+    ).slice(0, 2).forEach((task) => {
+      const id = `missed-task-${todayISO(now)}-${task.id}`;
+      if (dismissals.has(id)) return;
+      suggestions.push({
+        id,
+        type: "routine_pattern",
+        priority: /walk|pill|med|medicine/i.test(task.title) ? 92 : 78,
+        title: `Did you forget ${task.title}?`,
+        body: `${task.title} was scheduled for ${taskTime(task)} and is not marked done yet.`,
+        actionLabel: "Review routine",
+        action: { type: "open_today" },
+        dismissible: true,
+      });
     });
   }
 
