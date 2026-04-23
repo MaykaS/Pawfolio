@@ -22,6 +22,16 @@ import {
 } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import type { MouseEvent } from "react";
+import type { Session } from "@supabase/supabase-js";
+import {
+  cloudConfigured,
+  missingCloudConfigMessage,
+  pushConfigured,
+  signInWithGoogle,
+  subscribeDeviceToPush,
+  supabase,
+  uploadLocalPawfolioToAccount,
+} from "./cloud";
 import {
   ageLabel,
   applyCoachSuggestion,
@@ -346,6 +356,17 @@ export default function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [selectedMemory, setSelectedMemory] = useState<DiaryEntry | null>(null);
   const [saveError, setSaveError] = useState("");
+  const [session, setSession] = useState<Session | null>(null);
+  const [cloudStatus, setCloudStatus] = useState("");
+
+  useEffect(() => {
+    if (!supabase) return undefined;
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -616,6 +637,31 @@ export default function App() {
           notificationPreferences={state.notificationPreferences}
           integrationSettings={state.integrationSettings}
           coachSettings={state.coachSettings}
+          session={session}
+          cloudStatus={cloudStatus}
+          cloudConfigured={cloudConfigured}
+          pushConfigured={pushConfigured}
+          onSignIn={() => {
+            signInWithGoogle().catch((error: Error) => setCloudStatus(error.message));
+          }}
+          onSignOut={() => {
+            supabase?.auth.signOut();
+            setCloudStatus("Signed out.");
+          }}
+          onUploadCloud={() => {
+            uploadLocalPawfolioToAccount(state)
+              .then(() => setCloudStatus("Local Pawfolio uploaded to your account."))
+              .catch((error: Error) => setCloudStatus(error.message));
+          }}
+          onEnablePush={() => {
+            if (!session) {
+              setCloudStatus("Sign in before enabling phone push.");
+              return;
+            }
+            subscribeDeviceToPush(session)
+              .then(() => setCloudStatus("This phone is saved for Pawfolio push reminders."))
+              .catch((error: Error) => setCloudStatus(error.message));
+          }}
           onTogglePreference={(key) =>
             setState((current) => ({
               ...current,
@@ -1442,6 +1488,9 @@ function CalendarScreen({
   const visibleUpcoming = showAllUpcoming ? upcoming : upcoming.slice(0, 3);
   const isCurrentMonth = monthKey(visibleMonth) === monthKey(currentMonth);
   const selectedDateEvents = selectedDate ? eventsForDate(reminders, selectedDate) : [];
+  const completedToday = reminders
+    .map((reminder) => ({ ...reminder, date: todayISO() }))
+    .filter((reminder) => reminderCompletionStatus(reminderHistory, reminder));
 
   const shiftMonth = (amount: number) => {
     setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
@@ -1507,6 +1556,21 @@ function CalendarScreen({
             <CardActions onEdit={() => onEdit(reminder)} onDelete={() => onDelete(reminder.id)} />
           </article>
         ))
+      )}
+      {completedToday.length > 0 && (
+        <>
+          <p className="label">Completed today</p>
+          {completedToday.map((reminder) => (
+            <DayReminderItem
+              key={`done-${reminder.id}-${reminder.date}`}
+              reminder={reminder}
+              status={reminderCompletionStatus(reminderHistory, reminder)}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onComplete={onComplete}
+            />
+          ))}
+        </>
       )}
       {selectedDate && (
         <DayDetailSheet
@@ -1770,6 +1834,14 @@ function ProfileScreen({
   notificationPreferences,
   integrationSettings,
   coachSettings,
+  session,
+  cloudStatus,
+  cloudConfigured: isCloudConfigured,
+  pushConfigured: isPushConfigured,
+  onSignIn,
+  onSignOut,
+  onUploadCloud,
+  onEnablePush,
   onTogglePreference,
   onToggleCoach,
   onUpdateCoachSettings,
@@ -1784,6 +1856,14 @@ function ProfileScreen({
   notificationPreferences: PawfolioState["notificationPreferences"];
   integrationSettings: PawfolioState["integrationSettings"];
   coachSettings: CoachSettings;
+  session: Session | null;
+  cloudStatus: string;
+  cloudConfigured: boolean;
+  pushConfigured: boolean;
+  onSignIn: () => void;
+  onSignOut: () => void;
+  onUploadCloud: () => void;
+  onEnablePush: () => void;
   onTogglePreference: (key: keyof PawfolioState["notificationPreferences"]) => void;
   onToggleCoach: () => void;
   onUpdateCoachSettings: (settings: Partial<CoachSettings>) => void;
@@ -1895,7 +1975,30 @@ function ProfileScreen({
       </section>
       <section className="card settings-card">
         <p className="label no-margin">Cloud sync plan</p>
-        <p className="settings-note">For now, Pawfolio data lives on this device/browser profile. Planned path: Supabase Auth with Google sign-in, Postgres, and Row Level Security. Local export/import stays as your safety net.</p>
+        <div className="cloud-card">
+          <div>
+            <h3>{session ? "Signed in" : "Private account"}</h3>
+            <p>{session?.user.email || (isCloudConfigured ? "Google sign-in is ready." : missingCloudConfigMessage())}</p>
+          </div>
+          <button className="btn btn-sm btn-secondary" type="button" onClick={session ? onSignOut : onSignIn} disabled={!isCloudConfigured}>
+            {session ? "Sign out" : "Sign in"}
+          </button>
+        </div>
+        <button className="setting-row" type="button" onClick={onUploadCloud} disabled={!session}>
+          <span>
+            <strong>Upload local Pawfolio</strong>
+            <small>Copies this phone's saved data into your private account.</small>
+          </span>
+          <ChevronRight size={17} />
+        </button>
+        <button className="setting-row" type="button" onClick={onEnablePush} disabled={!session || !isPushConfigured}>
+          <span>
+            <strong>Enable phone push</strong>
+            <small>{isPushConfigured ? "Save this phone for scheduled reminders." : "Add VAPID keys first."}</small>
+          </span>
+          <ChevronRight size={17} />
+        </button>
+        {cloudStatus && <p className="settings-note">{cloudStatus}</p>}
       </section>
       <div className="profile-actions">
         <ProfileAction icon={<Pencil size={18} />} label="Edit profile" onClick={() => setEditing(true)} />

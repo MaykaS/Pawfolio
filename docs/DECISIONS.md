@@ -186,6 +186,18 @@ Decision: Pawfolio remains local-first for this pass, and the planned cloud path
 
 Reason: The app needs private per-user data before syncing across devices. RLS with a `user_id` ownership model lets a new user see only their own data and gives Pawfolio a path toward shared caregiver access later.
 
+## 2026-04-23: Start Cloud Sync With A Private Snapshot
+
+Decision: The first Supabase migration uploads the current local Pawfolio state into one private `pawfolio_snapshots` row before normalizing every entity into separate cloud tables.
+
+Reason: This gives users a safe account backup and preserves existing phone data quickly, while still allowing a more relational schema for multi-pet and shared caregiver features later.
+
+## 2026-04-23: Use PWA Web Push With Backend Scheduling
+
+Decision: Real phone notifications use browser Push subscriptions saved to Supabase and a Vercel cron/API sender using VAPID keys.
+
+Reason: Closed-app phone notifications cannot be scheduled reliably from frontend JavaScript alone. A backend sender is the trustworthy path for due reminders and missed-care nudges.
+
 ## 2026-04-22: Use A Dog-Face PWA Icon
 
 Decision: The installed PWA icon should be a cute dog face in Pawfolio colors rather than a generic mark.

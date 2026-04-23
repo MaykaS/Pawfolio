@@ -25,6 +25,7 @@ Implemented:
 - Unified green health styling for vaccine and vet calendar items
 - In-app notification center with Due now, Soon, and Upcoming groups plus service-worker test notifications for installed PWA checks
 - Integration settings for Google Calendar, email reminders, phone push, and cloud sync planning
+- Supabase-ready Google sign-in, local-to-account upload, private snapshot table schema, push subscription API, and scheduled push sender scaffold
 - Floating PawPal companion with care gaps, missed routine nudges, breed/season tips, optional collapsed Climate care context, unified Today attention, dismissals, and one-tap actions
 - Profile screen with full state/photo backup export/import and editable personality tags
 - Adaptive photo compression, IndexedDB photo storage, diary galleries, and safer local saves
@@ -43,20 +44,20 @@ Implemented:
    - Let more suggestions prefill care or reminder forms
    - Add more breed profiles and seasonal care signals
    - Add a monthly PawPal recap for care/routine patterns
-3. Plan and implement real push notifications:
-   - Add Supabase/Auth user identity
-   - Store PWA device push subscriptions per user/device
-   - Add a backend push sender for scheduled reminders and missed-task nudges
-   - Keep in-app PawPal nudges as the local fallback
+3. Finish cloud/push setup in the dashboards:
+   - Create the Supabase project and run `supabase/schema.sql`
+   - Enable Google OAuth in Supabase
+   - Add the `.env.example` values in Vercel
+   - Generate VAPID keys for Web Push
+   - Confirm Vercel Cron frequency allowed by the active plan
 4. Add more structured care details:
    - Medication start/end dates and missed-dose notes
    - Vaccine manufacturer/lot fields
    - Vet visit attachments or invoices
 5. Decide when PawPal should move from local rules to optional LLM help.
-6. Connect Supabase Auth/Postgres with Google sign-in and RLS when cloud sync becomes the priority again.
-7. Add an "Upload local Pawfolio to account" migration after Supabase is ready.
-8. Connect Google Calendar OAuth and real event sync.
-9. Add backend email reminders, likely through Vercel functions and Resend.
+6. Split the private cloud snapshot into normalized cloud tables.
+7. Connect Google Calendar OAuth and real event sync.
+8. Add backend email reminders, likely through Vercel functions and Resend.
 
 ## Prototype Content To Keep Improving
 

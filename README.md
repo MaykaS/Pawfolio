@@ -67,14 +67,23 @@ Current prototype behavior:
 - Integration settings for Google Calendar, email, phone push, and cloud sync planning
 - Floating PawPal companion with local rule-based care gaps, missed routine nudges, breed/season tips, optional collapsed Climate care context, unified Today attention, dismissible suggestions, and one-tap actions
 - Full Pawfolio data export/import for localStorage and IndexedDB photo safety
+- Supabase-ready Google sign-in, private cloud snapshot upload, and PWA push subscription scaffolding
 - Cuter dog-face PWA app icon for home-screen installs
 - Browser-local persistence
 
 Current data/auth note:
 
-- Pawfolio does not have login or a cloud database yet.
-- Data is private to the browser/app profile where it was created.
-- Planned cloud direction is Supabase Auth with Google sign-in and Postgres Row Level Security so each user only sees their own pet data.
+- Pawfolio can now show a Google sign-in path when Supabase env vars are configured.
+- Until Supabase is configured, data is private to the browser/app profile where it was created.
+- The cloud direction is Supabase Auth with Google sign-in and Postgres Row Level Security so each user only sees their own pet data.
+- `Upload local Pawfolio` means copying the data already on this phone/browser into the signed-in private account.
+
+Cloud/push setup files:
+
+- `.env.example` lists the needed Vercel variables.
+- `supabase/schema.sql` creates the private snapshot and push subscription tables with RLS.
+- `api/push-subscriptions.ts` stores a signed-in user's phone subscription.
+- `api/send-due-push.ts` is the scheduled push sender for due reminders.
 
 Run locally:
 

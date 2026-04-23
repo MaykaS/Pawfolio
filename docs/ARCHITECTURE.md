@@ -9,9 +9,9 @@ Recommended stack for the prototype:
 - Vite, React, and TypeScript for the mobile-style web app
 - Component-based screens that can later inform a React Native/Expo app
 - Local browser storage first
-- PWA install support for Android home-screen testing
+- PWA install support for Android home-screen testing and Web Push subscriptions
 - Vercel HTTPS hosting for installable phone builds
-- Real persistence after the interaction model feels right
+- Supabase Auth/Postgres persistence after the interaction model feels right
 
 ## Why Not Native Android First
 
@@ -70,7 +70,9 @@ Profile and diary photo uploads are adaptively compressed and stored in browser 
 
 Future cloud persistence should use Supabase Auth plus Postgres Row Level Security. Google sign-in is the preferred first login path. Each user-owned row should include a `user_id`, with policies limiting access to the authenticated user's own data.
 
-There is no authentication or shared database in the current prototype. The installed PWA stores data inside the browser profile on that device. The first cloud milestone should add Supabase Auth, then upload the local Pawfolio state into private Postgres tables guarded by RLS.
+The app now has Supabase-ready auth, private snapshot upload, and push subscription scaffolding. It stays local-only until the Supabase URL/anon key, service role key, VAPID keys, and Google OAuth setup are configured in Vercel/Supabase.
+
+The first cloud migration uses `pawfolio_snapshots`: after Google sign-in, `Upload local Pawfolio` copies the current local state JSON into the user's private row. This protects existing phone data before later splitting records into fully normalized cloud tables.
 
 Likely future entities:
 
@@ -115,7 +117,7 @@ Likely roles:
 
 The current prototype has an in-app notification center. It shows future reminders, exposes browser notification permission status, and can trigger a service-worker-backed test notification where the installed PWA/browser supports it.
 
-It does not yet schedule real background push reminders. The app also exposes preference toggles for future in-app, phone push, email reminders, and Google Calendar sync so the settings model is ready before backend secrets exist. Missed routine reminders currently appear as local PawPal/Today attention items after a task's scheduled time plus a grace period.
+The app now includes backend-ready PWA push pieces: browser subscription capture, a private `push_subscriptions` table, a service-worker push handler, and a Vercel cron endpoint that can send due reminder pushes from uploaded cloud snapshots. It requires Supabase/VAPID env vars before it can send real phone notifications.
 
 The app should eventually support:
 

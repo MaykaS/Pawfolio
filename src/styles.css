@@ -1580,6 +1580,34 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   cursor: default;
 }
 
+.setting-row:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.cloud-card {
+  align-items: center;
+  background: var(--primary-pale);
+  border-radius: 14px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.cloud-card h3 {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.cloud-card p {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .setting-row span:first-child {
   display: grid;
   gap: 1px;

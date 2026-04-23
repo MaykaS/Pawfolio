@@ -14,6 +14,7 @@ export default defineConfig({
         "pwa-192x192.png",
         "pwa-512x512.png",
         "maskable-icon-512x512.png",
+        "push-handler.js",
       ],
       manifest: {
         name: "Pawfolio",
@@ -46,6 +47,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        importScripts: ["push-handler.js"],
       },
     }),
   ],
