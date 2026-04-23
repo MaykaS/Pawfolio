@@ -6,6 +6,7 @@ import {
   buildCoachSuggestions,
   buildTodayAttentionItems,
   buildGoogleCalendarEvent,
+  bottomNavTabs,
   careEmptyState,
   careStatus,
   deleteCalendarItemFromState,
@@ -59,7 +60,12 @@ import {
   getNotificationGroups,
   limitDiaryPhotos,
   maxDiaryPhotos,
+  formatMedicationDose,
+  formatMedicationFrequency,
+  medicationFrequencyToRecurrence,
   notificationLeadLabel,
+  normalizeMedicationDose,
+  normalizeMedicationFrequency,
   parseTaskTimeMinutes,
   reminderAlertDate,
   regionFromCoordinates,
@@ -384,6 +390,46 @@ describe("pawfolio helpers", () => {
     expect(visibleReminders(state)[0].recurrence).toBe("none");
   });
 
+  it("normalizes structured medication dose and frequency fields", () => {
+    const oldDose = normalizeMedicationDose({ dose: "1 chew" });
+    expect(oldDose).toMatchObject({ doseAmount: "1", doseUnit: "chew", dose: "1 chew" });
+    expect(formatMedicationDose({ doseAmount: "1", doseUnit: "chew" })).toBe("1 chew");
+    expect(formatMedicationDose({ dose: "custom syringe" })).toBe("custom syringe");
+
+    const oldFrequency = normalizeMedicationFrequency({ frequency: "once a week" });
+    expect(oldFrequency).toMatchObject({ frequencyType: "weekly", frequencyInterval: 1, frequency: "Every week" });
+    expect(formatMedicationFrequency({ frequencyType: "monthly", frequencyInterval: 1 })).toBe("Every month");
+    expect(formatMedicationFrequency({ frequencyType: "weekly", frequencyInterval: 2 })).toBe("Every 2 weeks");
+    expect(medicationFrequencyToRecurrence({ frequencyType: "monthly", frequencyInterval: 1 })).toBe("monthly");
+    expect(medicationFrequencyToRecurrence({ frequencyType: "as_needed", frequencyInterval: 1 })).toBe("none");
+  });
+
+  it("syncs structured medication frequency into calendar recurrence", () => {
+    const state = saveCareRecordToState(normalizeState(undefined), {
+      id: "structured-med",
+      type: "Medication",
+      title: "S-trio",
+      date: "2026-04-22",
+      note: "",
+      dose: "",
+      doseAmount: "1",
+      doseUnit: "chew",
+      frequency: "",
+      frequencyType: "monthly",
+      frequencyInterval: 1,
+      refillDate: "2026-05-22",
+    });
+
+    expect(visibleCareRecords(state)[0]).toMatchObject({
+      dose: "1 chew",
+      doseAmount: "1",
+      doseUnit: "chew",
+      frequency: "Every month",
+      frequencyType: "monthly",
+    });
+    expect(visibleReminders(state)[0]).toMatchObject({ type: "Medication", recurrence: "monthly" });
+  });
+
   it("updates task times immutably", () => {
     const tasks: DailyTask[] = [
       { id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" },
@@ -583,10 +629,12 @@ describe("pawfolio helpers", () => {
     expect(rankCoachSuggestions([{ ...suggestions[0], priority: 1 }, { ...suggestions[1], priority: 99 }])[0].priority).toBe(99);
   });
 
-  it("supports PawPal as a navigation tab", () => {
+  it("keeps PawPal as a floating screen instead of a crowded bottom nav item", () => {
     const tab: Tab = "pawpal";
 
     expect(tab).toBe("pawpal");
+    expect(bottomNavTabs).toEqual(["today", "diary", "care", "calendar", "profile"]);
+    expect(bottomNavTabs).not.toContain("pawpal");
   });
 
   it("uses breed, season, and optional region for coach care signals", () => {

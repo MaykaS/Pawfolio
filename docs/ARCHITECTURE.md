@@ -50,8 +50,9 @@ Current localStorage prototype data includes:
 - Diary entries with title, body, date, legacy single-photo support, and up to 6 IndexedDB-backed photos
 - Care records with type, title, record date, type-specific fields, optional next due date, and note
 - Shared care-calendar events for medications, vaccines, and vet visits
+- Medication records keep backward-compatible `dose` and `frequency` labels while also storing structured `doseAmount`, `doseUnit`, `frequencyType`, and `frequencyInterval`
 - Calendar-only reminders with title, type, date, time, note, recurrence label, calculated next occurrence, and notification lead time
-- Medication frequency parsing that maps clear daily, weekly, monthly, or yearly text to shared calendar recurrence
+- Medication schedule helpers that map structured daily, weekly, monthly, or yearly frequency to shared calendar recurrence, while still normalizing simple legacy text
 - Calendar helper views for future-only upcoming items, visible-month events, and selected-day event details
 - Care helper views for type-specific validation, empty states, weight trends, medication consistency, and follow-up histories
 - In-app notification center for future reminders, Due now/Soon/Upcoming groups, alert lead labels, and browser notification permission testing
@@ -144,7 +145,7 @@ Current version:
 
 - Runs locally with simple rules
 - Reviews routine completion, medication detail quality, upcoming reminders, care gaps, diary/care backup needs, breed, season, and optional broad care region
-- Lives as its own bottom-nav companion tab and also feeds urgent items into Today needs attention
+- Opens from a floating PawPal companion button above the five-tab bottom nav and also feeds urgent items into Today needs attention
 - Supports dismissible suggestions and one-tap actions such as adding a tick check task, opening a care record, opening reminder creation, or exporting a backup
 - Uses shared dismissals so a done/dismissed suggestion disappears from PawPal and Today
 - Is controlled by opt-in settings for PawPal, seasonal tips, and optional location/manual region context

@@ -176,6 +176,18 @@ Reason: This gives Pawfolio an agentic feel without sending pet-care data to a m
 
 ## 2026-04-22: Move Coach Into PawPal
 
-Decision: The local coach experience should live in a dedicated sixth bottom-nav tab called PawPal, while Today shows only the highest-priority shared attention items.
+Decision: The local coach experience should live in PawPal, while Today shows only the highest-priority shared attention items.
 
 Reason: The companion/AI layer should feel like its own friendly helper instead of another alert card. Shared dismissals keep Done/dismiss behavior consistent across PawPal and Today.
+
+## 2026-04-22: Keep PawPal Floating Instead Of Crowding Navigation
+
+Decision: PawPal opens from a floating companion button above the bottom nav instead of occupying a sixth tab.
+
+Reason: Five bottom-nav tabs fit the phone UI better. PawPal still feels special and accessible without making the main app sections cramped.
+
+## 2026-04-22: Structure Medication Dose And Frequency
+
+Decision: Medication records keep readable `dose` and `frequency` text, but new input uses structured amount/unit and preset frequency fields.
+
+Reason: Pawfolio needs app-readable medication schedules for recurrence and reminders. Keeping the old labels preserves existing records and keeps care history easy to scan.

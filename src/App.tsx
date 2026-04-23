@@ -26,6 +26,7 @@ import {
   ageLabel,
   applyCoachSuggestion,
   avatarOptions,
+  bottomNavTabs,
   breedOptions,
   buildCoachSuggestions,
   buildTodayAttentionItems,
@@ -51,7 +52,11 @@ import {
   initialState,
   isStoredPhotoRef,
   limitDiaryPhotos,
+  medicationDoseUnits,
   medicationConsistency,
+  medicationFrequencyOptions,
+  normalizeMedicationDose,
+  normalizeMedicationFrequency,
   normalizeState,
   notificationBody,
   notificationLeadLabel,
@@ -91,6 +96,8 @@ import {
   type DiaryEntry,
   type DogAvatar,
   type DogProfile,
+  type MedicationDoseUnit,
+  type MedicationFrequencyType,
   type PawfolioState,
   type Reminder,
   type ReminderRecurrence,
@@ -631,6 +638,17 @@ export default function App() {
         />
       )}
 
+      <button
+        className={tab === "pawpal" ? "pawpal-fab active" : "pawpal-fab"}
+        type="button"
+        onClick={() => setTab("pawpal")}
+        aria-label="Open PawPal"
+      >
+        <span className="pawpal-fab-icon">
+          <Sparkles size={17} />
+        </span>
+        <span>PawPal</span>
+      </button>
       <BottomNav active={tab} onChange={setTab} />
 
       {taskMode && (
@@ -1744,21 +1762,25 @@ function ProfileScreen({
           checked={coachSettings.seasonalTips}
           onToggle={() => onUpdateCoachSettings({ seasonalTips: !coachSettings.seasonalTips })}
         />
-        <div className="coach-location-settings">
-          <div className="setting-row static">
+        <div className="coach-location-settings cute-region">
+          <div className="companion-setting-head">
+            <span className="companion-mini-icon"><Sparkles size={15} /></span>
             <span>
               <strong>Care region</strong>
               <small>{coachSettings.locationMode === "off" ? "Location off" : coachSettings.locationMode === "auto" ? "Auto broad region" : "Manual region"}</small>
             </span>
-            <select
-              className="mini-select"
-              value={coachSettings.careRegion}
-              onChange={(event) => onUpdateCoachSettings({ locationMode: "manual", careRegion: event.target.value as CareRegion })}
-            >
-              {(["North America", "Europe", "Hot climate", "Cold climate", "Custom"] as CareRegion[]).map((region) => (
-                <option key={region} value={region}>{region}</option>
-              ))}
-            </select>
+          </div>
+          <div className="region-chip-grid">
+            {(["North America", "Europe", "Hot climate", "Cold climate", "Custom"] as CareRegion[]).map((region) => (
+              <button
+                className={coachSettings.locationMode !== "off" && coachSettings.careRegion === region ? "region-chip active" : "region-chip"}
+                key={region}
+                type="button"
+                onClick={() => onUpdateCoachSettings({ locationMode: "manual", careRegion: region })}
+              >
+                <span>{region}</span>
+              </button>
+            ))}
           </div>
           <div className="coach-location-actions">
             <button className="btn btn-sm btn-secondary" type="button" onClick={enableAutoLocation}>
@@ -2188,20 +2210,25 @@ function CareSheet({
   onSave: (record: CareRecord) => void;
 }) {
   const existing = mode.mode === "edit" ? mode.record : undefined;
+  const normalizedExisting = existing ? normalizeMedicationFrequency(normalizeMedicationDose(existing)) : undefined;
   const [record, setRecord] = useState({
-    type: existing?.type || "Weight",
-    title: existing?.title || "",
-    date: existing?.date || todayISO(),
-    nextDueDate: existing?.nextDueDate || "",
-    note: existing?.note || "",
-    dose: existing?.dose || "",
-    frequency: existing?.frequency || "",
-    refillDate: existing?.refillDate || "",
-    clinic: existing?.clinic || "",
-    vetName: existing?.vetName || "",
-    reason: existing?.reason || "",
-    weightValue: existing?.weightValue || "",
-    weightUnit: existing?.weightUnit || "lb",
+    type: normalizedExisting?.type || "Weight",
+    title: normalizedExisting?.title || "",
+    date: normalizedExisting?.date || todayISO(),
+    nextDueDate: normalizedExisting?.nextDueDate || "",
+    note: normalizedExisting?.note || "",
+    dose: normalizedExisting?.dose || "",
+    doseAmount: normalizedExisting?.doseAmount || "",
+    doseUnit: normalizedExisting?.doseUnit || ("chew" as MedicationDoseUnit),
+    frequency: normalizedExisting?.frequency || "",
+    frequencyType: normalizedExisting?.frequencyType || ("monthly" as MedicationFrequencyType),
+    frequencyInterval: normalizedExisting?.frequencyInterval || 1,
+    refillDate: normalizedExisting?.refillDate || "",
+    clinic: normalizedExisting?.clinic || "",
+    vetName: normalizedExisting?.vetName || "",
+    reason: normalizedExisting?.reason || "",
+    weightValue: normalizedExisting?.weightValue || "",
+    weightUnit: normalizedExisting?.weightUnit || "lb",
   });
 
   const update = (key: keyof typeof record, value: string) => {
@@ -2220,7 +2247,10 @@ function CareSheet({
               ? `${record.weightValue} ${record.weightUnit || "lb"}`
               : record.title;
           if (!canSave) return;
-          onSave({ id: existing?.id || uid("care"), ...record, title });
+          const savedRecord = record.type === "Medication"
+            ? normalizeMedicationFrequency(normalizeMedicationDose({ id: existing?.id || uid("care"), ...record, title }))
+            : { id: existing?.id || uid("care"), ...record, title };
+          onSave(savedRecord);
         }}
       >
         <div className="form-two">
@@ -2260,16 +2290,75 @@ function CareSheet({
         )}
         {record.type === "Medication" && (
           <>
-            <div className="form-two">
-              <Field label="Dose">
-                <input className="input" value={record.dose} onChange={(event) => update("dose", event.target.value)} placeholder="1 pill" />
-                {errors.dose && <span className="field-error">{errors.dose}</span>}
-              </Field>
-              <Field label="Frequency">
-                <input className="input" value={record.frequency} onChange={(event) => update("frequency", event.target.value)} placeholder="Monthly" />
-                {errors.frequency && <span className="field-error">{errors.frequency}</span>}
-              </Field>
-            </div>
+            <Field label="Dose">
+              <div className="dose-builder">
+                <input
+                  className="input dose-amount"
+                  inputMode="decimal"
+                  value={record.doseAmount}
+                  onChange={(event) => update("doseAmount", event.target.value)}
+                  placeholder="1"
+                />
+                <div className="choice-chip-row unit-chip-row">
+                  {medicationDoseUnits.map((unit) => (
+                    <button
+                      className={record.doseUnit === unit.value ? "choice-chip active" : "choice-chip"}
+                      key={unit.value}
+                      type="button"
+                      onClick={() => setRecord((current) => ({ ...current, doseUnit: unit.value }))}
+                    >
+                      {unit.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {errors.dose && <span className="field-error">{errors.dose}</span>}
+            </Field>
+            <Field label="Frequency">
+              <div className="frequency-builder">
+                <div className="choice-chip-row frequency-chip-row">
+                  {medicationFrequencyOptions.map((option) => (
+                    <button
+                      className={record.frequencyType === option.value ? "choice-chip active" : "choice-chip"}
+                      key={option.value}
+                      type="button"
+                      onClick={() =>
+                        setRecord((current) => ({
+                          ...current,
+                          frequencyType: option.value,
+                          frequencyInterval: option.value === "as_needed" ? 1 : current.frequencyInterval || 1,
+                        }))
+                      }
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {record.frequencyType !== "as_needed" && (
+                  <div className="interval-control">
+                    <span>Every</span>
+                    <input
+                      className="interval-input"
+                      type="number"
+                      min="1"
+                      max="12"
+                      value={record.frequencyInterval}
+                      onChange={(event) =>
+                        setRecord((current) => ({
+                          ...current,
+                          frequencyInterval: Math.max(1, Number(event.target.value) || 1),
+                        }))
+                      }
+                    />
+                    <span>
+                      {medicationFrequencyOptions.find((option) => option.value === record.frequencyType)?.noun || "dose"}
+                      {record.frequencyInterval > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                )}
+              </div>
+              {errors.frequency && <span className="field-error">{errors.frequency}</span>}
+            </Field>
             <Field label="Refill / next dose">
               <input className="input" type="date" value={record.refillDate} onChange={(event) => update("refillDate", event.target.value)} />
             </Field>
@@ -2570,14 +2659,21 @@ function EmptyState({ title, text }: { title: string; text: string }) {
 }
 
 function BottomNav({ active, onChange }: { active: Tab; onChange: (tab: Tab) => void }) {
-  const items: { tab: Tab; label: string; icon: React.ReactNode }[] = [
-    { tab: "today", label: "Today", icon: <Home size={19} /> },
-    { tab: "diary", label: "Diary", icon: <NotebookPen size={19} /> },
-    { tab: "care", label: "Care", icon: <HeartPulse size={19} /> },
-    { tab: "calendar", label: "Calendar", icon: <CalendarDays size={19} /> },
-    { tab: "pawpal", label: "PawPal", icon: <Sparkles size={19} /> },
-    { tab: "profile", label: "Profile", icon: <UserRound size={19} /> },
-  ];
+  const iconMap: Record<(typeof bottomNavTabs)[number], React.ReactNode> = {
+    today: <Home size={19} />,
+    diary: <NotebookPen size={19} />,
+    care: <HeartPulse size={19} />,
+    calendar: <CalendarDays size={19} />,
+    profile: <UserRound size={19} />,
+  };
+  const labelMap: Record<(typeof bottomNavTabs)[number], string> = {
+    today: "Today",
+    diary: "Diary",
+    care: "Care",
+    calendar: "Calendar",
+    profile: "Profile",
+  };
+  const items = bottomNavTabs.map((tab) => ({ tab, label: labelMap[tab], icon: iconMap[tab] }));
 
   return (
     <nav className="nav-bar">

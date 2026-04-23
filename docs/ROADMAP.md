@@ -25,7 +25,7 @@ Included:
 - Diary timeline
 - Diary entries with clickable details and up to 6 photos per memory
 - Care screen
-- User-entered care records with type tabs and next due dates
+- User-entered care records with type tabs, structured medication dose/frequency, and next due dates
 - Friendly care empty states and validation by record type
 - Weight trend and medication consistency summaries
 - Calendar/reminders screen
@@ -35,9 +35,9 @@ Included:
 - Health record export
 - Full local backup export/import, including IndexedDB photos
 - Notification and integration settings scaffold
-- PawPal companion tab with care gaps, routine patterns, breed/season tips, optional broad location context, unified Today attention, dismissals, and one-tap actions
+- Floating PawPal companion with care gaps, routine patterns, breed/season tips, optional broad location context, unified Today attention, dismissals, and one-tap actions
 - Cute animated UI moments
-- Mobile-first layout with six-item bottom navigation
+- Mobile-first layout with five-item bottom navigation and floating companion access
 - Local browser persistence
 - Local-network phone testing
 
@@ -57,7 +57,7 @@ Included:
 
 - PWA install support or equivalent mobile testing packaging
 - Full local export/import while data remains local-first
-- Type-specific care forms for vaccines, medications, vet visits, and weight trends
+- Type-specific care forms for vaccines, structured medications, vet visits, and weight trends
 - Daily routine rollover so task completion is tracked per day
 - Local notification preferences and smart reminder lead times
 - Google Calendar payload mapping before OAuth

@@ -56,15 +56,15 @@ Current prototype behavior:
 - Diary entries with clickable detail views and up to 6 photos per memory
 - Adaptive photo compression with browser IndexedDB photo storage to avoid localStorage limits
 - Shared medication, vaccine, and vet visit items across Care and Calendar
-- Care records with type filtering, type-specific fields, next due dates, and weight trend
+- Care records with type filtering, type-specific fields, structured medication dose/frequency controls, next due dates, and weight trend
 - Care history panels with weight trend and medication consistency summaries
 - Calendar reminders with recurrence labels and calculated next occurrences
-- Medication frequency text can infer daily, weekly, monthly, or yearly reminders when it is clear
+- Medication dose and frequency are saved in structured fields, with legacy text normalized when it is clear
 - Calendar month navigation with clickable day details
 - Smart reminder timing defaults with per-reminder alert lead times
 - In-app notification center with Due now, Soon, and Upcoming reminder groups plus service-worker test notifications for installed PWA checks
 - Integration settings for Google Calendar, email, phone push, and cloud sync planning
-- PawPal companion tab with local rule-based care gaps, routine patterns, breed/season tips, optional broad location context, unified Today attention, dismissible suggestions, and one-tap actions
+- Floating PawPal companion with local rule-based care gaps, routine patterns, breed/season tips, optional broad location context, unified Today attention, dismissible suggestions, and one-tap actions
 - Full Pawfolio data export/import for localStorage and IndexedDB photo safety
 - Cuter dog-face PWA app icon for home-screen installs
 - Browser-local persistence

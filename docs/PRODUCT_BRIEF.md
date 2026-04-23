@@ -85,7 +85,7 @@ A deeper organization area for:
 - Vet visits
 - Vaccines
 - Medications
-- Medication dose, frequency, refill, and consistency tracking
+- Structured medication dose, frequency, refill, and consistency tracking
 - Allergies
 - Next due dates for vaccines, medications, and follow-up care
 - Known conditions
@@ -123,7 +123,7 @@ The dog's identity and important reference details:
 
 ### PawPal
 
-An opt-in companion tab that reviews routine completion, medication consistency, upcoming reminders, care gaps, breed/season context, and optional broad region signals.
+An opt-in floating companion that reviews routine completion, medication consistency, upcoming reminders, care gaps, breed/season context, and optional broad region signals.
 
 The first version is local and rule-based, with dismissible suggestions, unified Today attention, and one-tap actions. Later, an agentic version can use an LLM only after privacy, account sync, and user consent are clear.
 

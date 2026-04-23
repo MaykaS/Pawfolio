@@ -15,16 +15,16 @@ Implemented:
 - Compact task notes
 - Custom daily tasks
 - Diary entries with clickable detail views and up to 6 photos per memory
-- Care records with type tabs and type-specific fields
+- Care records with type tabs, type-specific fields, and structured medication dose/frequency controls
 - Care form validation, friendly empty states, and care history panels
 - Care next due dates for vaccines, medications, and follow-up care
 - Shared medication, vaccine, and vet visit items across Care and Calendar
 - Calendar reminders with recurrence labels, calculated next occurrences, smart alert lead times, month navigation, future-only upcoming items, and clickable day details
-- Smart medication recurrence inference from clear frequency text
+- Structured medication recurrence from preset daily, weekly, monthly, yearly, or as-needed choices, with simple legacy text normalization
 - Unified green health styling for vaccine and vet calendar items
 - In-app notification center with Due now, Soon, and Upcoming groups plus service-worker test notifications for installed PWA checks
 - Integration settings for Google Calendar, email reminders, phone push, and cloud sync planning
-- PawPal companion tab with care gaps, routine patterns, breed/season tips, optional broad location context, unified Today attention, dismissals, and one-tap actions
+- Floating PawPal companion with care gaps, routine patterns, breed/season tips, optional broad location context, unified Today attention, dismissals, and one-tap actions
 - Profile screen with full state/photo backup export/import and editable personality tags
 - Adaptive photo compression, IndexedDB photo storage, diary galleries, and safer local saves
 - Cute dog-face PWA app icon
@@ -42,12 +42,16 @@ Implemented:
    - Let more suggestions prefill care or reminder forms
    - Add more breed profiles and seasonal care signals
    - Add a monthly PawPal recap for care/routine patterns
-3. Decide when PawPal should move from local rules to optional LLM help.
-4. Connect Supabase Auth/Postgres with Google sign-in and RLS when cloud sync becomes the priority again.
-5. Add an "Upload local Pawfolio to account" migration after Supabase is ready.
-6. Connect Google Calendar OAuth and real event sync.
-7. Add backend email reminders, likely through Vercel functions and Resend.
-8. Add real PWA push subscriptions and backend push sending.
+3. Add more structured care details:
+   - Medication start/end dates and missed-dose notes
+   - Vaccine manufacturer/lot fields
+   - Vet visit attachments or invoices
+4. Decide when PawPal should move from local rules to optional LLM help.
+5. Connect Supabase Auth/Postgres with Google sign-in and RLS when cloud sync becomes the priority again.
+6. Add an "Upload local Pawfolio to account" migration after Supabase is ready.
+7. Connect Google Calendar OAuth and real event sync.
+8. Add backend email reminders, likely through Vercel functions and Resend.
+9. Add real PWA push subscriptions and backend push sending.
 
 ## Prototype Content To Keep Improving
 

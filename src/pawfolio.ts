@@ -1,4 +1,5 @@
 export type Tab = "today" | "diary" | "care" | "calendar" | "pawpal" | "profile";
+export const bottomNavTabs = ["today", "diary", "care", "calendar", "profile"] as const satisfies Tab[];
 
 export type DogAvatar = {
   fur: string;
@@ -43,7 +44,11 @@ export type CareRecord = {
   note: string;
   nextDueDate?: string;
   dose?: string;
+  doseAmount?: string;
+  doseUnit?: MedicationDoseUnit;
   frequency?: string;
+  frequencyType?: MedicationFrequencyType;
+  frequencyInterval?: number;
   refillDate?: string;
   clinic?: string;
   vetName?: string;
@@ -54,6 +59,8 @@ export type CareRecord = {
 
 export type SharedCareType = "Medication" | "Vaccine" | "Vet visit";
 export type ReminderRecurrence = "none" | "daily" | "weekly" | "monthly" | "yearly";
+export type MedicationDoseUnit = "tablet" | "chew" | "capsule" | "mL" | "drops" | "scoop" | "other";
+export type MedicationFrequencyType = "daily" | "weekly" | "monthly" | "yearly" | "as_needed";
 
 export type CareEvent = {
   id: string;
@@ -66,7 +73,11 @@ export type CareEvent = {
   recurrence: ReminderRecurrence;
   notifyLeadMinutes?: number;
   dose?: string;
+  doseAmount?: string;
+  doseUnit?: MedicationDoseUnit;
   frequency?: string;
+  frequencyType?: MedicationFrequencyType;
+  frequencyInterval?: number;
   refillDate?: string;
   clinic?: string;
   vetName?: string;
@@ -238,6 +249,22 @@ export const reminderLeadOptions = [
   { value: 15, label: "15 min before" },
   { value: 60, label: "1 hour before" },
   { value: 1440, label: "1 day before" },
+];
+export const medicationDoseUnits: { value: MedicationDoseUnit; label: string }[] = [
+  { value: "tablet", label: "Tablet" },
+  { value: "chew", label: "Chew" },
+  { value: "capsule", label: "Capsule" },
+  { value: "mL", label: "mL" },
+  { value: "drops", label: "Drops" },
+  { value: "scoop", label: "Scoop" },
+  { value: "other", label: "Other" },
+];
+export const medicationFrequencyOptions: { value: MedicationFrequencyType; label: string; noun: string }[] = [
+  { value: "daily", label: "Daily", noun: "day" },
+  { value: "weekly", label: "Weekly", noun: "week" },
+  { value: "monthly", label: "Monthly", noun: "month" },
+  { value: "yearly", label: "Yearly", noun: "year" },
+  { value: "as_needed", label: "As needed", noun: "dose" },
 ];
 export const taskHourOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
 export const taskMinuteOptions = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, "0"));
@@ -430,11 +457,15 @@ export function limitDiaryPhotos(photos: string[]) {
 }
 
 export function withCareSchedule(record: CareRecord): CareRecord {
-  return {
+  const scheduled = {
     ...record,
     nextDueDate: record.nextDueDate || "",
     dose: record.dose || "",
+    doseAmount: record.doseAmount || "",
+    doseUnit: record.doseUnit,
     frequency: record.frequency || "",
+    frequencyType: record.frequencyType,
+    frequencyInterval: record.frequencyInterval,
     refillDate: record.refillDate || "",
     clinic: record.clinic || "",
     vetName: record.vetName || "",
@@ -442,10 +473,11 @@ export function withCareSchedule(record: CareRecord): CareRecord {
     weightValue: record.weightValue || "",
     weightUnit: record.weightUnit || "",
   };
+  return record.type === "Medication" ? normalizeMedicationFrequency(normalizeMedicationDose(scheduled)) : scheduled;
 }
 
 export function withCareEventSchedule(event: Omit<CareEvent, "recurrence"> & { recurrence?: ReminderRecurrence }): CareEvent {
-  return {
+  const scheduled = {
     ...event,
     nextDueDate: event.nextDueDate || "",
     recurrence: event.recurrence || "none",
@@ -454,12 +486,17 @@ export function withCareEventSchedule(event: Omit<CareEvent, "recurrence"> & { r
         ? event.notifyLeadMinutes
         : defaultReminderLeadMinutes(careTypeToReminderType(event.type)),
     dose: event.dose || "",
+    doseAmount: event.doseAmount || "",
+    doseUnit: event.doseUnit,
     frequency: event.frequency || "",
+    frequencyType: event.frequencyType,
+    frequencyInterval: event.frequencyInterval,
     refillDate: event.refillDate || "",
     clinic: event.clinic || "",
     vetName: event.vetName || "",
     reason: event.reason || "",
   };
+  return event.type === "Medication" ? normalizeMedicationFrequency(normalizeMedicationDose(scheduled)) : scheduled;
 }
 
 export function updateTaskTime(tasks: DailyTask[], id: string, time: string) {
@@ -506,35 +543,132 @@ export function parseMedicationRecurrence(text = ""): ReminderRecurrence {
   return "none";
 }
 
+function normalizeDoseUnit(unit = ""): MedicationDoseUnit | undefined {
+  const normalized = unit.trim().toLowerCase();
+  if (["tablet", "tablets", "tab", "tabs", "pill", "pills"].includes(normalized)) return "tablet";
+  if (["chew", "chews"].includes(normalized)) return "chew";
+  if (["capsule", "capsules", "cap", "caps"].includes(normalized)) return "capsule";
+  if (["ml", "milliliter", "milliliters"].includes(normalized)) return "mL";
+  if (["drop", "drops"].includes(normalized)) return "drops";
+  if (["scoop", "scoops"].includes(normalized)) return "scoop";
+  if (normalized === "other") return "other";
+  return undefined;
+}
+
+function recurrenceToFrequencyType(recurrence: ReminderRecurrence): MedicationFrequencyType | undefined {
+  if (recurrence === "daily" || recurrence === "weekly" || recurrence === "monthly" || recurrence === "yearly") return recurrence;
+  return undefined;
+}
+
+export function formatMedicationDose(record: Pick<CareRecord, "dose" | "doseAmount" | "doseUnit">) {
+  const amount = record.doseAmount?.trim();
+  if (amount && record.doseUnit) return `${amount} ${record.doseUnit}`;
+  return record.dose?.trim() || "";
+}
+
+export function normalizeMedicationDose<T extends Pick<CareRecord, "dose" | "doseAmount" | "doseUnit">>(record: T): T {
+  if (record.doseAmount?.trim() && record.doseUnit) {
+    return { ...record, dose: formatMedicationDose(record) };
+  }
+
+  const match = record.dose?.trim().match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\b/);
+  const doseUnit = match ? normalizeDoseUnit(match[2]) : undefined;
+  if (!match || !doseUnit) return record;
+
+  return {
+    ...record,
+    doseAmount: match[1],
+    doseUnit,
+    dose: `${match[1]} ${doseUnit}`,
+  };
+}
+
+export function formatMedicationFrequency(
+  record: Pick<CareRecord, "frequency" | "frequencyType" | "frequencyInterval">,
+) {
+  if (!record.frequencyType) return record.frequency?.trim() || "";
+  if (record.frequencyType === "as_needed") return "As needed";
+
+  const interval = Math.max(1, Math.floor(Number(record.frequencyInterval) || 1));
+  const noun = medicationFrequencyOptions.find((option) => option.value === record.frequencyType)?.noun || "dose";
+  if (interval === 1) return `Every ${noun}`;
+  return `Every ${interval} ${noun}s`;
+}
+
+export function normalizeMedicationFrequency<
+  T extends Pick<CareRecord, "frequency" | "frequencyType" | "frequencyInterval">,
+>(record: T): T {
+  if (record.frequencyType) {
+    return {
+      ...record,
+      frequencyInterval: Math.max(1, Math.floor(Number(record.frequencyInterval) || 1)),
+      frequency: formatMedicationFrequency(record),
+    };
+  }
+
+  const normalized = record.frequency?.trim().toLowerCase() || "";
+  const recurrence = parseMedicationRecurrence(normalized);
+  const frequencyType = recurrenceToFrequencyType(recurrence);
+  if (frequencyType) {
+    return {
+      ...record,
+      frequencyType,
+      frequencyInterval: 1,
+      frequency: formatMedicationFrequency({ ...record, frequencyType, frequencyInterval: 1 }),
+    };
+  }
+  if (/\b(as needed|as-needed|prn)\b/.test(normalized)) {
+    return { ...record, frequencyType: "as_needed", frequencyInterval: 1, frequency: "As needed" };
+  }
+
+  return record;
+}
+
+export function medicationFrequencyToRecurrence(
+  record: Pick<CareRecord, "frequency" | "frequencyType" | "frequencyInterval">,
+): ReminderRecurrence {
+  if (record.frequencyType === "daily" || record.frequencyType === "weekly" || record.frequencyType === "monthly" || record.frequencyType === "yearly") {
+    return record.frequencyType;
+  }
+  if (record.frequencyType === "as_needed") return "none";
+  return parseMedicationRecurrence(record.frequency);
+}
+
 function careEventKey(event: CareEvent) {
   return `${event.type}|${event.title.trim().toLowerCase()}|${event.date}`;
 }
 
 export function careRecordToEvent(record: CareRecord): CareEvent {
+  const scheduled = withCareSchedule(record);
   const type = isSharedCareType(record.type) ? record.type : "Medication";
-  const recurrence = record.type === "Medication" ? parseMedicationRecurrence(record.frequency) : "none";
+  const recurrence = record.type === "Medication" ? medicationFrequencyToRecurrence(scheduled) : "none";
   return {
-    id: record.id,
+    id: scheduled.id,
     type,
-    title: record.title,
-    date: record.date,
+    title: scheduled.title,
+    date: scheduled.date,
     time: "",
-    note: record.note,
-    nextDueDate: record.nextDueDate || "",
+    note: scheduled.note,
+    nextDueDate: scheduled.nextDueDate || "",
     recurrence,
     notifyLeadMinutes: defaultReminderLeadMinutes(careTypeToReminderType(type)),
-    dose: record.dose || "",
-    frequency: record.frequency || "",
-    refillDate: record.refillDate || "",
-    clinic: record.clinic || "",
-    vetName: record.vetName || "",
-    reason: record.reason || "",
+    dose: scheduled.dose || "",
+    doseAmount: scheduled.doseAmount || "",
+    doseUnit: scheduled.doseUnit,
+    frequency: scheduled.frequency || "",
+    frequencyType: scheduled.frequencyType,
+    frequencyInterval: scheduled.frequencyInterval,
+    refillDate: scheduled.refillDate || "",
+    clinic: scheduled.clinic || "",
+    vetName: scheduled.vetName || "",
+    reason: scheduled.reason || "",
   };
 }
 
 export function reminderToCareEvent(reminder: Reminder): CareEvent | undefined {
   const type = reminderTypeToCareType(reminder.type);
   if (!type) return undefined;
+  const frequencyType = type === "Medication" ? recurrenceToFrequencyType(reminder.recurrence || "none") : undefined;
   return {
     id: reminder.id,
     type,
@@ -547,7 +681,9 @@ export function reminderToCareEvent(reminder: Reminder): CareEvent | undefined {
       typeof reminder.notifyLeadMinutes === "number"
         ? reminder.notifyLeadMinutes
         : defaultReminderLeadMinutes(reminder.type),
-    frequency: type === "Medication" && reminder.recurrence !== "none" ? recurrenceLabel(reminder.recurrence || "none") : "",
+    frequencyType,
+    frequencyInterval: frequencyType ? 1 : undefined,
+    frequency: type === "Medication" && reminder.recurrence !== "none" ? formatMedicationFrequency({ frequencyType, frequencyInterval: 1 }) : "",
   };
 }
 
@@ -560,7 +696,11 @@ export function careEventToCareRecord(event: CareEvent): CareRecord {
     note: event.note,
     nextDueDate: event.nextDueDate || "",
     dose: event.dose || "",
+    doseAmount: event.doseAmount || "",
+    doseUnit: event.doseUnit,
     frequency: event.frequency || "",
+    frequencyType: event.frequencyType,
+    frequencyInterval: event.frequencyInterval,
     refillDate: event.refillDate || "",
     clinic: event.clinic || "",
     vetName: event.vetName || "",
@@ -594,7 +734,11 @@ function mergeCareEvent(events: CareEvent[], event: CareEvent) {
   const optionalFields: (keyof CareEvent)[] = [
     "nextDueDate",
     "dose",
+    "doseAmount",
+    "doseUnit",
     "frequency",
+    "frequencyType",
+    "frequencyInterval",
     "refillDate",
     "clinic",
     "vetName",
@@ -899,8 +1043,8 @@ export function validateCareRecord(record: Partial<CareRecord>) {
 
   if (record.type === "Medication") {
     if (!record.title?.trim()) errors.title = "Add the medication name.";
-    if (!record.dose?.trim()) errors.dose = "Add the dose.";
-    if (!record.frequency?.trim()) errors.frequency = "Add how often it is given.";
+    if (!formatMedicationDose(record).trim()) errors.dose = "Add the dose.";
+    if (!formatMedicationFrequency(record).trim()) errors.frequency = "Add how often it is given.";
   } else if (record.type === "Vaccine") {
     if (!record.title?.trim()) errors.title = "Add the vaccine name.";
   } else if (record.type === "Vet visit") {
