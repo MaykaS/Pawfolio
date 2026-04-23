@@ -1,6 +1,6 @@
 import webpush from "web-push";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { requiredEnv, sendJson, supabaseAdmin } from "./_supabase";
+import { requiredEnv, sendJson, supabaseAdmin } from "./_supabase.js";
 
 type ReminderLike = {
   id: string;

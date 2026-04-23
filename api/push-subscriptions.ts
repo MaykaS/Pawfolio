@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { sendJson, supabaseAdmin, userFromRequest } from "./_supabase";
+import { sendJson, supabaseAdmin, userFromRequest } from "./_supabase.js";
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   if (request.method !== "POST") return sendJson(response, 405, { error: "Method not allowed" });
