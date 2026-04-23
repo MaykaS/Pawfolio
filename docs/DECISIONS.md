@@ -198,6 +198,24 @@ Decision: Real phone notifications use browser Push subscriptions saved to Supab
 
 Reason: Closed-app phone notifications cannot be scheduled reliably from frontend JavaScript alone. A backend sender is the trustworthy path for due reminders and missed-care nudges.
 
+## 2026-04-23: Use Supabase Publishable Key For Client Auth
+
+Decision: The browser client uses Supabase's publishable key for Google sign-in and client-side auth flows, while backend-only paths continue to require a server secret.
+
+Reason: The legacy JWT-style anon key caused OAuth callback/API-key problems during the Google sign-in flow. The publishable key matches Supabase's current client-auth direction and is the safer long-term default for browser auth.
+
+## 2026-04-23: Auto-Sync Signed-In Local State To Cloud Snapshot
+
+Decision: When a user is signed in, Pawfolio automatically uploads the latest local state to the user's private `pawfolio_snapshots` row after edits, instead of relying only on a manual upload button.
+
+Reason: Reminder delivery and cloud backup are too fragile if the user must remember to manually upload after every change. Auto-sync makes the private snapshot useful as a real foundation for cloud restore and backend reminder delivery.
+
+## 2026-04-23: Use Local Reminder Scheduling As The Short-Term Delivery Layer
+
+Decision: Pawfolio schedules near-term notifications locally in the client for reminders due within about the next hour, in addition to the longer-term backend push path.
+
+Reason: The current backend push path still depends on infrastructure that is not fully production-ready. Local scheduling gives the prototype a real reminder experience now, while closed-app precise push remains a separate backend milestone.
+
 ## 2026-04-22: Use A Dog-Face PWA Icon
 
 Decision: The installed PWA icon should be a cute dog face in Pawfolio colors rather than a generic mark.

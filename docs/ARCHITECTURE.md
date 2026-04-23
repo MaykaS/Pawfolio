@@ -70,9 +70,9 @@ Profile and diary photo uploads are adaptively compressed and stored in browser 
 
 Future cloud persistence should use Supabase Auth plus Postgres Row Level Security. Google sign-in is the preferred first login path. Each user-owned row should include a `user_id`, with policies limiting access to the authenticated user's own data.
 
-The app now has Supabase-ready auth, private snapshot upload, and push subscription scaffolding. It stays local-only until the Supabase URL/anon key, service role key, VAPID keys, and Google OAuth setup are configured in Vercel/Supabase.
+The app now has live Supabase Google auth, private snapshot upload, signed-in auto-sync, and push subscription storage. The browser-local model still drives the prototype UX, while Supabase currently acts as the private cloud backup and push foundation.
 
-The first cloud migration uses `pawfolio_snapshots`: after Google sign-in, `Upload local Pawfolio` copies the current local state JSON into the user's private row. This protects existing phone data before later splitting records into fully normalized cloud tables.
+The first cloud migration uses `pawfolio_snapshots`: after Google sign-in, `Upload local Pawfolio` copies the current local state JSON into the user's private row. Signed-in state changes are also auto-synced after edits. This protects existing phone data before later splitting records into fully normalized cloud tables.
 
 Likely future entities:
 
@@ -117,7 +117,15 @@ Likely roles:
 
 The current prototype has an in-app notification center. It shows future reminders, exposes browser notification permission status, and can trigger a service-worker-backed test notification where the installed PWA/browser supports it.
 
-The app now includes backend-ready PWA push pieces: browser subscription capture, a private `push_subscriptions` table, a service-worker push handler, and a Vercel cron endpoint that can send due reminder pushes from uploaded cloud snapshots. It requires Supabase/VAPID env vars before it can send real phone notifications. On Vercel Hobby, cron is limited to daily runs, so precise reminder timing needs Vercel Pro or a Supabase scheduled-function path.
+The app now includes these reminder-delivery layers:
+
+- Browser/PWA notification permission and service-worker notification display
+- Signed-in device subscription storage in `push_subscriptions`
+- Signed-in auto-sync of local reminder data into `pawfolio_snapshots`
+- Near-term local reminder scheduling in the client for reminders due within roughly the next hour while the app is active or backgrounded
+- A backend Vercel cron/API sender scaffold for closed-app push delivery from cloud snapshots
+
+Current limitation: the closed-app push sender path is not yet production-complete. It still depends on a healthy backend service-role key path plus a scheduler that can run more frequently than the current Vercel Hobby daily cron. That means local/foreground reminder delivery is usable now, while true precise closed-app scheduled push remains a follow-on infrastructure milestone.
 
 The app should eventually support:
 

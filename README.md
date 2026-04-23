@@ -64,26 +64,30 @@ Current prototype behavior:
 - Calendar month navigation with clickable day details
 - Smart reminder timing defaults with compact per-reminder alert lead chips, including at time, 15 min, 30 min, 1 hour, same day, and 1 day
 - In-app notification center with Due now, Soon, and Upcoming reminder groups plus service-worker test notifications for installed PWA checks
+- Signed-in auto-sync of local Pawfolio state to a private Supabase snapshot row
+- Phone push subscription save for the current signed-in device
+- Near-term local reminder notifications while the app is open or backgrounded with notification permission granted
 - Integration settings for Google Calendar, email, phone push, and cloud sync planning
 - Floating PawPal companion with local rule-based care gaps, missed routine nudges, breed/season tips, optional collapsed Climate care context, unified Today attention, dismissible suggestions, and one-tap actions
 - Full Pawfolio data export/import for localStorage and IndexedDB photo safety
-- Supabase-ready Google sign-in, private cloud snapshot upload, and PWA push subscription scaffolding
+- Supabase Google sign-in, private cloud snapshot upload, and PWA push subscription setup
 - Cuter dog-face PWA app icon for home-screen installs
 - Browser-local persistence
 
 Current data/auth note:
 
-- Pawfolio can now show a Google sign-in path when Supabase env vars are configured.
-- Until Supabase is configured, data is private to the browser/app profile where it was created.
-- The cloud direction is Supabase Auth with Google sign-in and Postgres Row Level Security so each user only sees their own pet data.
-- `Upload local Pawfolio` means copying the data already on this phone/browser into the signed-in private account.
+- Pawfolio now supports Google sign-in through Supabase when the project is configured.
+- Signed-in users can upload or auto-sync local state into their own private Supabase snapshot row.
+- Browser-local data still remains the source of truth for the current prototype UX.
+- `Upload local Pawfolio` means copying the data already on this phone/browser into the signed-in private account as a backup and cloud handoff step.
+- Full normalized cloud sync across devices is still a later milestone.
 
 Cloud/push setup files:
 
 - `.env.example` lists the needed Vercel variables.
 - `supabase/schema.sql` creates the private snapshot and push subscription tables with RLS.
-- `api/push-subscriptions.ts` stores a signed-in user's phone subscription.
-- `api/send-due-push.ts` is the scheduled push sender for due reminders.
+- `api/push-subscriptions.ts` is the backend push-subscription endpoint scaffold.
+- `api/send-due-push.ts` is the scheduled push sender scaffold for due reminders.
 
 Run locally:
 
@@ -121,7 +125,8 @@ Notes:
 
 - Data is still local-first and stored in that phone browser/app profile.
 - The local network dev URL is useful for testing, but HTTPS is needed for the proper install/offline PWA experience.
-- Real closed-app phone push reminders are a later backend milestone. They need auth/device subscriptions and a server push sender; the current app prepares reminder timing and in-app/PawPal attention without pretending to schedule phone push while closed.
+- Phone subscription setup and near-term local reminder notifications now work in the app.
+- Fully reliable closed-app scheduled phone push still remains a backend milestone. It needs a healthy server-side sender path plus a scheduler that can run more frequently than the current Hobby-plan daily cron.
 
 See:
 

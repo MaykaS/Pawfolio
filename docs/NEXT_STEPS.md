@@ -25,7 +25,10 @@ Implemented:
 - Unified green health styling for vaccine and vet calendar items
 - In-app notification center with Due now, Soon, and Upcoming groups plus service-worker test notifications for installed PWA checks
 - Integration settings for Google Calendar, email reminders, phone push, and cloud sync planning
-- Supabase-ready Google sign-in, local-to-account upload, private snapshot table schema, push subscription API, and scheduled push sender scaffold
+- Supabase Google sign-in, private snapshot table schema, local-to-account upload, and signed-in auto-sync to cloud snapshots
+- Phone push subscription save for the current signed-in device
+- Near-term local reminder notifications while the app is active/backgrounded with notification permission granted
+- Scheduled push sender scaffold for backend/cloud delivery
 - Floating PawPal companion with care gaps, missed routine nudges, breed/season tips, optional collapsed Climate care context, unified Today attention, dismissals, and one-tap actions
 - Profile screen with full state/photo backup export/import and editable personality tags
 - Adaptive photo compression, IndexedDB photo storage, diary galleries, and safer local saves
@@ -34,30 +37,29 @@ Implemented:
 
 ## Immediate Next Improvements
 
-1. Continue installed PWA testing from Android Chrome:
+1. Finish the closed-app push delivery path:
+   - Replace/repair the backend service-role key path used by the server sender
+   - Verify the `api/send-due-push.ts` flow against real signed-in user data
+   - Move beyond Hobby-plan daily scheduling so precise reminder timing is possible
+2. Continue installed PWA testing from Android Chrome:
    - Launches in standalone mode
    - Shows the new dog-face home-screen icon
    - Saves localStorage and IndexedDB photo data
    - Reopens with saved dog data
    - Loads the app shell after the first visit
-2. Polish PawPal suggestion actions:
+   - Delivers near-term local reminder notifications consistently
+3. Polish PawPal suggestion actions:
    - Let more suggestions prefill care or reminder forms
    - Add more breed profiles and seasonal care signals
    - Add a monthly PawPal recap for care/routine patterns
-3. Finish cloud/push setup in the dashboards:
-   - Create the Supabase project and run `supabase/schema.sql`
-   - Enable Google OAuth in Supabase
-   - Add the `.env.example` values in Vercel
-   - Generate VAPID keys for Web Push
-   - Confirm Vercel Cron frequency allowed by the active plan; Hobby supports daily cron only, so precise same-day push timing needs Vercel Pro or Supabase scheduled functions
 4. Add more structured care details:
    - Medication start/end dates and missed-dose notes
    - Vaccine manufacturer/lot fields
    - Vet visit attachments or invoices
-5. Decide when PawPal should move from local rules to optional LLM help.
-6. Split the private cloud snapshot into normalized cloud tables.
-7. Connect Google Calendar OAuth and real event sync.
-8. Add backend email reminders, likely through Vercel functions and Resend.
+5. Split the private cloud snapshot into normalized cloud tables.
+6. Connect Google Calendar OAuth and real event sync.
+7. Add backend email reminders, likely through Vercel functions and Resend.
+8. Decide when PawPal should move from local rules to optional LLM help.
 
 ## Prototype Content To Keep Improving
 
@@ -66,20 +68,20 @@ The user should continue entering their own dog information instead of relying o
 ## Decisions To Make Soon
 
 - Whether the first LLM feature should be natural-language entry parsing, PawPal recaps, or a dedicated Ask Pawfolio chat
-- Exact timing for the Supabase Auth/Postgres milestone
+- Exact timing for the normalized cloud-sync milestone beyond snapshot backup
 - Whether GitHub repository should be public or private
 - Whether cloud sync should stay single-owner first or include shared caregiver access in the first database design
 
-## Not In The First Prototype
+## Still Partial / Not Yet Complete
 
-These are important, but should come after the initial prototype:
+These are important, but are not yet fully complete in the current build:
 
-- User login
-- Multiple pets
+- Closed-app scheduled push notifications with reliable backend delivery
+- Full normalized multi-device cloud sync
 - Shared caregiver access
-- Real push notifications
-- Email notifications
-- Calendar sync
+- Google Calendar real sync
+- Email reminder sending
+- Multiple pets
 - GPS walk tracking
 - DNA/genetic report imports
 - Native Android build
