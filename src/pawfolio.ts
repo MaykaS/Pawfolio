@@ -98,6 +98,8 @@ export type Reminder = {
 
 export type PawfolioNotificationStatus = "unsupported" | "default" | "granted" | "denied";
 export type TaskHistory = Record<string, Record<string, boolean>>;
+export type ReminderCompletionStatus = "done" | "skipped";
+export type ReminderHistory = Record<string, Record<string, ReminderCompletionStatus>>;
 
 export type NotificationPreferences = {
   inApp: boolean;
@@ -162,6 +164,7 @@ export type PawfolioState = {
   care: CareRecord[];
   careEvents: CareEvent[];
   reminders: Reminder[];
+  reminderHistory: ReminderHistory;
   notificationPreferences: NotificationPreferences;
   integrationSettings: IntegrationSettings;
   googleCalendarSyncState: GoogleCalendarSyncState;
@@ -192,6 +195,7 @@ export const initialState: PawfolioState = {
   care: [],
   careEvents: [],
   reminders: [],
+  reminderHistory: {},
   notificationPreferences: {
     inApp: true,
     push: false,
@@ -551,6 +555,28 @@ export function setTaskDoneForDate(taskHistory: TaskHistory, date: string, taskI
   };
 }
 
+export function reminderCompletionStatus(
+  reminderHistory: ReminderHistory,
+  reminder: Pick<Reminder, "id" | "date">,
+) {
+  return reminderHistory[reminder.date]?.[reminder.id];
+}
+
+export function setReminderCompletionForDate(
+  reminderHistory: ReminderHistory,
+  date: string,
+  reminderId: string,
+  status?: ReminderCompletionStatus,
+): ReminderHistory {
+  const day = { ...(reminderHistory[date] || {}) };
+  if (status) day[reminderId] = status;
+  else delete day[reminderId];
+  return {
+    ...reminderHistory,
+    [date]: day,
+  };
+}
+
 export function missedRoutineTasks(
   tasks: DailyTask[],
   taskHistory: TaskHistory,
@@ -866,6 +892,7 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
     care: normalizedCare.filter((record) => !isSharedCareType(record.type)),
     careEvents,
     reminders: normalizedReminders.filter((reminder) => !reminderTypeToCareType(reminder.type)),
+    reminderHistory: base.reminderHistory || {},
     notificationPreferences: {
       ...initialState.notificationPreferences,
       ...(base.notificationPreferences || {}),
@@ -1006,34 +1033,57 @@ function addRecurrence(date: Date, recurrence: ReminderRecurrence) {
   return next;
 }
 
-export function nextOccurrenceDate(reminder: Pick<Reminder, "date" | "recurrence">, now = new Date()) {
+export function nextOccurrenceDate(
+  reminder: Pick<Reminder, "date" | "recurrence" | "id">,
+  now = new Date(),
+  reminderHistory: ReminderHistory = {},
+) {
   if (!reminder.date) return "";
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   let occurrence = new Date(`${reminder.date}T00:00`);
-  if (reminder.recurrence === "none") return toLocalISO(occurrence);
+  if (reminder.recurrence === "none") {
+    const date = toLocalISO(occurrence);
+    return reminder.id && reminderHistory[date]?.[reminder.id] ? "" : date;
+  }
 
   let guard = 0;
-  while (occurrence.getTime() < today.getTime() && guard < 1000) {
+  while (guard < 1000) {
+    const date = toLocalISO(occurrence);
+    const completed = reminder.id ? reminderHistory[date]?.[reminder.id] : undefined;
+    if (occurrence.getTime() >= today.getTime() && !completed) break;
     occurrence = addRecurrence(occurrence, reminder.recurrence);
     guard += 1;
   }
   return toLocalISO(occurrence);
 }
 
-export function withNextOccurrence(reminder: Reminder, now = new Date()): Reminder {
-  const occurrenceDate = nextOccurrenceDate(reminder, now);
+export function withNextOccurrence(
+  reminder: Reminder,
+  now = new Date(),
+  reminderHistory: ReminderHistory = {},
+): Reminder {
+  const occurrenceDate = nextOccurrenceDate(reminder, now, reminderHistory);
   return occurrenceDate ? { ...reminder, date: occurrenceDate } : reminder;
 }
 
-export function getUpcomingReminders(reminders: Reminder[], now = new Date()) {
+export function getUpcomingReminders(
+  reminders: Reminder[],
+  now = new Date(),
+  reminderHistory: ReminderHistory = {},
+) {
   return reminders
-    .map((reminder) => withNextOccurrence(reminder, now))
+    .map((reminder) => withNextOccurrence(reminder, now, reminderHistory))
     .filter((reminder) => isFutureOrToday(reminder.date, now))
+    .filter((reminder) => !reminderCompletionStatus(reminderHistory, reminder))
     .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
 }
 
-export function getUpcomingReminder(reminders: Reminder[], now = new Date()) {
-  return getUpcomingReminders(reminders, now)[0];
+export function getUpcomingReminder(
+  reminders: Reminder[],
+  now = new Date(),
+  reminderHistory: ReminderHistory = {},
+) {
+  return getUpcomingReminders(reminders, now, reminderHistory)[0];
 }
 
 export function notificationPermissionStatus(notificationApi?: { permission?: NotificationPermission }): PawfolioNotificationStatus {
@@ -1085,8 +1135,12 @@ export function notificationLeadLabel(reminder: Pick<Reminder, "notifyLeadMinute
   return reminderLeadOptions.find((option) => option.value === minutes)?.label || `${minutes} min before`;
 }
 
-export function getNotificationGroups(reminders: Reminder[], now = new Date()) {
-  const upcoming = getUpcomingReminders(reminders, now);
+export function getNotificationGroups(
+  reminders: Reminder[],
+  now = new Date(),
+  reminderHistory: ReminderHistory = {},
+) {
+  const upcoming = getUpcomingReminders(reminders, now, reminderHistory);
   const soonLimit = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
   return upcoming.reduce(
@@ -1356,7 +1410,7 @@ export function buildCoachSuggestions(state: PawfolioState, now = new Date()) {
     });
   }
 
-  const upcoming = getUpcomingReminders(reminders, now);
+  const upcoming = getUpcomingReminders(reminders, now, state.reminderHistory);
   if (upcoming.length === 0) {
     suggestions.push({
       id: "no-upcoming-reminders",

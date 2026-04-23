@@ -52,6 +52,7 @@ Current localStorage prototype data includes:
 - Shared care-calendar events for medications, vaccines, and vet visits
 - Medication records keep backward-compatible `dose` and `frequency` labels while also storing structured `doseAmount`, `doseUnit`, `frequencyType`, and `frequencyInterval`
 - Calendar-only reminders with title, type, date, time, note, recurrence label, calculated next occurrence, and notification lead time
+- Reminder completion history keyed by local date and reminder id, so one-off reminders can be marked done/skipped and recurring reminders can advance after an occurrence is handled
 - Medication schedule helpers that map structured daily, weekly, monthly, or yearly frequency to shared calendar recurrence, while still normalizing simple legacy text
 - Calendar helper views for future-only upcoming items, visible-month events, and selected-day event details
 - Care helper views for type-specific validation, empty states, weight trends, medication consistency, and follow-up histories

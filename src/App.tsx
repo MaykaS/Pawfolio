@@ -67,12 +67,14 @@ import {
   recurrenceLabel,
   reminderRecurrenceOptions,
   reminderTypes,
+  reminderCompletionStatus,
   regionFromCoordinates,
   routineCoachInsights,
   safeSetLocalStorage,
   saveCareRecordToState,
   saveReminderToState,
   setTaskDoneForDate,
+  setReminderCompletionForDate,
   sortDiaryEntries,
   sortTasksByTime,
   storageKey,
@@ -101,6 +103,7 @@ import {
   type MedicationFrequencyType,
   type PawfolioState,
   type Reminder,
+  type ReminderCompletionStatus,
   type ReminderRecurrence,
   type Tab,
 } from "./pawfolio";
@@ -409,8 +412,8 @@ export default function App() {
   const coachSuggestions = useMemo(() => buildCoachSuggestions(state), [state]);
   const todayAttentionItems = useMemo(() => buildTodayAttentionItems(state), [state]);
   const upcomingReminder = useMemo(
-    () => getUpcomingReminder(calendarItems),
-    [calendarItems],
+    () => getUpcomingReminder(calendarItems, new Date(), state.reminderHistory),
+    [calendarItems, state.reminderHistory],
   );
 
   const handleCoachAction = (suggestion: CoachSuggestion) => {
@@ -586,10 +589,17 @@ export default function App() {
       {tab === "calendar" && (
         <CalendarScreen
           reminders={calendarItems}
+          reminderHistory={state.reminderHistory}
           onOpenReminder={(date) => setReminderMode({ mode: "create", date })}
           onEdit={(reminder) => setReminderMode({ mode: "edit", reminder })}
           onDelete={(id) =>
             setState((current) => deleteCalendarItemFromState(current, id))
+          }
+          onComplete={(reminder, status) =>
+            setState((current) => ({
+              ...current,
+              reminderHistory: setReminderCompletionForDate(current.reminderHistory, reminder.date, reminder.id, status),
+            }))
           }
         />
       )}
@@ -739,6 +749,13 @@ export default function App() {
       {notificationsOpen && (
         <NotificationsSheet
           reminders={calendarItems}
+          reminderHistory={state.reminderHistory}
+          onComplete={(reminder, status) =>
+            setState((current) => ({
+              ...current,
+              reminderHistory: setReminderCompletionForDate(current.reminderHistory, reminder.date, reminder.id, status),
+            }))
+          }
           onClose={() => setNotificationsOpen(false)}
         />
       )}
@@ -1403,21 +1420,25 @@ function CareHistoryPanel({
 
 function CalendarScreen({
   reminders,
+  reminderHistory,
   onOpenReminder,
   onEdit,
   onDelete,
+  onComplete,
 }: {
   reminders: Reminder[];
+  reminderHistory: PawfolioState["reminderHistory"];
   onOpenReminder: (date?: string) => void;
   onEdit: (reminder: Reminder) => void;
   onDelete: (id: string) => void;
+  onComplete: (reminder: Reminder, status?: ReminderCompletionStatus) => void;
 }) {
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const monthEvents = eventsForMonth(reminders, visibleMonth);
-  const upcoming = getUpcomingReminders(reminders);
+  const upcoming = getUpcomingReminders(reminders, new Date(), reminderHistory);
   const visibleUpcoming = showAllUpcoming ? upcoming : upcoming.slice(0, 3);
   const isCurrentMonth = monthKey(visibleMonth) === monthKey(currentMonth);
   const selectedDateEvents = selectedDate ? eventsForDate(reminders, selectedDate) : [];
@@ -1479,6 +1500,9 @@ function CalendarScreen({
               {reminder.recurrence !== "none" && <span className="badge badge-amber">{recurrenceLabel(reminder.recurrence)}</span>}
               <h2>{reminder.title}</h2>
               <p>{reminder.type} - {reminder.time || "Any time"} {reminder.note && `- ${reminder.note}`}</p>
+              <button className="mini-done-btn" type="button" onClick={() => onComplete(reminder, "done")}>
+                Mark done
+              </button>
             </div>
             <CardActions onEdit={() => onEdit(reminder)} onDelete={() => onDelete(reminder.id)} />
           </article>
@@ -1488,6 +1512,7 @@ function CalendarScreen({
         <DayDetailSheet
           date={selectedDate}
           reminders={selectedDateEvents}
+          reminderHistory={reminderHistory}
           onAdd={() => {
             onOpenReminder(selectedDate);
             setSelectedDate(null);
@@ -1497,6 +1522,7 @@ function CalendarScreen({
             setSelectedDate(null);
           }}
           onDelete={onDelete}
+          onComplete={onComplete}
           onClose={() => setSelectedDate(null)}
         />
       )}
@@ -1507,16 +1533,20 @@ function CalendarScreen({
 function DayDetailSheet({
   date,
   reminders,
+  reminderHistory,
   onAdd,
   onEdit,
   onDelete,
+  onComplete,
   onClose,
 }: {
   date: string;
   reminders: Reminder[];
+  reminderHistory: PawfolioState["reminderHistory"];
   onAdd: () => void;
   onEdit: (reminder: Reminder) => void;
   onDelete: (id: string) => void;
+  onComplete: (reminder: Reminder, status?: ReminderCompletionStatus) => void;
   onClose: () => void;
 }) {
   return (
@@ -1535,36 +1565,76 @@ function DayDetailSheet({
         </section>
       ) : (
         reminders.map((reminder) => (
-          <article className={`event-item day-event event-${eventCategory(reminder.type)}`} key={reminder.id}>
-            <div className="event-date-block">
-              <strong>{reminder.time || "--"}</strong>
-              <span>{reminder.time ? "time" : "any"}</span>
-            </div>
-            <div className="event-copy">
-              {reminder.recurrence !== "none" && <span className="badge badge-amber">{recurrenceLabel(reminder.recurrence)}</span>}
-              <h2>{reminder.title}</h2>
-              <p>{reminder.type}{reminder.note && ` - ${reminder.note}`}</p>
-            </div>
-            <CardActions onEdit={() => onEdit(reminder)} onDelete={() => onDelete(reminder.id)} />
-          </article>
+          <DayReminderItem
+            key={`${reminder.id}-${reminder.date}`}
+            reminder={reminder}
+            status={reminderCompletionStatus(reminderHistory, reminder)}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onComplete={onComplete}
+          />
         ))
       )}
     </Sheet>
   );
 }
 
+function DayReminderItem({
+  reminder,
+  status,
+  onEdit,
+  onDelete,
+  onComplete,
+}: {
+  reminder: Reminder;
+  status?: ReminderCompletionStatus;
+  onEdit: (reminder: Reminder) => void;
+  onDelete: (id: string) => void;
+  onComplete: (reminder: Reminder, status?: ReminderCompletionStatus) => void;
+}) {
+  return (
+    <article className={`event-item day-event event-${eventCategory(reminder.type)} ${status ? "event-complete" : ""}`}>
+      <div className="event-date-block">
+        <strong>{reminder.time || "--"}</strong>
+        <span>{reminder.time ? "time" : "any"}</span>
+      </div>
+      <div className="event-copy">
+        <div className="badge-row">
+          {reminder.recurrence !== "none" && <span className="badge badge-amber">{recurrenceLabel(reminder.recurrence)}</span>}
+          {status && <span className={status === "done" ? "badge badge-green" : "badge badge-gray"}>{status === "done" ? "Done" : "Skipped"}</span>}
+        </div>
+        <h2>{reminder.title}</h2>
+        <p>{reminder.type}{reminder.note && ` - ${reminder.note}`}</p>
+        <div className="reminder-status-actions">
+          <button className="mini-done-btn" type="button" onClick={() => onComplete(reminder, status === "done" ? undefined : "done")}>
+            {status === "done" ? "Undo" : "Done"}
+          </button>
+          <button className="mini-skip-btn" type="button" onClick={() => onComplete(reminder, status === "skipped" ? undefined : "skipped")}>
+            {status === "skipped" ? "Undo skip" : "Skip"}
+          </button>
+        </div>
+      </div>
+      <CardActions onEdit={() => onEdit(reminder)} onDelete={() => onDelete(reminder.id)} />
+    </article>
+  );
+}
+
 function NotificationsSheet({
   reminders,
+  reminderHistory,
+  onComplete,
   onClose,
 }: {
   reminders: Reminder[];
+  reminderHistory: PawfolioState["reminderHistory"];
+  onComplete: (reminder: Reminder, status?: ReminderCompletionStatus) => void;
   onClose: () => void;
 }) {
   const notificationApi = typeof Notification === "undefined" ? undefined : Notification;
   const [permission, setPermission] = useState(() => notificationPermissionStatus(notificationApi));
   const [testStatus, setTestStatus] = useState("");
-  const groups = getNotificationGroups(reminders);
-  const upcoming = getUpcomingReminders(reminders).slice(0, 6);
+  const groups = getNotificationGroups(reminders, new Date(), reminderHistory);
+  const upcoming = getUpcomingReminders(reminders, new Date(), reminderHistory).slice(0, 6);
   const supported = canUseBrowserNotifications(notificationApi);
 
   const testNotification = async () => {
@@ -1637,16 +1707,24 @@ function NotificationsSheet({
         </section>
       ) : (
         <>
-          <NotificationGroup title="Due now" reminders={groups.dueNow} />
-          <NotificationGroup title="Soon" reminders={groups.soon} />
-          <NotificationGroup title="Upcoming" reminders={groups.upcoming.slice(0, 6)} />
+          <NotificationGroup title="Due now" reminders={groups.dueNow} onComplete={onComplete} />
+          <NotificationGroup title="Soon" reminders={groups.soon} onComplete={onComplete} />
+          <NotificationGroup title="Upcoming" reminders={groups.upcoming.slice(0, 6)} onComplete={onComplete} />
         </>
       )}
     </Sheet>
   );
 }
 
-function NotificationGroup({ title, reminders }: { title: string; reminders: Reminder[] }) {
+function NotificationGroup({
+  title,
+  reminders,
+  onComplete,
+}: {
+  title: string;
+  reminders: Reminder[];
+  onComplete: (reminder: Reminder, status?: ReminderCompletionStatus) => void;
+}) {
   if (reminders.length === 0) return null;
   return (
     <section className="notification-group">
@@ -1664,6 +1742,9 @@ function NotificationGroup({ title, reminders }: { title: string; reminders: Rem
             </div>
             <h2>{reminder.title}</h2>
             <p>{reminder.type} - {reminder.time || "Any time"}{reminder.note && ` - ${reminder.note}`}</p>
+            <button className="mini-done-btn" type="button" onClick={() => onComplete(reminder, "done")}>
+              Mark done
+            </button>
           </div>
         </article>
       ))}

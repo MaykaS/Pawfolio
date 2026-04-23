@@ -34,11 +34,13 @@ import {
   parseMedicationRecurrence,
   prettyDate,
   recurrenceLabel,
+  reminderCompletionStatus,
   reminderLeadOptions,
   reminderTypes,
   safeSetLocalStorage,
   saveCareRecordToState,
   saveReminderToState,
+  setReminderCompletionForDate,
   setTaskDoneForDate,
   sortDiaryEntries,
   taskTime,
@@ -549,6 +551,34 @@ describe("pawfolio helpers", () => {
       summary: "Mochi: Heartgard",
       recurrence: ["RRULE:FREQ=MONTHLY"],
     });
+  });
+
+  it("tracks reminder completion by date and hides completed upcoming items", () => {
+    const reminders: Reminder[] = [
+      { id: "vet", title: "Vet", type: "Vet", date: "2026-04-22", time: "12:00", note: "", recurrence: "none" },
+      { id: "med", title: "Meds", type: "Medication", date: "2026-04-22", time: "13:00", note: "", recurrence: "none" },
+    ];
+    const history = setReminderCompletionForDate({}, "2026-04-22", "vet", "done");
+
+    expect(reminderCompletionStatus(history, reminders[0])).toBe("done");
+    expect(getUpcomingReminders(reminders, new Date("2026-04-22T08:00:00"), history).map((reminder) => reminder.id)).toEqual(["med"]);
+    expect(setReminderCompletionForDate(history, "2026-04-22", "vet", undefined)["2026-04-22"]?.vet).toBeUndefined();
+  });
+
+  it("moves recurring reminders to the next occurrence after the current one is completed", () => {
+    const reminder: Reminder = {
+      id: "heartgard",
+      title: "Heartgard",
+      type: "Medication",
+      date: "2026-04-22",
+      time: "09:00",
+      note: "",
+      recurrence: "monthly",
+    };
+    const history = setReminderCompletionForDate({}, "2026-04-22", "heartgard", "done");
+
+    expect(nextOccurrenceDate(reminder, new Date("2026-04-22T08:00:00"), history)).toBe("2026-05-22");
+    expect(getUpcomingReminder([reminder], new Date("2026-04-22T08:00:00"), history)?.date).toBe("2026-05-22");
   });
 
   it("reports browser notification support safely", () => {

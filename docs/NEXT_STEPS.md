@@ -20,6 +20,7 @@ Implemented:
 - Care next due dates for vaccines, medications, and follow-up care
 - Shared medication, vaccine, and vet visit items across Care and Calendar
 - Calendar reminders with recurrence labels, calculated next occurrences, compact smart alert lead chips, month navigation, future-only upcoming items, and clickable day details
+- Reminder done/skipped history for one-off and recurring reminder occurrences
 - Structured medication recurrence from preset daily, weekly, monthly, yearly, or as-needed choices, with simple legacy text normalization
 - Unified green health styling for vaccine and vet calendar items
 - In-app notification center with Due now, Soon, and Upcoming groups plus service-worker test notifications for installed PWA checks

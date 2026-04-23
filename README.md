@@ -59,6 +59,7 @@ Current prototype behavior:
 - Care records with type filtering, type-specific fields, structured medication dose/frequency controls, next due dates, and weight trend
 - Care history panels with weight trend and medication consistency summaries
 - Calendar reminders with recurrence labels and calculated next occurrences
+- Reminder completion history so one-off reminders can be marked done/skipped and recurring reminders advance to the next occurrence
 - Medication dose and frequency are saved in structured fields, with legacy text normalized when it is clear
 - Calendar month navigation with clickable day details
 - Smart reminder timing defaults with compact per-reminder alert lead chips, including at time, 15 min, 30 min, 1 hour, same day, and 1 day

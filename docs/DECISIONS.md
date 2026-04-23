@@ -168,6 +168,12 @@ Decision: Missed routine nudges appear in PawPal and Today attention after a tas
 
 Reason: Useful local attention items can ship now, while trustworthy phone push needs auth, device subscriptions, and a backend sender.
 
+## 2026-04-23: Track Reminder Completion Per Occurrence
+
+Decision: Reminders can be marked done or skipped by local date, and recurring reminders move to the next active occurrence once the current occurrence is handled.
+
+Reason: Pawfolio needs to know what actually happened, not only what was scheduled. This makes medication, vaccine, vet, and walk reminders feel more like a real care workflow.
+
 ## 2026-04-23: Collapse Climate Care Settings
 
 Decision: Profile shows Climate care as a compact row that expands into region chips and broad-location controls only when tapped.
