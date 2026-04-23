@@ -49,7 +49,7 @@ Implemented:
    - Enable Google OAuth in Supabase
    - Add the `.env.example` values in Vercel
    - Generate VAPID keys for Web Push
-   - Confirm Vercel Cron frequency allowed by the active plan
+   - Confirm Vercel Cron frequency allowed by the active plan; Hobby supports daily cron only, so precise same-day push timing needs Vercel Pro or Supabase scheduled functions
 4. Add more structured care details:
    - Medication start/end dates and missed-dose notes
    - Vaccine manufacturer/lot fields

@@ -117,7 +117,7 @@ Likely roles:
 
 The current prototype has an in-app notification center. It shows future reminders, exposes browser notification permission status, and can trigger a service-worker-backed test notification where the installed PWA/browser supports it.
 
-The app now includes backend-ready PWA push pieces: browser subscription capture, a private `push_subscriptions` table, a service-worker push handler, and a Vercel cron endpoint that can send due reminder pushes from uploaded cloud snapshots. It requires Supabase/VAPID env vars before it can send real phone notifications.
+The app now includes backend-ready PWA push pieces: browser subscription capture, a private `push_subscriptions` table, a service-worker push handler, and a Vercel cron endpoint that can send due reminder pushes from uploaded cloud snapshots. It requires Supabase/VAPID env vars before it can send real phone notifications. On Vercel Hobby, cron is limited to daily runs, so precise reminder timing needs Vercel Pro or a Supabase scheduled-function path.
 
 The app should eventually support:
 
