@@ -129,6 +129,28 @@ describe("pawfolio helpers", () => {
     ).toBe("07:00");
   });
 
+  it("clears stale same-day routine checks when migrating older local data", () => {
+    const migrated = normalizeState({
+      tasks: [{ id: "walk", title: "Morning walk", time: "08:00", done: true, note: "" }],
+      taskHistory: { [todayISO()]: { walk: true } },
+      diary: [],
+      care: [],
+      reminders: [],
+    });
+
+    expect(migrated.schemaVersion).toBe(initialState.schemaVersion);
+    expect(tasksForDate(migrated.tasks, migrated.taskHistory, todayISO())[0].done).toBe(false);
+  });
+
+  it("preserves current routine checks after the latest schema is saved", () => {
+    const normalized = normalizeState({
+      ...initialState,
+      taskHistory: { [todayISO()]: { "morning-walk": true } },
+    });
+
+    expect(tasksForDate(normalized.tasks, normalized.taskHistory, todayISO()).find((task) => task.id === "morning-walk")?.done).toBe(true);
+  });
+
   it("sorts daily tasks by structured time and keeps anytime tasks last", () => {
     const tasks: DailyTask[] = [
       { id: "night", title: "Night walk", time: "22:00", done: false, note: "" },

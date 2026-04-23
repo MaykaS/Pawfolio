@@ -157,6 +157,7 @@ export type CoachSuggestion = {
 };
 
 export type PawfolioState = {
+  schemaVersion: number;
   profile?: DogProfile;
   tasks: DailyTask[];
   taskHistory: TaskHistory;
@@ -174,6 +175,7 @@ export type PawfolioState = {
 };
 
 export const storageKey = "pawfolio-local-v1";
+export const currentSchemaVersion = 3;
 export const photoRefPrefix = "pawfolio-photo:";
 export const maxDiaryPhotos = 6;
 const anytimeSortMinutes = 24 * 60 + 1;
@@ -189,6 +191,7 @@ export const defaultTasks: DailyTask[] = [
 ];
 
 export const initialState: PawfolioState = {
+  schemaVersion: currentSchemaVersion,
   tasks: defaultTasks,
   taskHistory: {},
   diary: [],
@@ -858,6 +861,7 @@ function upsertById<T extends { id: string }>(items: T[], item: T) {
 }
 
 export function normalizeState(state: Partial<PawfolioState> | null | undefined): PawfolioState {
+  const incomingSchemaVersion = state?.schemaVersion ?? 0;
   const base = {
     ...initialState,
     ...(state || {}),
@@ -880,14 +884,19 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
     const event = reminderToCareEvent(reminder);
     if (event) careEvents = mergeCareEvent(careEvents, event);
   });
+  const taskHistory =
+    incomingSchemaVersion < currentSchemaVersion
+      ? { ...(base.taskHistory || {}), [todayISO()]: {} }
+      : base.taskHistory || {};
 
   return {
     ...base,
+    schemaVersion: currentSchemaVersion,
     profile: base.profile
       ? { ...base.profile, personalityTags: base.profile.personalityTags?.length ? base.profile.personalityTags : ["Playful", "Energetic", "Food-motivated"] }
       : undefined,
     tasks: sortTasksByTime((base.tasks?.length ? base.tasks : defaultTasks).map(withTaskTime).map((task) => ({ ...task, done: false }))),
-    taskHistory: base.taskHistory || legacyTaskHistory(base.tasks || []),
+    taskHistory,
     diary: sortDiaryEntries((base.diary || []).map(withDiaryPhotos)),
     care: normalizedCare.filter((record) => !isSharedCareType(record.type)),
     careEvents,
@@ -912,14 +921,6 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
     },
     coachSettings,
     coachDismissals: base.coachDismissals || [],
-  };
-}
-
-function legacyTaskHistory(tasks: DailyTask[]) {
-  const doneTasks = tasks.filter((task) => task.done);
-  if (doneTasks.length === 0) return {};
-  return {
-    [todayISO()]: Object.fromEntries(doneTasks.map((task) => [task.id, true])),
   };
 }
 
