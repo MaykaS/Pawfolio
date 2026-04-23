@@ -20,7 +20,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
@@ -76,6 +76,7 @@ import {
   photoRefPrefix,
   notificationPermissionStatus,
   reminderLeadOptions,
+  reminderAlertDate,
   prettyDate,
   recurrenceLabel,
   reminderRecurrenceOptions,
@@ -361,6 +362,8 @@ export default function App() {
   const [saveError, setSaveError] = useState("");
   const [session, setSession] = useState<Session | null>(null);
   const [cloudStatus, setCloudStatus] = useState("");
+  const cloudSyncTimer = useRef<number | null>(null);
+  const scheduledReminderTimers = useRef<number[]>([]);
 
   useEffect(() => {
     const callback = parseAuthCallbackUrl(window.location.href);
@@ -479,6 +482,18 @@ export default function App() {
     setSaveError(result.ok ? "" : result.message);
   }, [state]);
 
+  useEffect(() => {
+    if (!session) return undefined;
+    if (cloudSyncTimer.current) window.clearTimeout(cloudSyncTimer.current);
+    cloudSyncTimer.current = window.setTimeout(() => {
+      uploadLocalPawfolioToAccount(state).catch(() => undefined);
+    }, 1200);
+
+    return () => {
+      if (cloudSyncTimer.current) window.clearTimeout(cloudSyncTimer.current);
+    };
+  }, [session, state]);
+
   const today = todayISO();
   const todayTasks = useMemo(() => tasksForDate(state.tasks, state.taskHistory, today), [state.tasks, state.taskHistory, today]);
   const completed = todayTasks.filter((task) => task.done).length;
@@ -491,6 +506,51 @@ export default function App() {
     () => getUpcomingReminder(calendarItems, new Date(), state.reminderHistory),
     [calendarItems, state.reminderHistory],
   );
+
+  useEffect(() => {
+    scheduledReminderTimers.current.forEach((timer) => window.clearTimeout(timer));
+    scheduledReminderTimers.current = [];
+
+    if (notificationPermissionStatus(Notification) !== "granted") return undefined;
+
+    const now = new Date();
+    const upcoming = getUpcomingReminders(calendarItems, now, state.reminderHistory).slice(0, 12);
+    const withinNextHour = upcoming.filter((reminder) => {
+      const alertAt = reminderAlertDate(reminder);
+      const delay = alertAt.getTime() - now.getTime();
+      return delay >= 0 && delay <= 60 * 60 * 1000;
+    });
+
+    withinNextHour.forEach((reminder) => {
+      const alertAt = reminderAlertDate(reminder);
+      const delay = Math.max(0, alertAt.getTime() - Date.now());
+      const notificationKey = `pawfolio-local-alert:${reminder.id}:${reminder.date}`;
+      const timer = window.setTimeout(async () => {
+        if (sessionStorage.getItem(notificationKey) === "1") return;
+        sessionStorage.setItem(notificationKey, "1");
+        const body = `${reminder.title} is due ${reminder.time || "today"}.`;
+        if ("serviceWorker" in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          await registration.showNotification("Pawfolio reminder", {
+            body,
+            icon: "/pwa-192x192.png",
+            badge: "/pwa-192x192.png",
+            tag: `pawfolio-local-${reminder.id}-${reminder.date}`,
+            data: { url: "/?tab=calendar" },
+          });
+          return;
+        }
+
+        new Notification("Pawfolio reminder", { body });
+      }, delay);
+      scheduledReminderTimers.current.push(timer);
+    });
+
+    return () => {
+      scheduledReminderTimers.current.forEach((timer) => window.clearTimeout(timer));
+      scheduledReminderTimers.current = [];
+    };
+  }, [calendarItems, state.reminderHistory]);
 
   const handleCoachAction = (suggestion: CoachSuggestion) => {
     if (suggestion.action.type === "add_task") {
