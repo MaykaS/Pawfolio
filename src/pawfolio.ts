@@ -365,6 +365,29 @@ export function daysTogether(birthday: string, now = new Date()) {
   return new Intl.NumberFormat("en").format(days);
 }
 
+function isWalkTask(task: Pick<DailyTask, "title">) {
+  return /walk/i.test(task.title);
+}
+
+export function walkRhythm(tasks: DailyTask[], taskHistory: TaskHistory, windowDays = 14, now = new Date()) {
+  const walkTaskIds = new Set(tasks.filter(isWalkTask).map((task) => task.id));
+  if (walkTaskIds.size === 0 || windowDays <= 0) return 0;
+
+  let completed = 0;
+  for (let offset = 0; offset < windowDays; offset += 1) {
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
+    const iso = toLocalISO(date);
+    const day = taskHistory[iso] || {};
+    completed += [...walkTaskIds].filter((taskId) => Boolean(day[taskId])).length;
+  }
+
+  return Math.round((completed / windowDays) * 10) / 10;
+}
+
+export function formatWalkRhythm(value: number) {
+  return `${Number.isInteger(value) ? value : value.toFixed(1)}/day`;
+}
+
 function inferredTaskTime(task: Pick<DailyTask, "id" | "title">) {
   const title = task.title.toLowerCase();
   if (routineTimes[task.id]) return routineTimes[task.id];
@@ -1392,6 +1415,21 @@ export function weightTrendSeries(records: CareRecord[]) {
     }))
     .filter((point) => Number.isFinite(point.value))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export function weightTrendPlot(records: CareRecord[], maxPoints = 8) {
+  const points = weightTrendSeries(records).slice(-maxPoints);
+  if (points.length === 0) return [];
+
+  const minValue = Math.min(...points.map((point) => point.value));
+  const maxValue = Math.max(...points.map((point) => point.value));
+  const range = Math.max(maxValue - minValue, 0.1);
+
+  return points.map((point, index) => ({
+    ...point,
+    x: points.length === 1 ? 50 : (index / (points.length - 1)) * 100,
+    y: points.length === 1 ? 50 : 100 - (((point.value - minValue) / range) * 76 + 12),
+  }));
 }
 
 export function medicationConsistency(records: CareRecord[], now = new Date()) {

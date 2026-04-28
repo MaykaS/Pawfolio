@@ -64,6 +64,7 @@ import {
   getNotificationGroups,
   getUpcomingReminder,
   getUpcomingReminders,
+  formatWalkRhythm,
   initialState,
   isStoredPhotoRef,
   limitDiaryPhotos,
@@ -102,6 +103,8 @@ import {
   visibleCareRecords,
   visibleReminders,
   validateCareRecord,
+  walkRhythm,
+  weightTrendPlot,
   weightTrendSeries,
   type CareRecord,
   type CareRegion,
@@ -561,7 +564,7 @@ export default function App() {
         <ProfileScreen
           profile={state.profile}
           diaryCount={state.diary.length}
-          walkCount={state.tasks.filter((task) => /walk/i.test(task.title)).length}
+          walkRhythmValue={walkRhythm(state.tasks, state.taskHistory, 14)}
           onSave={(profile) => setState((current) => ({ ...current, profile }))}
           onOpenNotifications={() => setNotificationsOpen(true)}
           onExportData={exportPawfolioData}
@@ -1469,6 +1472,7 @@ function CareHistoryPanel({
   insights: string[];
 }) {
   if (activeTab === "Weight") {
+    const plottedWeights = weightTrendPlot(records, 8);
     return (
       <section className="care-history card">
         <div className="section-heading">
@@ -1477,15 +1481,7 @@ function CareHistoryPanel({
             <h2>{weights.length ? `${weights[weights.length - 1].value} ${weights[weights.length - 1].unit}` : "No weights yet"}</h2>
           </div>
         </div>
-        <div className="mini-chart" aria-label="Weight trend chart">
-          {weights.slice(-6).map((point) => (
-            <span
-              key={`${point.date}-${point.value}`}
-              style={{ height: `${Math.max(12, Math.min(88, point.value * 2))}%` }}
-              title={`${point.date}: ${point.value} ${point.unit}`}
-            />
-          ))}
-        </div>
+        <WeightTrendChart points={plottedWeights} />
       </section>
     );
   }
@@ -1521,6 +1517,61 @@ function CareHistoryPanel({
       <p className="label no-margin">Routine Coach</p>
       <p>{insights[0]}</p>
     </section>
+  );
+}
+
+function WeightTrendChart({
+  points,
+}: {
+  points: ReturnType<typeof weightTrendPlot>;
+}) {
+  if (points.length === 0) {
+    return (
+      <div className="weight-chart-empty">
+        Add a few weights to see the trend settle in.
+      </div>
+    );
+  }
+
+  if (points.length === 1) {
+    const point = points[0];
+    return (
+      <div className="weight-chart-single" aria-label="Weight trend chart">
+        <div className="weight-chart-single-dot" />
+        <p>{prettyDate(point.date)} - {point.value} {point.unit}</p>
+      </div>
+    );
+  }
+
+  const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+  const areaPath = `${linePath} L ${points[points.length - 1].x} 100 L ${points[0].x} 100 Z`;
+
+  return (
+    <div className="weight-chart-shell" aria-label="Weight trend chart">
+      <svg className="weight-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-hidden="true">
+        <defs>
+          <linearGradient id="weightAreaFill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="rgba(50, 138, 91, 0.28)" />
+            <stop offset="100%" stopColor="rgba(50, 138, 91, 0.04)" />
+          </linearGradient>
+        </defs>
+        <path className="weight-chart-area" d={areaPath} fill="url(#weightAreaFill)" />
+        <path className="weight-chart-line" d={linePath} />
+        {points.map((point) => (
+          <circle
+            key={`${point.date}-${point.value}`}
+            className="weight-chart-point"
+            cx={point.x}
+            cy={point.y}
+            r="2.2"
+          />
+        ))}
+      </svg>
+      <div className="weight-chart-labels">
+        <span>{prettyDate(points[0].date)}</span>
+        <span>{prettyDate(points[points.length - 1].date)}</span>
+      </div>
+    </div>
   );
 }
 
@@ -1879,7 +1930,7 @@ function NotificationGroup({
 function ProfileScreen({
   profile,
   diaryCount,
-  walkCount,
+  walkRhythmValue,
   onSave,
   onOpenNotifications,
   onExportData,
@@ -1911,7 +1962,7 @@ function ProfileScreen({
 }: {
   profile: DogProfile;
   diaryCount: number;
-  walkCount: number;
+  walkRhythmValue: number;
   onSave: (profile: DogProfile) => void;
   onOpenNotifications: () => void;
   onExportData: () => void;
@@ -2000,7 +2051,7 @@ function ProfileScreen({
       </section>
       <div className="stats-grid">
         <StatCard icon={<NotebookPen size={16} />} label="Diary entries" value={String(diaryCount)} />
-        <StatCard icon={<PawPrint size={16} />} label="Walks logged" value={String(walkCount)} />
+        <StatCard icon={<PawPrint size={16} />} label="Walk rhythm" value={formatWalkRhythm(walkRhythmValue)} />
         <StatCard icon={<Heart size={16} />} label="Days together" value={daysTogether(profile.birthday)} />
       </div>
       <button

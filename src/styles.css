@@ -1091,6 +1091,69 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   min-height: 10px;
 }
 
+.weight-chart-shell {
+  margin-top: 10px;
+}
+
+.weight-chart {
+  display: block;
+  height: 110px;
+  overflow: visible;
+  width: 100%;
+}
+
+.weight-chart-area {
+  opacity: 1;
+}
+
+.weight-chart-line {
+  fill: none;
+  stroke: var(--green);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+}
+
+.weight-chart-point {
+  fill: white;
+  stroke: var(--green);
+  stroke-width: 1.8;
+}
+
+.weight-chart-labels {
+  color: var(--muted);
+  display: flex;
+  font-size: 10px;
+  font-weight: 800;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.weight-chart-empty,
+.weight-chart-single {
+  align-items: center;
+  background: var(--primary-pale);
+  border-radius: 14px;
+  color: var(--muted);
+  display: grid;
+  font-size: 12px;
+  font-weight: 700;
+  justify-items: center;
+  margin-top: 10px;
+  min-height: 110px;
+  padding: 14px;
+  text-align: center;
+}
+
+.weight-chart-single-dot {
+  background: var(--green);
+  border: 4px solid rgba(50, 138, 91, 0.16);
+  border-radius: 999px;
+  height: 18px;
+  margin-bottom: 10px;
+  width: 18px;
+}
+
 .mini-metrics {
   display: grid;
   gap: 6px;
@@ -1145,8 +1208,9 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 
 .stat-card strong {
   color: var(--text);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 900;
+  line-height: 1.1;
   overflow-wrap: anywhere;
 }
 

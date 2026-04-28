@@ -22,6 +22,7 @@ import {
   eventCategoryColor,
   eventsForDate,
   eventsForMonth,
+  formatWalkRhythm,
   getCareMoments,
   getSeasonForDate,
   getUpcomingReminder,
@@ -61,7 +62,9 @@ import {
   validateCareRecord,
   visibleCareRecords,
   visibleReminders,
+  walkRhythm,
   weightTrend,
+  weightTrendPlot,
   weightTrendSeries,
   routineCoachInsights,
   withCareSchedule,
@@ -189,6 +192,24 @@ describe("pawfolio helpers", () => {
 
     expect(tasksForDate(tasks, history, "2026-04-22")[0].done).toBe(true);
     expect(tasksForDate(tasks, history, "2026-04-23")[0].done).toBe(false);
+  });
+
+  it("computes walk rhythm from recent walk completions", () => {
+    const tasks: DailyTask[] = [
+      { id: "morning-walk", title: "Morning walk", time: "08:00", done: false, note: "" },
+      { id: "evening-walk", title: "Evening walk", time: "19:30", done: false, note: "" },
+      { id: "breakfast", title: "Breakfast", time: "07:00", done: false, note: "" },
+    ];
+    const history = {
+      "2026-04-22": { "morning-walk": true, "evening-walk": true },
+      "2026-04-21": { "morning-walk": true },
+      "2026-04-20": { "evening-walk": true },
+    };
+
+    expect(walkRhythm(tasks, {}, 14, new Date("2026-04-22T12:00:00"))).toBe(0);
+    expect(walkRhythm(tasks, history, 14, new Date("2026-04-22T12:00:00"))).toBe(0.3);
+    expect(formatWalkRhythm(walkRhythm(tasks, history, 14, new Date("2026-04-22T12:00:00")))).toBe("0.3/day");
+    expect(walkRhythm(tasks, history, 2, new Date("2026-04-22T12:00:00"))).toBe(1.5);
   });
 
   it("reports phone push status in a user-facing way", () => {
@@ -820,12 +841,31 @@ describe("pawfolio helpers", () => {
     expect(latestWeight(records, "26 lb")).toBe("27.8 lb");
     expect(weightTrend(records)).toBe("Up 1.8 lb");
     expect(weightTrendSeries(records).map((point) => point.value)).toEqual([26, 27.8]);
+    expect(weightTrendPlot(records).map((point) => Math.round(point.x))).toEqual([0, 100]);
     expect(medicationConsistency(records, new Date("2026-04-22T12:00:00")).last30Days).toBe(1);
     expect(
       medicationConsistency([...records, { ...records[2], id: "future-med", date: "2026-06-01" }], new Date("2026-04-22T12:00:00")).last30Days,
     ).toBe(1);
     expect(careStatus(records[2])).toBe("Due soon");
     expect(careStatus(records[1])).toBe("OK");
+  });
+
+  it("builds stable weight chart points for empty, single, and tight ranges", () => {
+    expect(weightTrendPlot([])).toEqual([]);
+
+    const single = weightTrendPlot([
+      { id: "weight-1", type: "Weight", title: "36.5 kg", date: "2026-04-17", note: "", weightValue: "36.5", weightUnit: "kg" },
+    ]);
+    expect(single).toHaveLength(1);
+    expect(single[0]).toMatchObject({ x: 50, y: 50 });
+
+    const close = weightTrendPlot([
+      { id: "weight-1", type: "Weight", title: "36.5 kg", date: "2026-04-17", note: "", weightValue: "36.5", weightUnit: "kg" },
+      { id: "weight-2", type: "Weight", title: "36.6 kg", date: "2026-04-18", note: "", weightValue: "36.6", weightUnit: "kg" },
+      { id: "weight-3", type: "Weight", title: "36.55 kg", date: "2026-04-19", note: "", weightValue: "36.55", weightUnit: "kg" },
+    ]);
+    expect(close).toHaveLength(3);
+    expect(close.every((point) => point.y >= 0 && point.y <= 100)).toBe(true);
   });
 
   it("creates routine coach insights from local patterns", () => {
