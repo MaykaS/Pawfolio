@@ -1219,7 +1219,7 @@ export function cloudBackupStatusLabel({ signedIn, lastUploadedAt }: CloudBackup
 }
 
 export function cloudBackupStatusDetail({ signedIn, lastUploadedAt }: CloudBackupStatusInput) {
-  if (!signedIn) return "This phone keeps the working copy until you connect a private account.";
+  if (!signedIn) return "This device is your working copy until you connect a private account.";
   if (lastUploadedAt) return `Latest private backup ${prettySyncTime(lastUploadedAt)}.`;
   return "This phone is connected, but it has not uploaded a private backup yet.";
 }
@@ -1357,6 +1357,23 @@ export function buildGoogleCalendarEvent(
 
 export function resolvedScheduleTimeZone(meta?: CloudSyncMeta) {
   return meta?.deviceTimeZone || meta?.calendarTimeZone || "UTC";
+}
+
+export function timeZoneAbbreviation(timeZone: string) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      timeZoneName: "short",
+    }).formatToParts(new Date());
+    return parts.find((part) => part.type === "timeZoneName")?.value || timeZone;
+  } catch {
+    return timeZone;
+  }
+}
+
+export function timeZoneLabel(timeZone: string) {
+  const city = timeZone.split("/").pop()?.replace(/_/g, " ") || timeZone;
+  return `${timeZoneAbbreviation(timeZone)} - ${city}`;
 }
 
 export function effectiveReminderTimeZone(

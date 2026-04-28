@@ -149,7 +149,7 @@ export function useCloudAccount({
         },
       }));
       setCalendarState("connected");
-      setCloudStatus("Google Calendar is connected. Pawfolio can sync reminders into your primary calendar.");
+      setCloudStatus("Google Calendar is connected.");
       setCloudAction("idle");
     },
     [setState],
@@ -159,7 +159,7 @@ export function useCloudAccount({
     const snapshot = await downloadCloudPawfolioToLocal();
     if (!snapshot?.state) {
       setRestoreState("empty");
-      setCloudStatus("No cloud Pawfolio backup was found for this account yet. You can create a new Pawfolio here or try another signed-in account.");
+      setCloudStatus("No cloud backup was found for this account yet. You can start fresh here or try another signed-in account.");
       return false;
     }
     await hydrateSnapshotPhotos(snapshot.photos);
@@ -179,7 +179,7 @@ export function useCloudAccount({
     lastUploadedFingerprint.current = cloudSyncFingerprint(nextState);
     setState(nextState);
     setRestoreState("restored");
-    setCloudStatus("Cloud Pawfolio restored to this device.");
+    setCloudStatus("Restored from cloud to this device.");
     return true;
   }, [setState]);
 
@@ -257,7 +257,7 @@ export function useCloudAccount({
               setCloudAction("idle");
             }
           } else {
-            setCloudStatus("Signed in. This phone keeps the working copy, and you can back it up or save push now.");
+            setCloudStatus("Signed in. This device is your working copy.");
           }
         }
         window.history.replaceState({}, document.title, cleanupAuthCallbackUrl(window.location.href));
@@ -276,7 +276,7 @@ export function useCloudAccount({
       setSession(nextSession);
       if (nextSession) {
         setTab("profile");
-        setCloudStatus("Signed in. This phone keeps the working copy, and you can back it up or save push now.");
+        setCloudStatus("Signed in. This device is your working copy.");
         window.history.replaceState({}, document.title, cleanupAuthCallbackUrl(window.location.href));
       }
     });
@@ -355,13 +355,13 @@ export function useCloudAccount({
     setBackupState("idle");
     setRestoreState("idle");
     setCalendarState("disconnected");
-    setCloudStatus("Signed out. This phone still has its local Pawfolio, but cloud backup and phone push are off until you sign back in.");
+    setCloudStatus("Signed out. This device still has its Pawfolio, but backup and push are off until you sign back in.");
   }, []);
 
   const uploadCloud = useCallback(() => {
     setCloudAction("uploading");
     setBackupState("uploading");
-    setCloudStatus("Uploading this phone's Pawfolio into your private account...");
+    setCloudStatus("Uploading the latest Pawfolio backup...");
     const syncFingerprint = cloudSyncFingerprint(state);
     uploadLocalPawfolioToAccount(state)
       .then(async () => {
@@ -406,7 +406,7 @@ export function useCloudAccount({
     setCloudAction("restoring");
     setRestoreState("restoring");
     if (!session) {
-      setCloudStatus("Sign in with Google to restore your cloud Pawfolio.");
+      setCloudStatus("Sign in with Google to restore from cloud.");
       signInWithGoogle({ intent: "restore" })
         .catch((error: Error) => {
           setRestoreState("failed");
@@ -415,7 +415,7 @@ export function useCloudAccount({
         .finally(() => setCloudAction("idle"));
       return;
     }
-    setCloudStatus("Restoring your latest private Pawfolio backup...");
+    setCloudStatus("Restoring the latest cloud backup...");
     applyCloudRestore()
       .catch((error: Error) => {
         setRestoreState("failed");
@@ -426,7 +426,7 @@ export function useCloudAccount({
 
   const enablePush = useCallback(() => {
     setCloudAction("enabling_push");
-    setCloudStatus("Saving this phone for Pawfolio reminders...");
+    setCloudStatus("Saving this device for Pawfolio reminders...");
     getCloudSession()
       .then((activeSession) => {
         if (!activeSession) {
@@ -451,7 +451,7 @@ export function useCloudAccount({
               lastPushRegisteredAt: new Date().toISOString(),
             },
           }));
-          setCloudStatus("This phone is saved for Pawfolio push reminders.");
+          setCloudStatus("This device is saved for Pawfolio reminders.");
         });
       })
       .catch((error: Error) => setCloudStatus(error.message))
@@ -518,7 +518,7 @@ export function useCloudAccount({
             lastSyncAt: result.lastSyncAt || new Date().toISOString(),
           },
         }));
-        setCloudStatus("Google Calendar synced.");
+        setCloudStatus("Google Calendar is up to date.");
       })
       .catch((error: Error) => {
         setCalendarState("sync_error");

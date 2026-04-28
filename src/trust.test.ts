@@ -40,7 +40,7 @@ describe("trust helpers", () => {
         calendarConnected: false,
         cloudStatus: "",
       }),
-    ).toContain("deeper");
+    ).toContain("Account");
     expect(
       trustDetailsMessage({
         cloudSyncMeta: { lastUploadedAt: "2026-04-24T09:15:00.000Z" },
@@ -52,8 +52,8 @@ describe("trust helpers", () => {
       trustDetailsMessage({
         cloudSyncMeta: {},
         calendarConnected: false,
-        cloudStatus: "Cloud Pawfolio restored to this device.",
+        cloudStatus: "Restored from cloud to this device.",
       }),
-    ).toBe("Cloud Pawfolio restored to this device.");
+    ).toBe("Restored from cloud to this device.");
   });
 });

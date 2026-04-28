@@ -32,14 +32,14 @@ export function googleCalendarStatusDetail({
   signedIn: boolean;
   lastSyncAt?: string;
 }) {
-  if (!signedIn) return "Sign in to connect your primary Google Calendar.";
-  if (status === "sync_error") return "Calendar setup hit an issue. Check Trust details for the exact fix.";
+  if (!signedIn) return "Sign in to connect Google Calendar.";
+  if (status === "sync_error") return "Calendar setup needs attention. Open Account details for the exact fix.";
   if (status === "connected") {
     return lastSyncAt
       ? `Last synced ${prettySyncTime(lastSyncAt)}.`
-      : "Connected and ready for your first sync.";
+      : "Connected and ready to sync.";
   }
-  if (enabled) return "Connect your primary Google Calendar for one-way reminder sync.";
+  if (enabled) return "Connect Google Calendar for one-way reminder sync.";
   return "Off";
 }
 
@@ -69,7 +69,7 @@ export function trustDetailsMessage({
 }) {
   if (cloudStatus) return cloudStatus;
   if (calendarConnected && cloudSyncMeta.lastUploadedAt) {
-    return "This device time zone is the default for new reminders and backend delivery.";
+    return "New reminders use this device time zone by default.";
   }
-  return "This view keeps deeper account, backup, push, and calendar details out of the main Profile screen.";
+  return "Account, backup, push, and calendar details live here.";
 }

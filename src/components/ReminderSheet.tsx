@@ -4,6 +4,8 @@ import {
   defaultReminderLeadMinutes,
   reminderRecurrenceOptions,
   reminderTypes,
+  timeZoneAbbreviation,
+  timeZoneLabel,
   type Reminder,
   type ReminderRecurrence,
 } from "../pawfolio";
@@ -45,22 +47,6 @@ function isValidTimeZone(timeZone: string) {
   }
 }
 
-function timeZoneAbbreviation(timeZone: string) {
-  try {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      timeZoneName: "short",
-    }).formatToParts(new Date());
-    return parts.find((part) => part.type === "timeZoneName")?.value || timeZone;
-  } catch {
-    return timeZone;
-  }
-}
-
-function timeZoneLabel(timeZone: string) {
-  const city = timeZone.split("/").pop()?.replace(/_/g, " ") || timeZone;
-  return `${timeZoneAbbreviation(timeZone)} • ${city}`;
-}
 
 export function ReminderSheet({
   mode,
@@ -111,7 +97,7 @@ export function ReminderSheet({
         onSubmit={(event) => {
           event.preventDefault();
           if (timeZoneMode === "custom" && !isValidTimeZone(timeZoneDraft)) {
-            setTimeZoneError("Use a valid IANA time zone like America/New_York.");
+            setTimeZoneError("Pick a time zone from the list.");
             setTimeZoneSheetOpen(true);
             return;
           }
@@ -231,14 +217,14 @@ export function ReminderSheet({
               </div>
             )}
             <p className={timeZoneError ? "field-error" : "settings-note"}>
-              {timeZoneError || "New reminders use this device automatically unless you override them."}
+              {timeZoneError || "New reminders use this device time zone unless you choose a different one here."}
             </p>
             <button
               className="btn btn-primary"
               type="button"
               onClick={() => {
                 if (timeZoneMode === "custom" && !isValidTimeZone(timeZoneDraft)) {
-                  setTimeZoneError("Use a valid IANA time zone like America/New_York.");
+                  setTimeZoneError("Pick a time zone from the list.");
                   return;
                 }
                 setTimeZoneSheetOpen(false);

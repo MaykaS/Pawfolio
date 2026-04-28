@@ -874,7 +874,7 @@ function Onboarding({
           <div>
             <p className="label no-margin">Pet profile</p>
             <h1 className="ob-title">Create their Pawfolio</h1>
-            <p className="ob-sub">Saved locally in this browser for your real dog.</p>
+            <p className="ob-sub">Starts on this device. You can back it up anytime.</p>
             <label className="btn btn-secondary upload-btn">
               <Camera size={17} />
               Add photo
@@ -889,10 +889,10 @@ function Onboarding({
               <p className="label no-margin">Recovery</p>
               <h2>Already have a Pawfolio backup?</h2>
             </div>
-            <span className={`badge ${session ? "badge-green" : "badge-gray"}`}>{session ? "Signed in" : "Ready"}</span>
+            <span className={`badge ${session ? "badge-green" : "badge-gray"}`}>{session ? "Signed in" : "Recovery"}</span>
           </div>
           <p className="ob-sub onboarding-recovery-copy">
-            Sign in and pull your latest cloud Pawfolio onto this device before creating a new profile.
+            Already backed up? Restore it here before you start a new profile.
           </p>
           <div className="onboarding-recovery-actions">
             {!session && (
@@ -2009,12 +2009,12 @@ function ProfileScreen({
           <div className="setting-row static">
             <span>
               <strong>Email reminders</strong>
-              <small>On hold until sender-domain setup is worth doing.</small>
+              <small>On hold for now.</small>
             </span>
             <span className="badge badge-gray">On hold</span>
           </div>
           <SettingRow label="In-app reminders" value="Active now" checked={notificationPreferences.inApp} onToggle={() => onTogglePreference("inApp")} />
-          <p className="settings-note">Google Calendar is the active planning integration right now. Email is intentionally deferred, and phone push lives in the trust section below.</p>
+          <p className="settings-note">Google Calendar is live. Email is on hold, and phone push is managed below.</p>
         </section>
       <section className="card settings-card">
         <p className="label no-margin">PawPal</p>
@@ -2065,22 +2065,22 @@ function ProfileScreen({
             </>
           )}
         </div>
-        <p className="settings-note">PawPal uses Pawfolio data on this device. Location is optional and only used for broad care context. LLM help can come later after cloud/privacy is ready.</p>
+        <p className="settings-note">PawPal stays on this device. Location is optional and only used for broad care context.</p>
       </section>
       <section className="profile-stack-section">
-        <p className="label no-margin">Cloud & phone</p>
+        <p className="label no-margin">Account & device</p>
         <div className="cloud-card">
           <div className="cloud-copy">
             <div className="cloud-title-row">
-              <h3>{session ? "Private account" : "Private account"}</h3>
+              <h3>Private account</h3>
               <span className={session ? "badge badge-green" : "badge badge-gray"}>
                 {session ? "Connected" : "Not signed in"}
               </span>
             </div>
-            <p>{session?.user.email || (isCloudConfigured ? "Google sign-in is ready." : missingCloudConfigMessage())}</p>
+            <p>{session?.user.email || (isCloudConfigured ? "Sign in with Google to turn on backup and restore." : missingCloudConfigMessage())}</p>
           </div>
           <button className="btn btn-sm btn-secondary" type="button" onClick={session ? onSignOut : onSignIn} disabled={!isCloudConfigured}>
-            {session ? "Sign out" : "Google sign-in"}
+            {session ? "Sign out" : "Sign in with Google"}
           </button>
         </div>
         <section className="card diagnostics-card trust-summary-card">
@@ -2123,7 +2123,7 @@ function ProfileScreen({
           </button>
           <button className="setting-row" type="button" onClick={onEnablePush} disabled={!session || !isPushConfigured || cloudAction !== "idle"}>
             <span>
-              <strong>{cloudAction === "enabling_push" ? "Saving this phone..." : hasPushSubscription ? "Refresh phone push" : "Enable phone push"}</strong>
+              <strong>{cloudAction === "enabling_push" ? "Saving this device..." : hasPushSubscription ? "Refresh phone push" : "Enable phone push"}</strong>
               <small>{phonePushDetail}</small>
             </span>
             <ChevronRight size={17} />
@@ -2150,8 +2150,8 @@ function ProfileScreen({
           </button>
           <button className="setting-row" type="button" onClick={onOpenPushDiagnostics}>
             <span>
-              <strong>Trust details</strong>
-              <small>See account, backup, photos, push, calendar, and time zone details.</small>
+              <strong>Account details</strong>
+              <small>See backup, photos, push, calendar, and device details.</small>
             </span>
             <ChevronRight size={17} />
           </button>

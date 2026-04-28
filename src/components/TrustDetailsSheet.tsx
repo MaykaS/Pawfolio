@@ -6,12 +6,14 @@ import {
   pushStatusDetail,
   pushStatusLabel,
   resolvedScheduleTimeZone,
+  timeZoneAbbreviation,
   type CloudSyncMeta,
   type PawfolioNotificationStatus,
   type PawfolioState,
 } from "../pawfolio";
 import type { TrustState } from "../hooks/useCloudAccount";
 import {
+  googleCalendarStatusDetail,
   googleCalendarStatusLabel,
   notificationPreferencesEnabled,
   permissionLabel,
@@ -53,7 +55,7 @@ export function TrustDetailsSheet({
   const currentTimeZone = resolvedScheduleTimeZone(cloudSyncMeta);
 
   return (
-    <Sheet title="Trust details" onClose={onClose}>
+    <Sheet title="Account details" onClose={onClose}>
       <section className="notice-card">
         <div>
           <p className="label no-margin">Status</p>
@@ -72,11 +74,11 @@ export function TrustDetailsSheet({
 
       <section className="card diagnostics-card">
         <div className="diagnostic-row">
-          <span>Working copy</span>
+          <span>This device</span>
           <strong>This phone/browser</strong>
         </div>
         <div className="diagnostic-row">
-          <span>Google account</span>
+          <span>Private account</span>
           <strong>{session ? session.user.email || "Connected" : "Not signed in"}</strong>
         </div>
         <div className="diagnostic-row">
@@ -92,7 +94,7 @@ export function TrustDetailsSheet({
           <strong>{permissionLabel(pushPermission)}</strong>
         </div>
         <div className="diagnostic-row">
-          <span>This phone</span>
+          <span>Phone push</span>
           <strong>{hasPushSubscription ? "Saved for push" : "Not saved yet"}</strong>
         </div>
         <div className="diagnostic-row">
@@ -113,15 +115,24 @@ export function TrustDetailsSheet({
         </div>
         <div className="diagnostic-row">
           <span>Time zone</span>
-          <strong>{currentTimeZone}</strong>
+          <strong>{timeZoneAbbreviation(currentTimeZone)}</strong>
         </div>
         <div className="diagnostic-row">
           <span>Last calendar sync</span>
           <strong>{prettySyncTime(googleCalendarSyncState.lastSyncAt)}</strong>
         </div>
+        <div className="diagnostic-row">
+          <span>Calendar detail</span>
+          <strong>{googleCalendarStatusDetail({
+            status: trustState.calendar,
+            enabled: notificationPreferencesEnabled(session, integrationSettings.googleCalendar, googleCalendarSyncState.connected),
+            signedIn: Boolean(session),
+            lastSyncAt: googleCalendarSyncState.lastSyncAt,
+          })}</strong>
+        </div>
         {cloudStatus && (
           <div className="diagnostic-row">
-            <span>Latest message</span>
+            <span>Status note</span>
             <strong>{cloudStatus}</strong>
           </div>
         )}
