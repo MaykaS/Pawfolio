@@ -1,108 +1,51 @@
 # Next Steps
 
-## Current Product Stage
+## Immediate Priorities
 
-Pawfolio is no longer just a cute local prototype. It now has:
+### 1. Finish Google Calendar confidence
 
-- a real one-dog daily workflow
-- profile, diary, care, calendar, and companion surfaces with distinct jobs
-- signed-in private backup and restore
-- phone push subscription save and near-term local reminder delivery
-- a clearer split between urgent Today attention and broader PawPal coaching
+- validate create, update, and delete flows end to end
+- confirm sync feedback is always clear
+- keep time zone handling calm and predictable
+- tighten any remaining “connected but did it actually sync?” ambiguity
 
-The next job is not feature accumulation. It is trust, validation, and product hardening.
+### 2. Keep hardening backup and restore trust
 
-## Priority Order
+- keep re-testing fresh-browser and recovery flows
+- validate photo restore on realistic second-device/browser paths
+- make restore success, empty, and failure outcomes unmistakable
 
-### 1. Validate the trust layer in the real world
+### 3. Continue codebase cleanup where it reduces risk
 
-This is still the highest-value work because it determines whether Pawfolio actually feels dependable in daily care use, not just well-implemented in code.
+- keep decomposing `App.tsx`
+- preserve the trust layer as a clear subsystem
+- add tests around high-risk product flows, not vanity coverage
 
-- Validate the Supabase Cron path from `supabase/cron.sql`
-- Prove that closed-app reminders arrive with the app fully closed
-- Verify due-now, lead-time, recurring, and missed-care reminder behavior with real devices
-- Keep refining the account surface so the user understands:
-  - what lives on this phone
-  - what is backed up privately
-  - what this phone is saved for
-  - what push status really means
+### 4. Deepen care seriousness
 
-### 2. Validate cloud restore confidence
+- stronger medication and follow-up detail
+- clearer health-history states
+- more confidence that records are useful over time, not just on entry day
 
-- Test sign-in, upload/auto-sync, and restore on a second browser/device
-- Re-test the new restore-first onboarding path after clearing browser/site data
-- Improve restore messaging for:
-  - no backup yet
-  - restore in progress
-  - restore success
-  - restore failure
-- Confirm what restore currently includes and call out any photo or device-specific limitations honestly
-- Validate Google sign-in, auto-sync, and restore under weak or changing network conditions
+## Secondary Priorities
 
-### 3. Run repeated PM-style product QA
+### 5. Refine PawPal carefully
 
-- Re-test the core journeys end to end:
-  - onboarding and profile setup
-  - routine use across days
-  - care creation and shared calendar sync
-  - diary with photos
-  - reminders and completion
-  - sign-in, upload, restore
-  - phone push setup
-  - installed PWA open/reopen behavior
-- Turn observed friction into the next implementation queue instead of reacting to isolated issues
+- improve memory of recent patterns
+- sharpen one-tap actions
+- keep PawPal feeling useful, not chatty
 
-### 4. Validate the new integrations before widening them
+### 6. Prepare the next cloud layer
 
-- Test Google Calendar connect and one-way sync in a real account
-- Confirm create, update, and delete behavior without duplicate calendar events
-- Improve Calendar failure states before adding more integration surface area
-- Keep email reminders on hold until sender-domain setup is worth adding to the product
+- decide when snapshot backup has earned a move toward more normalized cloud structures
+- do not widen architecture before the current trust model is fully comfortable
 
-### 5. Deepen PawPal after trust work is steadier
+## Explicitly Deferred
 
-- Strengthen pattern memory and suggestion outcomes
-- Add sharper one-tap prefills into care and reminder flows
-- Add monthly recap / recent pattern summary
-- Keep PawPal as a companion feed, not a second alert list
-- Prepare structured memory for later optional LLM help without depending on LLMs yet
+- email reminders
+- multi-pet
+- shared caregivers
+- LLM-backed PawPal
+- native mobile rewrite
 
-### 6. Make care feel more serious over time
-
-- Medication start/end dates and missed-dose notes
-- Vaccine manufacturer / lot fields
-- Vet attachments or visit documents
-- Stronger follow-up states and clearer history views
-
-### 7. Keep refactoring before the app grows further
-
-- Split the oversized app shell into clearer screens, hooks, and helper boundaries
-- Isolate cloud/push/account logic from the main app surface
-- Reduce regression risk before large integration work such as full calendar sync or normalized cloud tables
-
-## Later Product Layers
-
-After trust, validation, and current integrations are stronger:
-
-1. Normalized cloud tables beyond the snapshot backup layer
-2. Shared caregiver access
-3. Multiple pets
-4. Optional LLM-powered PawPal summaries, recaps, or natural-language help
-
-## What Is Still Partial
-
-- Fully reliable closed-app scheduled phone push
-- Cross-device cloud confidence validated in the real world
-- Normalized multi-device cloud sync
-- Real-world Google Calendar validation
-- Account/trust UX still needs one more cleanup pass after the new trust-center structure settles
-- Shared caregiver access
-- Multiple pets
-
-## Product Rule Going Forward
-
-Pawfolio should keep getting:
-
-- more dependable before more complex
-- more legible before more clever
-- more companion-like without becoming noisy
+These remain real future options, but they are not the best use of attention right now.

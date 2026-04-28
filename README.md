@@ -1,105 +1,70 @@
 # Pawfolio
 
-A mobile-first pet care companion that combines a cute daily app experience with serious organization for a dog's life, health, memories, and routines.
+Pawfolio is a mobile-first dog care app for the real life of one dog: routines, reminders, care history, diary memories, and a private backup path that feels trustworthy instead of flimsy.
 
-## Product Direction
+It is intentionally warm, companion-like, and photo-friendly, but it is built to hold serious pet-care information without turning into a sterile admin tool.
 
-The first version focuses on one dog and one owner. The app should feel warm, animated, and approachable while still being reliable enough for real pet care organization.
+## What Pawfolio Is
 
-Core themes:
+Today Pawfolio is a working product, not just a concept demo. It supports:
 
-- Daily companion experience for the pet's routine
-- Photo-first diary for memories and adventures
-- Care organization for meals, walks, medications, vaccines, appointments, and notes
-- Health history that can become deeper over time
-- A foundation that can later support multiple pets and shared access between caregivers
+- dog profile onboarding and editing
+- daily routine tracking with structured times
+- diary entries with multi-photo memories
+- care records for medication, vaccines, vet visits, and weight
+- reminders with recurrence, lead times, and completion history
+- one-way Google Calendar sync
+- local-first working state with signed-in private backup and restore
+- installable Android PWA usage
+- PawPal, a local companion layer for lightweight care guidance
 
-## MVP Scope
+## Product Position
 
-The first prototype should include:
+Pawfolio currently optimizes for:
 
-- Dog onboarding and profile creation
-- Breed picker with searchable dog breeds
-- Profile fields for name, birthday, weight, breed, photo, and personality notes
-- Today screen with daily checklist items
-- Diary timeline with photos, captions, and journal text
-- Care screen for health, medications, vaccines, vet visits, and weight history
-- Calendar/reminders screen for appointments and tasks
-- Mobile-style navigation and animated, friendly UI states
+- one dog
+- one owner
+- one dependable working copy on the current phone/browser
+- one clear private cloud backup path
 
-## Long-Term Vision
-
-Future versions may include:
-
-- Multiple pets per user
-- Shared pet access for multiple caregivers
-- Push notifications and Google Calendar sync
-- Calendar integrations
-- GPS walk tracking with user permission
-- Medical document storage
-- Genetic/DNA result tracking and breed-specific insights
-- Android and iOS apps through a mobile app framework
+That constraint is deliberate. The app is far enough along that trust, clarity, and real daily usability matter more than adding broad surface area.
 
 ## Current Status
 
-Pawfolio is now a working local-first product prototype built with Vite, React, and TypeScript. It already supports a believable daily care workflow, private signed-in backup, and installable PWA testing on Android. The current phase is about increasing trust, polish, and real-app confidence rather than adding random surface area.
+The current app state is strong:
 
-Today, Pawfolio already does these product jobs well:
+- the main dog-care workflow is coherent
+- local-first persistence is stable
+- signed-in cloud backup and restore are in place
+- photos are included in backup/restore
+- restore is available directly from onboarding
+- Google Calendar can connect and sync from the signed-in account
+- per-reminder time zone handling now exists, with device-default behavior and manual override when needed
+- the Profile area now behaves more like a trust center than a random settings pile
 
-- User-created dog profile
-- Profile photo upload
-- Stylized dog avatar builder
-- Profile summary surfaces with central sheet-based editing
-- Daily task checklist with structured saved times, sorted chronologically
-- Daily routine completion tracked by the phone's local calendar date so the checklist resets day to day
-- Compact task notes that open only when needed
-- Custom daily tasks with editable structured times
-- Diary entries with clickable detail views and up to 6 photos per memory
-- Adaptive photo compression with browser IndexedDB photo storage to avoid localStorage limits
-- Shared medication, vaccine, and vet visit items across Care and Calendar
-- Care records with type filtering, type-specific fields, structured medication dose/frequency controls, next due dates, and weight trend
-- Care history panels with weight trend and medication consistency summaries
-- Calendar reminders with recurrence labels and calculated next occurrences
-- Reminder completion history so one-off reminders can be marked done/skipped and recurring reminders advance to the next occurrence
-- Medication dose and frequency are saved in structured fields, with legacy text normalized when it is clear
-- Calendar month navigation with clickable day details
-- Smart reminder timing defaults with compact per-reminder alert lead chips, including at time, 15 min, 30 min, 1 hour, same day, and 1 day
-- In-app notification center with Due now, Soon, and Upcoming reminder groups plus service-worker test notifications for installed PWA checks
-- Signed-in auto-sync of local Pawfolio state plus stored photos to a private Supabase snapshot row
-- One-tap cloud restore from the latest private Supabase snapshot, including photo records
-- Restore-first onboarding that lets a signed-in user recover from cloud before creating a new profile
-- Phone push subscription save for the current signed-in device
-- Near-term local reminder notifications while the app is open or backgrounded with notification permission granted
-- Integration settings for Google Calendar, phone push, cloud sync, and deferred email, with live trust/account status
-- Google Calendar connection and one-way sync into the user's primary calendar when Google Calendar envs and provider scopes are configured
-- Deferred email reminder plumbing kept in code, but intentionally on hold in the product until sender-domain setup is worth doing
-- Floating PawPal companion with local rule-based care gaps, patterns, breed/season context, optional collapsed Climate care context, and one-tap actions
-- Full Pawfolio data export/import for localStorage and IndexedDB photo safety
-- Supabase Google sign-in, private cloud snapshot upload, and PWA push subscription setup
-- Cuter dog-face PWA app icon for home-screen installs
-- Browser-local persistence
+Email reminders are intentionally on hold in the product. The backend plumbing remains in code, but the app does not pretend email is a ready user-facing path while sender-domain setup is out of scope.
 
-Current data/auth note:
+## Core Product Rules
 
-- Pawfolio now supports Google sign-in through Supabase when the project is configured.
-- Signed-in users can upload or auto-sync local state into their own private Supabase snapshot row.
-- Signed-in users can also restore the latest cloud snapshot back onto the phone/browser.
-- Fresh installs or cleared browser storage can restore from cloud directly from onboarding without creating a placeholder pet profile first.
-- Browser-local data still remains the main working layer for the current product experience.
-- The Profile account surface now treats the current phone/browser as the working copy, with cloud backup and restore layered around it.
-- `Upload local Pawfolio` means copying the data already on this phone/browser into the signed-in private account as a backup and trust-building handoff step.
-- Full normalized cloud sync across devices is still a later milestone.
+- The current phone/browser is the working copy.
+- Cloud is the private backup layer.
+- Restore pulls the latest backup back onto the current device.
+- Google Calendar is the active outbound integration.
+- Email stays deferred until it is worth the operational complexity.
 
-Cloud/push setup files:
+## Tech Stack
 
-- `.env.example` lists the needed frontend, Supabase, VAPID, Google Calendar, and deferred email variables.
-- `supabase/schema.sql` creates the snapshot, push, integration, calendar-link, and delivery-ledger tables with RLS.
-- `supabase/cron.sql` documents the free-first Supabase Cron path for frequent reminder delivery.
-- `api/google-calendar-connect.ts` stores server-side Google Calendar integration credentials for the signed-in user.
-- `api/google-calendar-sync.ts` performs one-way Pawfolio-to-Google-Calendar sync for reminders and shared care-calendar items.
-- `api/send-due-push.ts` now acts as the scheduled reminder sender for push, with deferred email plumbing still preserved behind the same delivery ledger path.
+- Vite
+- React
+- TypeScript
+- Supabase Auth + Postgres snapshot backup
+- IndexedDB for photo storage
+- PWA install support for Android
+- Vercel deployment
 
-Run locally:
+## Local Development
+
+Install and run:
 
 ```bash
 npm install
@@ -112,39 +77,36 @@ Run for phone testing on the same network:
 npm run dev -- --host 0.0.0.0
 ```
 
-Then open the network URL shown by Vite on your phone.
+## Deployment Notes
 
-## Install On Android
+Pawfolio is meant to be used over HTTPS for real install and service-worker behavior.
 
-Pawfolio is set up as an installable PWA. For the real app-like install flow, use an HTTPS deployment such as Vercel.
+Vercel settings:
 
-Deploy/build settings:
-
-- Framework: Vite
+- Framework: `Vite`
 - Build command: `npm run build`
 - Output directory: `dist`
 
-Android install flow:
+## Environment and Backend Setup
 
-1. Open the Vercel HTTPS URL in Chrome on Android.
-2. Open the Chrome menu.
-3. Tap `Add to Home screen` or `Install app`.
-4. Launch Pawfolio from the new home-screen icon.
+Reference files:
 
-Notes:
+- `.env.example`
+- `supabase/schema.sql`
+- `supabase/cron.sql`
 
-- Data is still local-first and stored in that phone browser/app profile.
-- The local network dev URL is useful for testing, but HTTPS is needed for the proper install/offline PWA experience.
-- Phone subscription setup and near-term local reminder notifications now work in the app.
-- The Profile account area now acts more like a trust center, with a compact summary card, action card, and deeper trust details sheet.
-- The Profile account area now explains the difference between the working copy on this phone, the latest cloud backup, and the last restore.
-- Today is now a compact urgent inbox, while PawPal is the broader companion feed.
-- Fully validated closed-app scheduled phone push still needs production scheduling verification, but the app now includes a free-first Supabase Cron path, a delivery ledger, and backend channel senders instead of relying only on local reminders.
+Key setup areas:
 
-See:
+- Supabase URL, anon/publishable key, and service role key
+- VAPID keys for phone push
+- Google OAuth client id and secret for Calendar integration
+- optional deferred email envs, kept out of the active product path
+
+## Repository Guide
 
 - [Product Brief](docs/PRODUCT_BRIEF.md)
-- [PM Audit](docs/PM_AUDIT.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Architecture Notes](docs/ARCHITECTURE.md)
 - [Decision Log](docs/DECISIONS.md)
+- [Next Steps](docs/NEXT_STEPS.md)
+- [PM Audit](docs/PM_AUDIT.md)

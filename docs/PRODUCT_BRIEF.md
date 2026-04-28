@@ -1,145 +1,137 @@
 # Product Brief
 
-## Working Name
+## Product
 
 Pawfolio
 
 ## One-Line Description
 
-A cute daily companion app that helps people organize their dog's care, memories, health history, reminders, and adventures in one place.
+A companion-style dog care app that helps one owner manage routines, reminders, health history, and memories in one place.
 
 ## Problem
 
-Pet owners often keep information scattered across camera rolls, Instagram, texts, calendars, notes apps, vet papers, and memory. That makes it hard to remember daily care, find old moments, track health details, or share responsibility with another caregiver.
+Dog care information is usually scattered across:
+
+- calendars
+- notes apps
+- texts
+- camera rolls
+- vet papers
+- memory
+
+That fragmentation creates two problems at once:
+
+1. daily care becomes easier to miss
+2. meaningful history becomes harder to trust and recover
 
 ## Target User
 
-The first target user is a dog owner who wants one organized, emotionally warm place to manage and remember their dog's life.
+The first target user is a dog owner who wants one emotionally warm, organized place to manage a dog's life.
 
-Example user needs:
+Typical needs:
 
-- "I want to remember the adventures we had."
-- "I need reminders for appointments and care tasks."
-- "I want all the photos and notes for my dog in one place."
-- "I want to track health information without the app feeling clinical."
-- "Eventually, I want another caregiver to help manage the same pet."
+- remember appointments and recurring care
+- capture photos and moments without losing context
+- keep health and medication history readable
+- feel confident that important data can be recovered
 
-## Product Personality
+## Product Promise
 
-The app should feel:
+Pawfolio should feel:
 
-- Cute, but not childish
-- Animated, but not distracting
-- Organized, but not sterile
-- Warm, personal, and companion-like
-- Trustworthy enough for serious health and care information
+- warm, but not childish
+- cute, but not unserious
+- organized, but not clinical
+- calm, not noisy
+- trustworthy enough for real care administration
 
-## First Pet Type
+## Current Scope
 
-Dogs only for the initial version.
+The product currently centers on:
 
-The design and data model should leave room to expand later to other pet types.
+- one dog
+- one owner
+- one main device/browser working copy
+- one private signed-in cloud backup layer
 
-## Initial App Areas
+That constraint keeps the experience legible while the product matures.
+
+## Main App Areas
 
 ### Onboarding
 
-The user creates the first dog profile:
-
-- Breed
-- Name
-- Birthday or estimated age
-- Weight
-- Photo
-- Personality notes
+- create a dog profile
+- sign in
+- restore from cloud
+- import a local backup
 
 ### Today
 
-A daily companion screen for the dog's routine:
-
-- Meals
-- Walks
-- Medication
-- Structured editable task times sorted in routine order
-- Optional compact notes
-- Quick memory entry
-- Upcoming reminder
+- daily routine checklist
+- structured task times
+- urgent attention items
+- quick operational view of what matters now
 
 ### Diary
 
-A timeline for memories:
-
-- Photos
-- Multiple photos per memory
-- Captions
-- Journal text
-- Date
-- Tags such as hike, vet, funny, training, first time, health
+- photo-first memories
+- captions and notes
+- multi-photo entries
+- timeline review
 
 ### Care
 
-A deeper organization area for:
-
-- Weight
-- Weight trends
-- Vet visits
-- Vaccines
-- Medications
-- Structured medication dose, frequency, refill, and consistency tracking
-- Allergies
-- Next due dates for vaccines, medications, and follow-up care
-- Known conditions
-- Genetic notes or breed notes later
+- medications
+- vaccines
+- vet visits
+- weight history
+- type-specific care fields and summaries
 
 ### Calendar
 
-A schedule and reminder area for:
-
-- Vet appointments
-- Grooming
-- Medications
-- Recurring reminders
-- Smart alert timing, such as at time or before an appointment
-- Clickable day details to see what happened or is scheduled on a date
-- Future Google Calendar sync
-- Walks
-- Play dates
-- Tasks such as scheduling appointments or buying food
+- reminders
+- recurrence
+- lead times
+- shared care/calendar events
+- Google Calendar sync
 
 ### Profile
 
-The dog's identity and important reference details:
-
-- Main photo
-- Breed
-- Name
-- Birthday
-- Weight
-- Personality
-- Notification and integration settings
-- Local data export/import
-- Vet information
-- Emergency notes later
+- dog identity
+- trust/account state
+- backup and restore actions
+- integration state
+- export/import paths
 
 ### PawPal
 
-An opt-in floating companion that reviews routine completion, medication consistency, upcoming reminders, care gaps, breed/season context, and optional broad region signals.
+- local rule-based companion feed
+- care-gap and pattern suggestions
+- lightweight contextual nudges
 
-The first version is local and rule-based, with dismissible suggestions, unified Today attention, and one-tap actions. Later, an agentic version can use an LLM only after privacy, account sync, and user consent are clear.
+## What Is Working Well Now
 
-## Future Capabilities
+- the core dog-care workflow is coherent
+- backup and restore are real
+- restore-first onboarding prevents recovery dead ends
+- Google Calendar is the active external planning integration
+- time zone behavior now follows device-default scheduling with per-reminder override
+- the app already feels meaningfully like a product, not just a prototype
 
-- Multiple pets
-- Multiple users per pet
-- Push notifications
-- Email notifications
-- Calendar sync
-- Private cloud sync with account-based data
-- Google sign-in
-- Full local backup including photos before cloud sync
-- PawPal with richer agentic suggestions
-- GPS walk tracking
-- Pet photo gallery search
-- Health document uploads
-- DNA/genetic tracking
-- Breed-specific care insights
+## What Is Intentionally Deferred
+
+- email reminders
+- multiple pets
+- shared caregiver access
+- fully normalized multi-device cloud sync
+- LLM-backed PawPal
+
+These are deferred on purpose, not forgotten.
+
+## Product Standard Going Forward
+
+Pawfolio should become:
+
+- more dependable before more complex
+- more legible before more clever
+- more companion-like without becoming noisy

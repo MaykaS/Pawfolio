@@ -1,167 +1,105 @@
 # Roadmap
 
-## Phase 0: Product Organization
+## Current Stage
 
-Goal: Keep the project clear before building.
+Pawfolio has moved past “prototype with ideas” and into “product with a credible trust model.”
 
-- Create README and planning docs
-- Define MVP scope
-- Decide prototype approach
-- Track future ideas without overloading version one
+The current roadmap should protect that progress:
 
-## Phase 1: Mobile-Style Web Prototype
+- strengthen what already works
+- validate it in realistic use
+- widen scope only where the product has earned it
 
-Goal: Build a clickable, polished prototype that feels like a mobile app and saves user input locally.
+## Phase 1: Product Foundation
 
-Included:
+Delivered:
 
-- Dog profile onboarding
-- Breed picker
-- Dog photo upload
-- Stylized dog avatar studio
-- Today screen
-- Daily tasks with checkbox completion, structured editable times, chronological sorting, and compact notes
-- Custom daily tasks with structured editable times
-- Diary timeline
-- Diary entries with clickable details and up to 6 photos per memory
-- Care screen
-- User-entered care records with type tabs, structured medication dose/frequency, and next due dates
-- Friendly care empty states and validation by record type
-- Weight trend and medication consistency summaries
-- Calendar/reminders screen
-- User-entered reminders with recurrence labels and alert lead times
-- Month navigation, future-only upcoming items, and clickable day details
-- Profile screen
-- Health record export
-- Full local backup export/import, including IndexedDB photos
-- Notification and integration settings scaffold
-- Floating PawPal companion with care gaps, routine patterns, breed/season tips, optional broad location context, unified Today attention, dismissals, and one-tap actions
-- Cute animated UI moments
-- Mobile-first layout with five-item bottom navigation and floating companion access
-- Local browser persistence
-- Local-network phone testing
+- dog onboarding and profile editing
+- Today, Diary, Care, Calendar, and Profile surfaces
+- routine tasks with structured times
+- reminders with recurrence and lead times
+- shared care/calendar records
+- photo-backed diary
+- PawPal companion layer
+- local-first persistence
 
-Success criteria:
+## Phase 2: Trust Foundation
 
-- The flow is easy to understand
-- The app feels cute and companion-like
-- Serious care information still feels organized
-- The user can enter real dog information and see it persist in the browser
-- The prototype makes clear what should move to real account-based data later
+Delivered:
 
-## Phase 2: Real App Foundation
+- Google sign-in through Supabase
+- private cloud snapshot backup
+- signed-in auto-sync
+- restore from latest cloud backup
+- restore-first onboarding
+- photo backup/restore
+- phone push subscription save
+- trust-center style Profile account surface
 
-Goal: Turn the prototype into a working app with saved data.
+## Phase 3: Active Integrations
 
-Included:
+Current:
 
-- PWA install support or equivalent mobile testing packaging
-- Full local export/import while data remains local-first
-- Type-specific care forms for vaccines, structured medications, vet visits, and weight trends
-- Daily routine rollover so task completion is tracked per day
-- Local notification preferences and smart reminder lead times
-- Google Calendar payload mapping before OAuth
-- PawPal settings and local insight helpers
-- User account model
-- Pet profile storage
-- Diary entry storage
-- Reminder storage
-- Care record storage
-- Local image upload handling
-- Notification-ready reminder, alert lead, and calculated recurrence model
+- Google Calendar connect and one-way sync
+- backend reminder delivery foundations
+- deferred email plumbing kept out of the active product path
 
-Success criteria:
+Success standard for this phase:
 
-- Data persists
-- The app can support one user and one dog reliably
-- Data structures are ready for multiple pets and shared users later
+- calendar sync is dependable
+- reminder timing stays consistent
+- account and backup states feel understandable without technical knowledge
 
-## Phase 3: Notifications and Calendar
+## Near-Term Focus
 
-Goal: Make the app useful as a real organizer.
+### 1. Calendar confidence
 
-Included:
+- validate create, update, and delete sync behavior
+- improve failure messages and sync feedback
+- keep time zone behavior elegant and predictable
 
-- Google Calendar OAuth and event sync
-- Push notification subscriptions and backend push sending
-- Deferred email reminder plumbing that can be reactivated later if sender-domain setup becomes worth it
-- Reminder scheduling with calculated recurrence
-- Appointment and task states
-- Calendar export fallback for Apple/Outlook users
+### 2. Cross-device confidence
 
-Success criteria:
+- keep validating upload, restore, and fresh-device recovery
+- verify photo restore in realistic browser/device flows
+- tighten restore success, empty, and failure messaging
 
-- Users can trust the app to remind them about pet care
-- Reminder data can later connect to mobile notifications and external calendars
+### 3. Product polish
 
-## Phase 3.5: Private Cloud Sync
+- continue shrinking `App.tsx`
+- keep trust code explicit and test-backed
+- reduce ambiguous or hidden system behavior
 
-Goal: Let each user keep private pet data across devices.
+### 4. Care seriousness
 
-Likely approach:
+- richer care metadata where it adds real value
+- clearer follow-up and history states
+- stronger “real life admin” feeling without making the app heavy
 
-- Supabase Auth with Google sign-in first
-- Supabase Postgres tables for pets, care, reminders, diary, routine history, preferences, integrations, and agent insights
-- Row Level Security so each authenticated user only reads and writes their own data
-- Local export/import remains available as a safety path
-- Upload local Pawfolio data into an account after sign-in
+## Later Phases
 
-Success criteria:
+### Phase 4: Multi-User And Multi-Pet
 
-- A new user sees only their own Pawfolio data
-- Local prototype data can be uploaded into an account
-- The data model can later support multiple pets and shared caregivers
+- multiple pets
+- shared caregiver access
+- permission roles
 
-## Current Hardening Cycle
+### Phase 5: Deeper Intelligence
 
-Goal: Make the current product trustworthy before widening it further.
+- richer PawPal memory
+- recap-style summaries
+- optional LLM help after privacy and cloud architecture are steadier
 
-Focus areas:
+### Phase 6: Native Mobile
 
-- Closed-app push reliability
-- Cross-device restore confidence
-- Clear local-vs-cloud-vs-phone messaging in Profile
-- PM-style journey validation across onboarding, routine, care, diary, reminders, account, and installed PWA behavior
-- PawPal usefulness only after the trust layer is steadier
+- likely Expo / React Native path
+- native push
+- native photo and permission flows
 
-Success criteria:
+## Roadmap Rule
 
-- Users understand what is saved locally, what is backed up, and what this phone can receive
-- Core reminders feel credible enough for real daily use
-- Restore works on another browser/device without confusion
-- The next implementation backlog comes from observed user-journey friction, not feature drift
+Pawfolio should keep becoming:
 
-## Phase 4: Mobile App
-
-Goal: Move from web prototype/foundation to Android-first mobile app.
-
-Likely approach:
-
-- React Native with Expo
-- Shared product concepts from the web prototype
-- Native push notifications
-- Native photo picker
-- Optional GPS walk tracking
-
-Success criteria:
-
-- Android app can be installed and tested
-- Core dog profile, diary, care, and reminders work on mobile
-
-## Phase 5: Expansion
-
-Goal: Support richer pet-life organization.
-
-Possible features:
-
-- Multiple pets per user
-- Shared pet access for caregivers
-- Permission roles such as owner, caregiver, viewer
-- Medical record uploads
-- Weight charts and health trends
-- GPS walk history
-- Genetic/DNA result tracking
-- Breed-specific health and care insights
-- LLM-backed PawPal after privacy and cloud sync are stable
-- Natural-language entry parsing and monthly PawPal recaps after privacy and model-use boundaries are stable
-- Other pet types beyond dogs
+- more dependable before more broad
+- more polished before more ambitious
+- more helpful without becoming noisy

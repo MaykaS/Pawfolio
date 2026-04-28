@@ -2,318 +2,114 @@
 
 ## 2026-04-21: Start With Dogs
 
-Decision: The first version focuses on dogs.
+Decision: The first version supports dogs only.
 
-Reason: Dogs provide a clear first product surface and make breed selection, walks, medications, vaccines, and vet tracking concrete.
+Reason: Dogs give the product a concrete first workflow for routine, care, reminders, and health tracking.
 
-## 2026-04-21: Start With One Pet
+## 2026-04-21: Start With One Dog
 
-Decision: The first user experience supports one dog.
+Decision: The first product experience centers on one dog and one owner.
 
-Reason: This keeps the first prototype focused. The data model should still leave room for multiple pets later.
+Reason: This keeps the experience focused and understandable while still leaving room for multi-pet and caregiver access later.
 
-## 2026-04-21: Cute Companion, Serious Organization
+## 2026-04-21: Build Mobile-First Web Before Native
 
-Decision: The app should look cute, animated, and approachable while supporting real care organization.
+Decision: Start as a mobile-first web app and installable PWA before moving to native mobile.
 
-Reason: The emotional appeal matters, but the app must still be trusted for schedules, medications, vaccines, and health history.
+Reason: Product flow, trust, and interaction design needed to mature before a native rewrite would be worth it.
 
-## 2026-04-21: Build Mobile-Style Web Prototype First
+## 2026-04-22: Keep The Product Local-First
 
-Decision: Start with a clickable mobile-style web prototype before native Android.
+Decision: The working product stays local-first even after sign-in and cloud backup were added.
 
-Reason: The app needs product and design iteration before committing to native mobile complexity. A web prototype can later inform a React Native/Expo implementation.
+Reason: Local-first behavior keeps the app fast and legible while the trust layer hardens.
 
-## 2026-04-21: Plan For Expo/React Native Later
+## 2026-04-22: Share Care And Calendar Records
 
-Decision: The likely mobile path is Expo/React Native.
+Decision: Medications, vaccines, and vet visits should appear across both Care and Calendar from one underlying record.
 
-Reason: Expo can support Android, iOS, push notifications, photo picker, and GPS permissions while keeping one shared mobile codebase.
+Reason: Duplicate entry would make the product feel flimsy very quickly.
 
-## 2026-04-22: Use Pawfolio As The Project Name
+## 2026-04-22: Use Structured Times And Recurrence
 
-Decision: The prototype and docs use Pawfolio as the working app name.
+Decision: Routine tasks and reminders use structured time values and recurrence instead of loose text.
 
-Reason: The name fits the pet profile, care, memories, and health-history direction better than the earlier generic placeholder.
+Reason: Real scheduling trust depends on app-readable time and occurrence logic.
 
-## 2026-04-22: Keep Prototype Local-First
+## 2026-04-22: Store Photos Safely
 
-Decision: Version 0.1 stores user-entered data in browser localStorage only.
+Decision: Photos are compressed, stored locally in IndexedDB, and included in export/import and cloud snapshot backup.
 
-Reason: This keeps iteration fast while the product flow, care model, and mobile-style UI are still being shaped.
+Reason: Photos are emotionally important, and the app cannot feel trustworthy if memories are easy to lose.
 
-## 2026-04-22: Add Saved Times And Compact Notes To Daily Tasks
+## 2026-04-22: Use Google Calendar As The First External Calendar
 
-Decision: Daily tasks store editable structured times, sort chronologically, and show notes only as a compact preview until opened.
+Decision: Google Calendar is the first supported external calendar integration.
 
-Reason: The Today screen should stay clean and match the mobile routine-list inspiration while still supporting real notes.
+Reason: It fits the Google sign-in path and solves the main “show my reminders outside the app” job without overbuilding.
 
-## 2026-04-22: Use Canonical Task Times
+## 2026-04-22: Keep PawPal Local And Actionable First
 
-Decision: Routine task times are stored as `HH:MM` strings and entered with a native time input. Older friendly strings are parsed and normalized where possible.
+Decision: PawPal begins as a local rule-based companion with one-tap actions.
 
-Reason: Sorting by free-text time is unreliable. Structured input lets custom tasks appear in the correct daily order without making users type exact formatting.
+Reason: The app can feel intelligent without sending pet-care data to a model before privacy and sync choices are mature.
 
-## 2026-04-22: Dismiss Sheets From Backdrop Or Keyboard
+## 2026-04-23: Add Snapshot Backup Before Normalized Sync
 
-Decision: Shared app sheets close from the close button, Escape key, or tapping/clicking outside the sheet content.
+Decision: Start cloud persistence with one private user snapshot row rather than normalized per-entity sync.
 
-Reason: Diary details and edit sheets should behave like a real mobile app modal while still preventing accidental closes from taps inside the sheet.
+Reason: Snapshot backup delivers trust faster and with less migration risk at this stage.
 
-## 2026-04-22: Track Care Next Due Dates
+## 2026-04-23: Auto-Sync Signed-In Changes
 
-Decision: Care records can store an optional next due date, used for more accurate OK, Due soon, and Overdue statuses.
+Decision: Signed-in local changes should auto-sync to the latest cloud snapshot.
 
-Reason: Vaccines, medications, and vet follow-ups need future dates to be trustworthy care records.
+Reason: Backup is not trustworthy if users must remember to upload after every edit.
 
-## 2026-04-22: Store Reminder Recurrence
+## 2026-04-23: Add A Delivery Ledger
 
-Decision: Calendar reminders store a recurrence label such as daily, weekly, monthly, or yearly.
+Decision: Reminder channel sends are recorded in `notification_deliveries`.
 
-Reason: Repeated medicine, grooming, and vet care are core pet-care workflows, even before real notifications exist.
+Reason: A scheduler without idempotency is not reliable enough for a trust-sensitive product.
 
-## 2026-04-22: Infer Clear Medication Recurrence
+## 2026-04-23: Layer Reminder Delivery
 
-Decision: Medication frequency text can infer daily, weekly, monthly, or yearly calendar recurrence when the wording is clear.
+Decision: Pawfolio uses in-app, local near-term, and backend scheduled reminder layers instead of pretending one mechanism does everything.
 
-Reason: Users should not have to enter the same medication schedule twice, but Pawfolio should avoid guessing when frequency text is ambiguous.
+Reason: Layering keeps the product useful while the backend path continues to mature.
 
-## 2026-04-22: Ship Android App Feel As A PWA First
+## 2026-04-27: Treat The Current Device As The Working Copy
 
-Decision: Pawfolio should become an installable Android PWA before starting a native Expo app.
+Decision: The Profile trust surface explicitly treats the current phone/browser as the working copy and cloud as backup.
 
-Reason: A PWA gives the current prototype a home-screen icon and standalone app feel quickly, while avoiding a premature rebuild before the product workflow is stable.
-
-## 2026-04-22: Use Vercel For HTTPS PWA Testing
-
-Decision: Use Vercel as the first hosted target for Pawfolio's installable PWA.
-
-Reason: Android Chrome needs HTTPS for the proper install and service-worker experience, and Vercel fits the existing Vite static build.
-
-## 2026-04-22: Share Care And Calendar Items
-
-Decision: Medications, vaccines, and vet visits use one shared care-calendar item that appears in both Care and Calendar.
-
-Reason: Pet care should not require entering the same medicine, vaccine, or visit in multiple places.
-
-## 2026-04-22: Compress Photos Before Saving Locally
-
-Decision: Profile and diary photo uploads are compressed before saving to localStorage, and save failures show an in-app warning.
-
-Reason: Full-size phone photos can exceed browser storage limits and crash the local-first prototype.
-
-## 2026-04-22: Plan Supabase For Personalized Cloud Data Later
-
-Decision: The planned future cloud path is Supabase Auth with Postgres Row Level Security.
-
-Reason: Pawfolio needs per-user private data where each user sees only their own pet records, and Supabase can start on a free tier while supporting a relational care model.
-
-## 2026-04-22: Use One Health Color For Vet And Vaccine Calendar Items
-
-Decision: Vet visits and vaccines keep separate record types, but share the same green health styling in Calendar views.
-
-Reason: Both represent health-care milestones, and a single health color makes the calendar easier to scan without weakening the underlying data model.
-
-## 2026-04-22: Start Notifications As An In-App Center
-
-Decision: The notification button opens an in-app notification center before real background push scheduling is added.
-
-Reason: Upcoming reminders are useful immediately, but trustworthy push reminders need recurrence handling, data safety, and either PWA push infrastructure or native Expo push support.
-
-## 2026-04-22: Track Routine Completion By Date
-
-Decision: Daily routine completion is stored in a date-keyed history instead of permanently on each task.
-
-Reason: A daily checklist should reset naturally each day while keeping the task definitions, notes, and times stable.
-
-## 2026-04-23: Use Local Dates For Daily Reset
-
-Decision: Routine history keys use the phone/browser's local calendar date instead of UTC date strings.
-
-Reason: A mobile user should not see yesterday's completed checklist after local midnight because their time zone differs from UTC.
-
-## 2026-04-22: Add Full Local Backup Before Cloud Sync
-
-Decision: Pawfolio supports exporting and importing the full local state and referenced IndexedDB photos before adding account-based cloud storage.
-
-Reason: localStorage and IndexedDB are convenient for the prototype, but users need a way to protect their profile, photos, care records, reminders, diary, and routine history.
-
-## 2026-04-22: Scaffold Integrations Before Wiring Secrets
-
-Decision: Pawfolio should show notification and integration preferences for Google Calendar, email reminders, phone push, and cloud sync before connecting real external services.
-
-Reason: These features need backend secrets, OAuth, or push infrastructure. Scaffolding the settings now keeps the UX honest while avoiding fake reminders or exposed credentials.
-
-## 2026-04-22: Use Google Calendar As The First Direct Calendar Sync
-
-Decision: Google Calendar is the primary direct calendar integration path, with `.ics` export as a later fallback for Apple and Outlook users.
-
-Reason: Google sign-in is also the preferred Supabase Auth direction, so Google Calendar is the cleanest first account-based integration.
-
-## 2026-04-22: Start Routine Coach As Local Rules
-
-Decision: Routine Coach starts as an opt-in, local, rule-based helper instead of an LLM-backed assistant.
-
-Reason: The feature should feel useful immediately, but anything agentic that reads pet-care data needs clear privacy boundaries before using cloud or model services.
-
-## 2026-04-22: Add Smart Reminder Lead Times
-
-Decision: Reminders store an alert lead time. Medication, food, and walk reminders default to alerting at the scheduled time. Vet, vaccine, grooming, and other reminders default to one hour before.
-
-Reason: Different pet-care reminders need different urgency. Users should be able to override the default without Pawfolio pretending that real closed-app push scheduling exists before backend push infrastructure.
-
-## 2026-04-23: Keep Missed Routine Nudges In-App Until Push Exists
-
-Decision: Missed routine nudges appear in PawPal and Today attention after a task's scheduled time plus a grace period, but do not send closed-app phone push yet.
-
-Reason: Useful local attention items can ship now, while trustworthy phone push needs auth, device subscriptions, and a backend sender.
-
-## 2026-04-23: Track Reminder Completion Per Occurrence
-
-Decision: Reminders can be marked done or skipped by local date, and recurring reminders move to the next active occurrence once the current occurrence is handled.
-
-Reason: Pawfolio needs to know what actually happened, not only what was scheduled. This makes medication, vaccine, vet, and walk reminders feel more like a real care workflow.
-
-## 2026-04-23: Collapse Climate Care Settings
-
-Decision: Profile shows Climate care as a compact row that expands into region chips and broad-location controls only when tapped.
-
-Reason: Optional location context is helpful for PawPal, but it should not take over the Profile screen when the user is not actively editing it.
-
-## 2026-04-22: Keep Auth And Database As The Next Cloud Milestone
-
-Decision: Pawfolio remains local-first for this pass, and the planned cloud path is Supabase Auth with Google sign-in plus Postgres Row Level Security.
-
-Reason: The app needs private per-user data before syncing across devices. RLS with a `user_id` ownership model lets a new user see only their own data and gives Pawfolio a path toward shared caregiver access later.
-
-## 2026-04-23: Start Cloud Sync With A Private Snapshot
-
-Decision: The first Supabase migration uploads the current local Pawfolio state into one private `pawfolio_snapshots` row before normalizing every entity into separate cloud tables.
-
-Reason: This gives users a safe account backup and preserves existing phone data quickly, while still allowing a more relational schema for multi-pet and shared caregiver features later.
-
-## 2026-04-23: Use PWA Web Push With Backend Scheduling
-
-Decision: Real phone notifications use browser Push subscriptions saved to Supabase and a Vercel cron/API sender using VAPID keys.
-
-Reason: Closed-app phone notifications cannot be scheduled reliably from frontend JavaScript alone. A backend sender is the trustworthy path for due reminders and missed-care nudges.
-
-## 2026-04-23: Use Supabase Publishable Key For Client Auth
-
-Decision: The browser client uses Supabase's publishable key for Google sign-in and client-side auth flows, while backend-only paths continue to require a server secret.
-
-Reason: The legacy JWT-style anon key caused OAuth callback/API-key problems during the Google sign-in flow. The publishable key matches Supabase's current client-auth direction and is the safer long-term default for browser auth.
-
-## 2026-04-23: Auto-Sync Signed-In Local State To Cloud Snapshot
-
-Decision: When a user is signed in, Pawfolio automatically uploads the latest local state to the user's private `pawfolio_snapshots` row after edits, instead of relying only on a manual upload button.
-
-Reason: Reminder delivery and cloud backup are too fragile if the user must remember to manually upload after every change. Auto-sync makes the private snapshot useful as a real foundation for cloud restore and backend reminder delivery.
-
-## 2026-04-23: Use Local Reminder Scheduling As The Short-Term Delivery Layer
-
-Decision: Pawfolio schedules near-term notifications locally in the client for reminders due within about the next hour, in addition to the longer-term backend push path.
-
-Reason: The current backend push path still depends on infrastructure that is not fully production-ready. Local scheduling gives the prototype a real reminder experience now, while closed-app precise push remains a separate backend milestone.
-
-## 2026-04-23: Show Live Phone Push Status Instead Of "Planned"
-
-Decision: The Profile surface should show live phone-push state such as `Active now`, `Off`, `Needs setup`, or `Blocked`, plus a diagnostics sheet, instead of a vague `Planned` label.
-
-Reason: The app now has working sign-in, device subscription save, and near-term local reminder delivery. User-facing status should reflect what is actually active on the current phone while still being honest that full closed-app backend delivery is still being hardened.
-
-## 2026-04-27: Let Profile Summary Cards Open The Central Edit Sheet
-
-Decision: Read-only profile summary surfaces such as Personality notes should be tappable and open the existing profile edit sheet, rather than staying static or introducing separate inline editors.
-
-Reason: On mobile, important profile information should feel directly editable from where it is displayed. Keeping one central edit sheet preserves consistency, validation, and trust while still making the profile feel alive.
-
-## 2026-04-27: Treat The Phone As The Working Copy And Cloud As Backup First
-
-Decision: The Profile account surface should explicitly describe the current phone/browser as the working copy, while cloud backup and restore act as trust-building layers around it.
-
-Reason: During the snapshot phase, Pawfolio is not yet a fully normalized cloud app. Users need a simple mental model that explains where their live data is, what has been backed up, and what restore actually does.
-
-## 2026-04-27: Run A Trust-First Product Hardening Cycle
-
-Decision: The next implementation cycle prioritizes push reliability, restore confidence, account clarity, and formal PM-style journey validation before adding more broad product scope.
-
-Reason: Pawfolio already has enough feature depth that trust and clarity now matter more than raw surface area. Hardening the product first is the fastest path toward an app that feels dependable instead of merely ambitious.
-
-## 2026-04-27: Keep Trust And Integrations Free-First
-
-Decision: Closed-app push, Google Calendar sync, and email reminders should be implemented on a free-first infrastructure path.
-
-Reason: Pawfolio should become trustworthy before it becomes expensive. Supabase-backed scheduling, direct Google Calendar integration, and lightweight email delivery let the product harden without depending on Vercel Pro or paid sync middleware.
+Reason: Users need a simple mental model before the product is a full cross-device cloud app.
 
 ## 2026-04-27: Move Trust Logic Out Of The Main App Shell
 
-Decision: Cloud account state, push subscription state, and local reminder scheduling now live in focused hooks instead of staying embedded directly in the main app shell.
+Decision: Cloud account, push, and trust-state behavior should live in focused hooks and helpers instead of continuing to sprawl inside `App.tsx`.
 
-Reason: The trust layer had grown large enough that continuing to add push, restore, and integration behavior directly inside `App.tsx` would raise regression risk. Pulling these paths into smaller modules makes the codebase read more like a senior-owned product surface and makes future debugging less fragile.
+Reason: The trust surface became too important to leave in an oversized, regression-prone shell.
 
-## 2026-04-27: Add A Delivery Ledger Before Treating Notifications As Trustworthy
+## 2026-04-28: Put Email Reminders On Hold
 
-Decision: Reminder delivery now records occurrence-level push and email sends in `notification_deliveries`.
+Decision: Email reminder plumbing remains in code, but the product surface treats email as intentionally deferred.
 
-Reason: A recurring scheduler without idempotency is not trustworthy. The delivery ledger gives Pawfolio a clean way to avoid duplicate sends, track failures, and harden notification behavior over time.
+Reason: Sender-domain setup adds real operational complexity and is not worth presenting as active before the core trust path is stronger.
 
-## 2026-04-27: Sync Google Calendar One-Way First
+## 2026-04-28: Make Restore Available Before Profile Creation
 
-Decision: The first real Google Calendar version is one-way sync from Pawfolio into the user's primary Google Calendar.
+Decision: Restore from cloud should be available during onboarding before a new pet profile is created.
 
-Reason: One-way sync covers the core “see my reminders and care events outside the app” job while avoiding the complexity and conflict handling of bidirectional calendar editing too early.
+Reason: Recovery should not require a fake placeholder profile.
 
-## 2026-04-28: Put Email Reminders On Hold In The Product
+## 2026-04-28: Turn Profile Into A Trust Center
 
-Decision: Pawfolio keeps backend email reminder plumbing in code, but the product surface now treats email reminders as intentionally on hold instead of a live integration.
+Decision: The account area separates summary, actions, and deeper trust details instead of stacking every state in one crowded card.
 
-Reason: Sender-domain setup adds real external complexity and is not worth making users think email is active before the core trust path is solid. Google Calendar, push, backup, and restore are more valuable right now.
+Reason: Trust information must be scannable on mobile.
 
-## 2026-04-28: Turn Cloud And Phone Into A Trust Center
+## 2026-04-28: Use Per-Reminder Time Zones
 
-Decision: The Profile account area should separate compact trust summary, explicit cloud/calendar/push actions, and deeper diagnostics instead of stacking many equal-weight rows in one long card.
+Decision: Time zone is modeled per reminder, with the device time zone as the default.
 
-Reason: The old Cloud & phone section had become too crowded and hard to scan on mobile. The account area should help users quickly understand what is local, what is backed up, what this phone can do, and where to go next.
-
-## 2026-04-28: Let Restore Happen Before Profile Creation
-
-Decision: First-run onboarding should offer sign-in, cloud restore, and local backup import before forcing users to create a new pet profile.
-
-Reason: Clearing browser storage or moving to a new device should feel recoverable, not like data loss. Requiring a placeholder profile just to reach restore breaks trust at exactly the moment users most need recovery.
-
-## 2026-04-22: Use A Dog-Face PWA Icon
-
-Decision: The installed PWA icon should be a cute dog face in Pawfolio colors rather than a generic mark.
-
-Reason: The home-screen icon is part of the app's emotional first impression, especially while Pawfolio is being tested as an installable Android PWA.
-
-## 2026-04-22: Make Pawfolio Coach Local And Actionable First
-
-Decision: Pawfolio Coach expands beyond a simple insight line into local rule-based suggestions with care gaps, routine patterns, breed/season tips, optional broad location context, dismissals, and one-tap actions.
-
-Reason: This gives Pawfolio an agentic feel without sending pet-care data to a model or requiring auth. LLM help can come later after privacy, account sync, and user consent are clear.
-
-## 2026-04-22: Move Coach Into PawPal
-
-Decision: The local coach experience should live in PawPal, while Today shows only the highest-priority shared attention items.
-
-Reason: The companion/AI layer should feel like its own friendly helper instead of another alert card. Shared dismissals keep Done/dismiss behavior consistent across PawPal and Today.
-
-## 2026-04-27: Split Today And PawPal Into Different Product Jobs
-
-Decision: Today should act as a short urgent operational inbox, while PawPal should act as the broader agentic companion feed.
-
-Reason: When both surfaces show the same items, the product feels repetitive instead of helpful. Separating urgency from coaching makes the app easier to trust and gives PawPal room to become genuinely intelligent over time.
-
-## 2026-04-22: Keep PawPal Floating Instead Of Crowding Navigation
-
-Decision: PawPal opens from a floating companion button above the bottom nav instead of occupying a sixth tab.
-
-Reason: Five bottom-nav tabs fit the phone UI better. PawPal still feels special and accessible without making the main app sections cramped.
-
-## 2026-04-22: Structure Medication Dose And Frequency
-
-Decision: Medication records keep readable `dose` and `frequency` text, but new input uses structured amount/unit and preset frequency fields.
-
-Reason: Pawfolio needs app-readable medication schedules for recurrence and reminders. Keeping the old labels preserves existing records and keeps care history easy to scan.
+Reason: Users expect time zone to belong to the event they are scheduling, not to a bulky global trust setting.
