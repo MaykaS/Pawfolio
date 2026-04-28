@@ -656,11 +656,18 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   line-height: 1.4;
 }
 
+.coach-why {
+  color: var(--muted) !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  margin-top: 6px;
+}
+
 .coach-suggestion.coach-care_gap {
   border-left: 3px solid var(--green);
 }
 
-.coach-suggestion.coach-routine_pattern {
+.coach-suggestion.coach-pattern {
   border-left: 3px solid var(--amber);
 }
 
@@ -668,8 +675,12 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   border-left: 3px solid var(--primary);
 }
 
-.coach-suggestion.coach-calendar {
+.coach-suggestion.coach-planning {
   border-left: 3px solid var(--blue);
+}
+
+.coach-suggestion.coach-backup {
+  border-left: 3px solid var(--lavender);
 }
 
 .coach-actions,

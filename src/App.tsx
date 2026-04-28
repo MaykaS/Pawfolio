@@ -42,7 +42,7 @@ import {
   avatarOptions,
   bottomNavTabs,
   breedOptions,
-  buildCoachSuggestions,
+  buildPawPalFeed,
   buildTodayAttentionItems,
   canUseBrowserNotifications,
   careStatus,
@@ -558,7 +558,7 @@ export default function App() {
   const progress = todayTasks.length ? completed / todayTasks.length : 0;
   const careRecords = useMemo(() => visibleCareRecords(state), [state]);
   const calendarItems = useMemo(() => visibleReminders(state), [state]);
-  const coachSuggestions = useMemo(() => buildCoachSuggestions(state), [state]);
+  const coachSuggestions = useMemo(() => buildPawPalFeed(state), [state]);
   const todayAttentionItems = useMemo(() => buildTodayAttentionItems(state), [state]);
   const upcomingReminder = useMemo(
     () => getUpcomingReminder(calendarItems, new Date(), state.reminderHistory),
@@ -1395,11 +1395,10 @@ function PawPalScreen({
   onDone: (id: string) => void;
 }) {
   const groups = [
-    { type: "care_gap", label: "Care attention" },
-    { type: "routine_pattern", label: "Routine patterns" },
-    { type: "seasonal", label: "Seasonal care" },
-    { type: "calendar", label: "Calendar help" },
-    { type: "backup", label: "Data safety" },
+    { label: "Needs your call", types: ["care_gap"] as CoachSuggestion["type"][] },
+    { label: "I noticed", types: ["pattern"] as CoachSuggestion["type"][] },
+    { label: "I can help with", types: ["backup"] as CoachSuggestion["type"][] },
+    { label: "Looking ahead", types: ["planning", "seasonal"] as CoachSuggestion["type"][] },
   ] as const;
 
   return (
@@ -1415,19 +1414,19 @@ function PawPalScreen({
       />
       <section className="pawpal-hero">
         <div>
-          <p className="label no-margin">Local helper</p>
-          <h2>Little nudges for a calmer care day.</h2>
-          <p>PawPal looks at Pawfolio data on this device and suggests practical next steps.</p>
+          <p className="label no-margin">Companion feed</p>
+          <h2>Little signals that build on how you use Pawfolio.</h2>
+          <p>PawPal watches routines, care, reminders, and season context on this device, then suggests the next helpful move.</p>
         </div>
       </section>
       {suggestions.length === 0 ? (
         <EmptyState title="PawPal is all caught up" text="No care gaps or helpful nudges right now. Nice and calm." />
       ) : (
         groups.map((group) => {
-          const groupSuggestions = suggestions.filter((suggestion) => suggestion.type === group.type);
+          const groupSuggestions = suggestions.filter((suggestion) => group.types.includes(suggestion.type));
           if (groupSuggestions.length === 0) return null;
           return (
-            <section className="pawpal-group" key={group.type}>
+            <section className="pawpal-group" key={group.label}>
               <p className="label">{group.label}</p>
               <div className="coach-list">
                 {groupSuggestions.map((suggestion) => (
@@ -1435,6 +1434,7 @@ function PawPalScreen({
                     <div>
                       <h3>{suggestion.title}</h3>
                       <p>{suggestion.body}</p>
+                      {suggestion.reason && <p className="coach-why">I noticed: {suggestion.reason}</p>}
                     </div>
                     <div className="coach-actions">
                       <button className="btn btn-sm btn-secondary" type="button" onClick={() => onAction(suggestion)}>
