@@ -1093,6 +1093,11 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 
 .weight-chart-shell {
   margin-top: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 239, 234, 0.5));
+  border: 1px solid rgba(218, 191, 177, 0.35);
+  border-radius: 16px;
+  overflow: hidden;
+  padding: 10px 10px 8px;
 }
 
 .weight-chart {
@@ -1104,6 +1109,12 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 
 .weight-chart-area {
   opacity: 1;
+}
+
+.weight-chart-baseline {
+  stroke: rgba(125, 111, 102, 0.16);
+  stroke-linecap: round;
+  stroke-width: 0.8;
 }
 
 .weight-chart-line {
@@ -1129,20 +1140,36 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   margin-top: 6px;
 }
 
-.weight-chart-empty,
 .weight-chart-single {
   align-items: center;
-  background: var(--primary-pale);
-  border-radius: 14px;
   color: var(--muted);
   display: grid;
   font-size: 12px;
   font-weight: 700;
   justify-items: center;
-  margin-top: 10px;
   min-height: 110px;
-  padding: 14px;
+  padding: 8px 14px 4px;
   text-align: center;
+}
+
+.weight-chart-empty {
+  align-items: center;
+  color: var(--muted);
+  display: grid;
+  font-size: 12px;
+  font-weight: 700;
+  justify-items: center;
+  min-height: 110px;
+  padding: 20px 16px;
+  text-align: center;
+}
+
+.weight-chart-single-track {
+  background: linear-gradient(180deg, rgba(50, 138, 91, 0.06), rgba(50, 138, 91, 0.01));
+  border-radius: 999px;
+  height: 2px;
+  margin-bottom: -10px;
+  width: 72%;
 }
 
 .weight-chart-single-dot {
@@ -1152,6 +1179,10 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   height: 18px;
   margin-bottom: 10px;
   width: 18px;
+}
+
+.weight-chart-single p {
+  margin: 0;
 }
 
 .mini-metrics {

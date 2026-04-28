@@ -1536,9 +1536,12 @@ function WeightTrendChart({
   if (points.length === 1) {
     const point = points[0];
     return (
-      <div className="weight-chart-single" aria-label="Weight trend chart">
-        <div className="weight-chart-single-dot" />
-        <p>{prettyDate(point.date)} - {point.value} {point.unit}</p>
+      <div className="weight-chart-shell" aria-label="Weight trend chart">
+        <div className="weight-chart-single">
+          <div className="weight-chart-single-track" />
+          <div className="weight-chart-single-dot" />
+          <p>{prettyDate(point.date)} - {point.value} {point.unit}</p>
+        </div>
       </div>
     );
   }
@@ -1551,10 +1554,11 @@ function WeightTrendChart({
       <svg className="weight-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-hidden="true">
         <defs>
           <linearGradient id="weightAreaFill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="rgba(50, 138, 91, 0.28)" />
-            <stop offset="100%" stopColor="rgba(50, 138, 91, 0.04)" />
+            <stop offset="0%" stopColor="rgba(50, 138, 91, 0.22)" />
+            <stop offset="100%" stopColor="rgba(50, 138, 91, 0.02)" />
           </linearGradient>
         </defs>
+        <line className="weight-chart-baseline" x1="8" y1="82" x2="92" y2="82" />
         <path className="weight-chart-area" d={areaPath} fill="url(#weightAreaFill)" />
         <path className="weight-chart-line" d={linePath} />
         {points.map((point) => (

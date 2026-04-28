@@ -841,7 +841,7 @@ describe("pawfolio helpers", () => {
     expect(latestWeight(records, "26 lb")).toBe("27.8 lb");
     expect(weightTrend(records)).toBe("Up 1.8 lb");
     expect(weightTrendSeries(records).map((point) => point.value)).toEqual([26, 27.8]);
-    expect(weightTrendPlot(records).map((point) => Math.round(point.x))).toEqual([0, 100]);
+    expect(weightTrendPlot(records).map((point) => Math.round(point.x))).toEqual([8, 92]);
     expect(medicationConsistency(records, new Date("2026-04-22T12:00:00")).last30Days).toBe(1);
     expect(
       medicationConsistency([...records, { ...records[2], id: "future-med", date: "2026-06-01" }], new Date("2026-04-22T12:00:00")).last30Days,

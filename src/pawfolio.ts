@@ -1424,11 +1424,15 @@ export function weightTrendPlot(records: CareRecord[], maxPoints = 8) {
   const minValue = Math.min(...points.map((point) => point.value));
   const maxValue = Math.max(...points.map((point) => point.value));
   const range = Math.max(maxValue - minValue, 0.1);
+  const leftPad = 8;
+  const rightPad = 92;
+  const topPad = 18;
+  const bottomPad = 82;
 
   return points.map((point, index) => ({
     ...point,
-    x: points.length === 1 ? 50 : (index / (points.length - 1)) * 100,
-    y: points.length === 1 ? 50 : 100 - (((point.value - minValue) / range) * 76 + 12),
+    x: points.length === 1 ? 50 : leftPad + ((index / (points.length - 1)) * (rightPad - leftPad)),
+    y: points.length === 1 ? 50 : bottomPad - (((point.value - minValue) / range) * (bottomPad - topPad)),
   }));
 }
 
