@@ -1052,6 +1052,11 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   min-width: 0;
 }
 
+.care-support {
+  margin-top: 4px;
+  opacity: 0.9;
+}
+
 .care-history {
   margin-bottom: 12px;
 }

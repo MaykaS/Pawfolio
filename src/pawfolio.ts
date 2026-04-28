@@ -66,6 +66,7 @@ export type SharedCareType = "Medication" | "Vaccine" | "Vet visit";
 export type ReminderRecurrence = "none" | "daily" | "weekly" | "monthly" | "yearly";
 export type MedicationDoseUnit = "tablet" | "chew" | "capsule" | "mL" | "drops" | "scoop" | "other";
 export type MedicationFrequencyType = "daily" | "weekly" | "monthly" | "yearly" | "as_needed";
+export type MedicationPlanStatus = "Active" | "Upcoming" | "Ended" | "Needs review";
 
 export type CareEvent = {
   id: string;
@@ -1264,6 +1265,54 @@ export function cloudRestoreDetail(lastRestoredAt?: string) {
 export function cloudUploadDetail(lastUploadedAt?: string) {
   if (!lastUploadedAt) return "This phone has not uploaded a cloud backup yet.";
   return `Last upload ${prettySyncTime(lastUploadedAt)}.`;
+}
+
+export function medicationPlanStatus(record: CareRecord, now = new Date()): MedicationPlanStatus {
+  const hasDose = Boolean(formatMedicationDose(record).trim());
+  const hasFrequency = Boolean(formatMedicationFrequency(record).trim());
+  if (!hasDose || !hasFrequency) return "Needs review";
+
+  const today = todayISO(now);
+  if (record.startDate && record.startDate > today) return "Upcoming";
+  if (record.endDate && record.endDate < today) return "Ended";
+  return "Active";
+}
+
+export function medicationPlanDateSummary(record: CareRecord) {
+  if (record.startDate && record.endDate) return `${prettyDate(record.startDate)} to ${prettyDate(record.endDate)}`;
+  if (record.startDate) return `Started ${prettyDate(record.startDate)}`;
+  if (record.endDate) return `Ends ${prettyDate(record.endDate)}`;
+  return `Logged ${prettyDate(record.date)}`;
+}
+
+export function medicationPlanSummary(record: CareRecord) {
+  const parts = [medicationPlanDateSummary(record)];
+  const dose = formatMedicationDose(record).trim();
+  const frequency = formatMedicationFrequency(record).trim();
+  if (dose) parts.push(dose);
+  if (frequency) parts.push(frequency);
+  return parts.join(" - ");
+}
+
+export function medicationPlanSupportDetail(record: CareRecord) {
+  const parts: string[] = [];
+  if (record.refillDate) parts.push(`Refill ${prettyDate(record.refillDate)}`);
+  if (record.nextDueDate) parts.push(`Next ${prettyDate(record.nextDueDate)}`);
+  if (record.adherenceNotes) parts.push(record.adherenceNotes);
+  if (record.note) parts.push(record.note);
+  return parts.join(" - ");
+}
+
+export function careRecordSummary(record: CareRecord) {
+  if (record.type === "Medication") return medicationPlanSummary(record);
+
+  const parts = [record.type, prettyDate(record.date)];
+  if (record.nextDueDate) parts.push(`Next ${prettyDate(record.nextDueDate)}`);
+  if (record.clinic) parts.push(record.clinic);
+  if (record.vetName) parts.push(record.vetName);
+  if (record.reason) parts.push(record.reason);
+  if (record.note) parts.push(record.note);
+  return parts.join(" - ");
 }
 
 export function getNotificationGroups(

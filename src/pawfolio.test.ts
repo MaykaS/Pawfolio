@@ -31,6 +31,10 @@ import {
   isFutureOrToday,
   latestWeight,
   medicationConsistency,
+  medicationPlanDateSummary,
+  medicationPlanStatus,
+  medicationPlanSummary,
+  medicationPlanSupportDetail,
   missedRoutineTasks,
   nextOccurrenceDate,
   normalizeState,
@@ -328,6 +332,51 @@ describe("pawfolio helpers", () => {
     expect(validateCareRecord({ type: "Vaccine", date: "2026-04-22", title: "Rabies" })).toEqual({});
     expect(validateCareRecord({ type: "Weight", date: "2026-04-22", weightValue: "27.8" })).toEqual({});
     expect(careEmptyState("Vaccines").title).toBe("No vaccines yet");
+  });
+
+  it("derives medication plan states from dates and schedule completeness", () => {
+    const activeRecord: CareRecord = {
+      id: "med-active",
+      type: "Medication",
+      title: "Heartgard",
+      date: "2026-04-22",
+      startDate: "2026-04-01",
+      endDate: "2026-10-01",
+      note: "",
+      doseAmount: "1",
+      doseUnit: "chew",
+      frequencyType: "monthly",
+      frequencyInterval: 1,
+    };
+
+    expect(medicationPlanStatus(activeRecord, new Date("2026-04-22T12:00:00"))).toBe("Active");
+    expect(medicationPlanStatus({ ...activeRecord, id: "med-upcoming", startDate: "2026-05-01" }, new Date("2026-04-22T12:00:00"))).toBe("Upcoming");
+    expect(medicationPlanStatus({ ...activeRecord, id: "med-ended", endDate: "2026-04-21" }, new Date("2026-04-22T12:00:00"))).toBe("Ended");
+    expect(medicationPlanStatus({ ...activeRecord, id: "med-review", doseAmount: "", doseUnit: undefined }, new Date("2026-04-22T12:00:00"))).toBe("Needs review");
+  });
+
+  it("builds medication plan summaries with fallback support detail", () => {
+    const record: CareRecord = {
+      id: "med-summary",
+      type: "Medication",
+      title: "Heartgard",
+      date: "2026-04-22",
+      startDate: "2026-04-01",
+      endDate: "2026-10-01",
+      refillDate: "2026-05-22",
+      nextDueDate: "2026-05-01",
+      adherenceNotes: "Give with breakfast.",
+      note: "Watch appetite.",
+      doseAmount: "1",
+      doseUnit: "chew",
+      frequencyType: "monthly",
+      frequencyInterval: 1,
+    };
+
+    expect(medicationPlanDateSummary(record)).toContain("Apr 1");
+    expect(medicationPlanSummary(record)).toContain("Every month");
+    expect(medicationPlanSupportDetail(record)).toContain("Refill");
+    expect(medicationPlanSupportDetail(record)).toContain("Give with breakfast.");
   });
 
   it("normalizes shared care and calendar records into one care event", () => {

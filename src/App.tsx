@@ -44,14 +44,13 @@ import {
   buildPawPalFeed,
   buildTodayAttentionItems,
   canUseBrowserNotifications,
+  careRecordSummary,
   careStatus,
-  careTypes,
   careEmptyState,
   cloudBackupStatusLabel,
   cloudUploadDetail,
   cloudRestoreDetail,
   collectPhotoRefs,
-  defaultReminderLeadMinutes,
   deleteCalendarItemFromState,
   deleteCareItemFromState,
   dismissCoachSuggestion,
@@ -68,11 +67,9 @@ import {
   initialState,
   isStoredPhotoRef,
   limitDiaryPhotos,
-  medicationDoseUnits,
   medicationConsistency,
-  medicationFrequencyOptions,
-  normalizeMedicationDose,
-  normalizeMedicationFrequency,
+  medicationPlanStatus,
+  medicationPlanSupportDetail,
   normalizeState,
   notificationBody,
   notificationLeadLabel,
@@ -115,8 +112,6 @@ import {
   type DiaryEntry,
   type DogAvatar,
   type DogProfile,
-  type MedicationDoseUnit,
-  type MedicationFrequencyType,
   type PawfolioNotificationStatus,
   type PawfolioState,
   type Reminder,
@@ -126,6 +121,7 @@ import {
 import { useCloudAccount, type CloudActionState, type TrustState } from "./hooks/useCloudAccount";
 import { useLocalReminderScheduling } from "./hooks/useLocalReminderScheduling";
 import { usePushStatus } from "./hooks/usePushStatus";
+import { CareSheet, type CareSheetMode } from "./components/CareSheet";
 import { ReminderSheet } from "./components/ReminderSheet";
 import { AccountDeviceSection, IntegrationsCard, SettingRow } from "./components/ProfileSettings";
 import { TrustDetailsSheet } from "./components/TrustDetailsSheet";
@@ -139,7 +135,6 @@ import {
 
 type TaskMode = { mode: "create" } | { mode: "edit"; task: DailyTask };
 type MemoryMode = { mode: "create" } | { mode: "edit"; entry: DiaryEntry };
-type CareMode = { mode: "create" } | { mode: "edit"; record: CareRecord };
 type ReminderMode = { mode: "create"; date?: string } | { mode: "edit"; reminder: Reminder };
 type BackupPayload = { app: "Pawfolio"; version: number; exportedAt: string; state: PawfolioState; photos?: PhotoRecord[] };
 
@@ -217,22 +212,6 @@ function countTasks(tasks: DailyTask[], pattern: RegExp) {
   return tasks.filter((task) => pattern.test(task.title) && task.done).length;
 }
 
-function careMeta(record: CareRecord) {
-  const parts = [record.type, prettyDate(record.date)];
-  if (record.startDate) parts.push(`started ${prettyLongDate(record.startDate)}`);
-  if (record.endDate) parts.push(`ends ${prettyLongDate(record.endDate)}`);
-  if (record.dose) parts.push(record.dose);
-  if (record.frequency) parts.push(record.frequency);
-  if (record.refillDate) parts.push(`refill ${prettyLongDate(record.refillDate)}`);
-  if (record.clinic) parts.push(record.clinic);
-  if (record.vetName) parts.push(record.vetName);
-  if (record.reason) parts.push(record.reason);
-  if (record.nextDueDate) parts.push(`next ${prettyLongDate(record.nextDueDate)}`);
-  if (record.adherenceNotes) parts.push(`notes: ${record.adherenceNotes}`);
-  if (record.note) parts.push(record.note);
-  return parts.join(" - ");
-}
-
 function prettyLongDate(date: string) {
   if (!date) return "No date";
   return new Date(`${date}T00:00`).toLocaleDateString("en", {
@@ -280,7 +259,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("today");
   const [taskMode, setTaskMode] = useState<TaskMode | null>(null);
   const [memoryMode, setMemoryMode] = useState<MemoryMode | null>(null);
-  const [careMode, setCareMode] = useState<CareMode | null>(null);
+  const [careMode, setCareMode] = useState<CareSheetMode | null>(null);
   const [reminderMode, setReminderMode] = useState<ReminderMode | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [selectedMemory, setSelectedMemory] = useState<DiaryEntry | null>(null);
@@ -728,15 +707,19 @@ export default function App() {
         />
       )}
 
-      {careMode && (
-        <CareSheet
-          mode={careMode}
-          onClose={() => setCareMode(null)}
-          onSave={(record) => {
-            setState((current) => saveCareRecordToState(current, record));
-            setCareMode(null);
-          }}
-        />
+        {careMode && (
+          <CareSheet
+            mode={careMode}
+            onClose={() => setCareMode(null)}
+            renderLeadChips={(value, onChange) => (
+              <ReminderLeadChips value={value} onChange={onChange} />
+            )}
+            validate={validateCareRecord}
+            onSave={(record) => {
+              setState((current) => saveCareRecordToState(current, record));
+              setCareMode(null);
+            }}
+          />
       )}
 
       {reminderMode && (
@@ -1389,6 +1372,9 @@ function CareScreen({
   const empty = careEmptyState(activeCareTab);
   const weights = weightTrendSeries(records);
   const meds = medicationConsistency(records);
+  const medicationStatuses = filteredRecords
+    .filter((record) => record.type === "Medication")
+    .map((record) => medicationPlanStatus(record));
   const coachInsights = routineCoachInsights(tasks, taskHistory, reminders, records);
 
   return (
@@ -1414,28 +1400,54 @@ function CareScreen({
           </button>
         ))}
       </div>
-      <CareHistoryPanel activeTab={activeCareTab} records={filteredRecords} weights={weights} meds={meds} insights={coachInsights} />
+      <CareHistoryPanel
+        activeTab={activeCareTab}
+        records={filteredRecords}
+        weights={weights}
+        meds={meds}
+        medicationStatuses={medicationStatuses}
+        insights={coachInsights}
+      />
       {filteredRecords.length === 0 ? (
         <EmptyState
           title={empty.title}
           text={empty.text}
         />
       ) : (
-        filteredRecords.map((record) => (
-          <article className="care-item" key={record.id}>
-            <div className={record.type === "Medication" ? "care-icon-wrap badge-blue" : "care-icon-wrap badge-green"}>
-              {record.type === "Medication" ? <Pill size={18} /> : <HeartPulse size={18} />}
-            </div>
-            <div className="care-copy">
-              <span className={careStatus(record) === "OK" ? "badge badge-green" : careStatus(record) === "Overdue" ? "badge badge-red" : "badge badge-amber"}>
-                {careStatus(record)}
-              </span>
-              <h2>{record.title}</h2>
-              <p>{careMeta(record)}</p>
-            </div>
-            <CardActions onEdit={() => onEdit(record)} onDelete={() => onDelete(record.id)} />
-          </article>
-        ))
+        filteredRecords.map((record) => {
+          const planStatus = record.type === "Medication" ? medicationPlanStatus(record) : undefined;
+          const statusClass = planStatus === "Active"
+            ? "badge badge-green"
+            : planStatus === "Upcoming"
+              ? "badge badge-blue"
+              : planStatus === "Ended"
+                ? "badge badge-gray"
+                : "badge badge-amber";
+          const supportDetail = record.type === "Medication" ? medicationPlanSupportDetail(record) : "";
+
+          return (
+            <article className="care-item" key={record.id}>
+              <div className={record.type === "Medication" ? "care-icon-wrap badge-blue" : "care-icon-wrap badge-green"}>
+                {record.type === "Medication" ? <Pill size={18} /> : <HeartPulse size={18} />}
+              </div>
+              <div className="care-copy">
+                {planStatus ? (
+                  <div className="badge-row">
+                    <span className={statusClass}>{planStatus}</span>
+                  </div>
+                ) : (
+                  <span className={careStatus(record) === "OK" ? "badge badge-green" : careStatus(record) === "Overdue" ? "badge badge-red" : "badge badge-amber"}>
+                    {careStatus(record)}
+                  </span>
+                )}
+                <h2>{record.title}</h2>
+                <p>{careRecordSummary(record)}</p>
+                {supportDetail && <p className="care-support">{supportDetail}</p>}
+              </div>
+              <CardActions onEdit={() => onEdit(record)} onDelete={() => onDelete(record.id)} />
+            </article>
+          );
+        })
       )}
     </section>
   );
@@ -1446,12 +1458,14 @@ function CareHistoryPanel({
   records,
   weights,
   meds,
+  medicationStatuses,
   insights,
 }: {
   activeTab: string;
   records: CareRecord[];
   weights: ReturnType<typeof weightTrendSeries>;
   meds: ReturnType<typeof medicationConsistency>;
+  medicationStatuses: ReturnType<typeof medicationPlanStatus>[];
   insights: string[];
 }) {
   if (activeTab === "Weight") {
@@ -1477,13 +1491,17 @@ function CareHistoryPanel({
   }
 
   if (activeTab === "Meds") {
+    const active = medicationStatuses.filter((status) => status === "Active").length;
+    const upcoming = medicationStatuses.filter((status) => status === "Upcoming").length;
+    const needsReview = medicationStatuses.filter((status) => status === "Needs review").length;
     return (
       <section className="care-history card">
         <p className="label no-margin">Medication consistency</p>
         <div className="mini-metrics">
           <span><strong>{meds.last30Days}</strong> last 30 days</span>
-          <span><strong>{meds.withDose}/{meds.total}</strong> with dose</span>
-          <span><strong>{meds.withFrequency}/{meds.total}</strong> with frequency</span>
+          <span><strong>{active}</strong> active</span>
+          <span><strong>{upcoming}</strong> upcoming</span>
+          <span><strong>{needsReview}</strong> need review</span>
         </div>
       </section>
     );
@@ -2158,10 +2176,6 @@ function ProfileAction({ icon, label, onClick }: { icon: React.ReactNode; label:
   );
 }
 
-function isSharedCareTypeLabel(type: string) {
-  return type === "Medication" || type === "Vaccine" || type === "Vet visit";
-}
-
 function ReminderLeadChips({
   value,
   onChange,
@@ -2523,246 +2537,6 @@ function MemorySheet({
           <textarea className="input" value={body} onChange={(event) => setBody(event.target.value)} />
         </Field>
         <button className="btn btn-primary">Save memory</button>
-      </form>
-    </Sheet>
-  );
-}
-
-function CareSheet({
-  mode,
-  onClose,
-  onSave,
-}: {
-  mode: CareMode;
-  onClose: () => void;
-  onSave: (record: CareRecord) => void;
-}) {
-  const existing = mode.mode === "edit" ? mode.record : undefined;
-  const normalizedExisting = existing ? normalizeMedicationFrequency(normalizeMedicationDose(existing)) : undefined;
-  const [record, setRecord] = useState({
-    type: normalizedExisting?.type || "Weight",
-    title: normalizedExisting?.title || "",
-    date: normalizedExisting?.date || todayISO(),
-    startDate: normalizedExisting?.startDate || "",
-    endDate: normalizedExisting?.endDate || "",
-    adherenceNotes: normalizedExisting?.adherenceNotes || "",
-    nextDueDate: normalizedExisting?.nextDueDate || "",
-    note: normalizedExisting?.note || "",
-    dose: normalizedExisting?.dose || "",
-    doseAmount: normalizedExisting?.doseAmount || "",
-    doseUnit: normalizedExisting?.doseUnit || ("chew" as MedicationDoseUnit),
-    frequency: normalizedExisting?.frequency || "",
-    frequencyType: normalizedExisting?.frequencyType || ("monthly" as MedicationFrequencyType),
-    frequencyInterval: normalizedExisting?.frequencyInterval || 1,
-    refillDate: normalizedExisting?.refillDate || "",
-    notifyLeadMinutes: normalizedExisting?.notifyLeadMinutes ?? defaultReminderLeadMinutes(normalizedExisting?.type || "Weight"),
-    clinic: normalizedExisting?.clinic || "",
-    vetName: normalizedExisting?.vetName || "",
-    reason: normalizedExisting?.reason || "",
-    weightValue: normalizedExisting?.weightValue || "",
-    weightUnit: normalizedExisting?.weightUnit || "lb",
-  });
-
-  const update = (key: keyof typeof record, value: string) => {
-    setRecord((current) => ({ ...current, [key]: value }));
-  };
-  const errors = validateCareRecord(record);
-  const canSave = Object.keys(errors).length === 0;
-
-  return (
-    <Sheet title={mode.mode === "edit" ? "Edit care record" : "Add care record"} onClose={onClose}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          const title =
-            record.type === "Weight" && record.weightValue
-              ? `${record.weightValue} ${record.weightUnit || "lb"}`
-              : record.title;
-          if (!canSave) return;
-          const savedRecord = record.type === "Medication"
-            ? normalizeMedicationFrequency(normalizeMedicationDose({ id: existing?.id || uid("care"), ...record, title }))
-            : { id: existing?.id || uid("care"), ...record, title };
-          onSave(savedRecord);
-        }}
-      >
-        <div className="form-two">
-          <Field label="Type">
-            <select
-              className="input"
-              value={record.type}
-              onChange={(event) =>
-                setRecord((current) => ({
-                  ...current,
-                  type: event.target.value,
-                  notifyLeadMinutes: isSharedCareTypeLabel(event.target.value)
-                    ? defaultReminderLeadMinutes(event.target.value === "Vet visit" ? "Vet" : event.target.value)
-                    : current.notifyLeadMinutes,
-                }))
-              }
-            >
-              {careTypes.map((type) => (
-                <option key={type}>{type}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Date">
-            <input className="input" type="date" value={record.date} onChange={(event) => update("date", event.target.value)} />
-          </Field>
-        </div>
-        <Field label={record.type === "Weight" ? "Label" : record.type === "Medication" ? "Medication name" : record.type === "Vaccine" ? "Vaccine name" : "Title"}>
-          <input
-            className="input"
-            value={record.title}
-            onChange={(event) => update("title", event.target.value)}
-            required={record.type !== "Weight" && record.type !== "Vet visit"}
-          />
-          {errors.title && <span className="field-error">{errors.title}</span>}
-        </Field>
-        {record.type === "Weight" && (
-          <div className="form-two">
-            <Field label="Weight">
-              <input className="input" inputMode="decimal" value={record.weightValue} onChange={(event) => update("weightValue", event.target.value)} placeholder="27.8" />
-              {errors.weightValue && <span className="field-error">{errors.weightValue}</span>}
-            </Field>
-            <Field label="Unit">
-              <select className="input" value={record.weightUnit} onChange={(event) => update("weightUnit", event.target.value)}>
-                <option>lb</option>
-                <option>kg</option>
-              </select>
-            </Field>
-          </div>
-        )}
-        {record.type === "Medication" && (
-          <>
-            <Field label="Dose">
-              <div className="dose-builder">
-                <input
-                  className="input dose-amount"
-                  inputMode="decimal"
-                  value={record.doseAmount}
-                  onChange={(event) => update("doseAmount", event.target.value)}
-                  placeholder="1"
-                />
-                <div className="choice-chip-row unit-chip-row">
-                  {medicationDoseUnits.map((unit) => (
-                    <button
-                      className={record.doseUnit === unit.value ? "choice-chip active" : "choice-chip"}
-                      key={unit.value}
-                      type="button"
-                      onClick={() => setRecord((current) => ({ ...current, doseUnit: unit.value }))}
-                    >
-                      {unit.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {errors.dose && <span className="field-error">{errors.dose}</span>}
-            </Field>
-            <Field label="Frequency">
-              <div className="frequency-builder">
-                <div className="choice-chip-row frequency-chip-row">
-                  {medicationFrequencyOptions.map((option) => (
-                    <button
-                      className={record.frequencyType === option.value ? "choice-chip active" : "choice-chip"}
-                      key={option.value}
-                      type="button"
-                      onClick={() =>
-                        setRecord((current) => ({
-                          ...current,
-                          frequencyType: option.value,
-                          frequencyInterval: option.value === "as_needed" ? 1 : current.frequencyInterval || 1,
-                        }))
-                      }
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-                {record.frequencyType !== "as_needed" && (
-                  <div className="interval-control">
-                    <span>Every</span>
-                    <input
-                      className="interval-input"
-                      type="number"
-                      min="1"
-                      max="12"
-                      value={record.frequencyInterval}
-                      onChange={(event) =>
-                        setRecord((current) => ({
-                          ...current,
-                          frequencyInterval: Math.max(1, Number(event.target.value) || 1),
-                        }))
-                      }
-                    />
-                    <span>
-                      {medicationFrequencyOptions.find((option) => option.value === record.frequencyType)?.noun || "dose"}
-                      {record.frequencyInterval > 1 ? "s" : ""}
-                    </span>
-                  </div>
-                )}
-              </div>
-              {errors.frequency && <span className="field-error">{errors.frequency}</span>}
-            </Field>
-            <Field label="Refill / next dose">
-              <input className="input" type="date" value={record.refillDate} onChange={(event) => update("refillDate", event.target.value)} />
-            </Field>
-            <div className="form-two">
-              <Field label="Start date">
-                <input className="input" type="date" value={record.startDate} onChange={(event) => update("startDate", event.target.value)} />
-              </Field>
-              <Field label="End date">
-                <input className="input" type="date" value={record.endDate} onChange={(event) => update("endDate", event.target.value)} />
-                {errors.endDate && <span className="field-error">{errors.endDate}</span>}
-              </Field>
-            </div>
-            <Field label="Missed dose / reaction notes">
-              <textarea
-                className="input"
-                value={record.adherenceNotes}
-                onChange={(event) => update("adherenceNotes", event.target.value)}
-                placeholder="Skipped dose, upset stomach, gave with food, or anything worth remembering."
-              />
-            </Field>
-          </>
-        )}
-        {record.type === "Vaccine" && (
-          <Field label="Next due date">
-            <input className="input" type="date" value={record.nextDueDate} onChange={(event) => update("nextDueDate", event.target.value)} />
-            {errors.nextDueDate && <span className="field-error">{errors.nextDueDate}</span>}
-          </Field>
-        )}
-        {record.type === "Vet visit" && (
-          <>
-            <div className="form-two">
-              <Field label="Clinic">
-                <input className="input" value={record.clinic} onChange={(event) => update("clinic", event.target.value)} />
-                {errors.clinic && <span className="field-error">{errors.clinic}</span>}
-              </Field>
-              <Field label="Vet">
-                <input className="input" value={record.vetName} onChange={(event) => update("vetName", event.target.value)} />
-              </Field>
-            </div>
-            <Field label="Reason">
-              <input className="input" value={record.reason} onChange={(event) => update("reason", event.target.value)} placeholder="Annual checkup" />
-              {errors.title && <span className="field-error">{errors.title}</span>}
-            </Field>
-            <Field label="Follow-up date">
-              <input className="input" type="date" value={record.nextDueDate} onChange={(event) => update("nextDueDate", event.target.value)} />
-            </Field>
-          </>
-        )}
-        {isSharedCareTypeLabel(record.type) && (
-          <Field label="Reminder">
-            <ReminderLeadChips
-              value={record.notifyLeadMinutes}
-              onChange={(value) => setRecord((current) => ({ ...current, notifyLeadMinutes: value }))}
-            />
-          </Field>
-        )}
-        <Field label="Note">
-          <textarea className="input" value={record.note} onChange={(event) => update("note", event.target.value)} />
-        </Field>
-        <button className="btn btn-primary" disabled={!canSave}>Save care record</button>
       </form>
     </Sheet>
   );
