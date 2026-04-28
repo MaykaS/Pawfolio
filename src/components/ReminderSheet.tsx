@@ -45,6 +45,18 @@ function isValidTimeZone(timeZone: string) {
   }
 }
 
+function timeZoneAbbreviation(timeZone: string) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      timeZoneName: "short",
+    }).formatToParts(new Date());
+    return parts.find((part) => part.type === "timeZoneName")?.value || timeZone;
+  } catch {
+    return timeZone;
+  }
+}
+
 export function ReminderSheet({
   mode,
   deviceTimeZone,
@@ -82,6 +94,7 @@ export function ReminderSheet({
   }, [deviceTimeZone, timeZoneMode]);
 
   const effectiveTimeZone = timeZoneMode === "custom" ? timeZoneDraft : deviceTimeZone;
+  const effectiveTimeZoneAbbreviation = timeZoneAbbreviation(effectiveTimeZone);
 
   const update = (key: keyof ReminderDraft, value: string) => {
     setReminder((current) => ({ ...current, [key]: value }));
@@ -139,8 +152,8 @@ export function ReminderSheet({
                   onClick={() => setTimeZoneSheetOpen(true)}
                   aria-label={`Change time zone, currently ${effectiveTimeZone}`}
                 >
-                  <span className="time-zone-mini-label">TZ</span>
-                  <span className="time-zone-mini-value">{effectiveTimeZone.split("/").pop()?.replace(/_/g, " ") || effectiveTimeZone}</span>
+                  <span className="time-zone-mini-label">{timeZoneMode === "device" ? "Auto" : "Custom"}</span>
+                  <span className="time-zone-mini-value">{effectiveTimeZoneAbbreviation}</span>
                   <ChevronRight size={14} />
                 </button>
               </div>
