@@ -2188,7 +2188,7 @@ function ProfileScreen({
             <strong>This phone/browser</strong>
             <small>Your main Pawfolio working copy lives here first.</small>
           </span>
-          <span className="badge badge-amber">Working copy</span>
+          <span className="badge badge-amber">Local</span>
         </div>
         <div className="setting-row static">
           <span>
@@ -2196,6 +2196,21 @@ function ProfileScreen({
             <small>{backupDetail}</small>
           </span>
           <span className={backupLabel === "Backed up" ? "badge badge-green" : backupLabel === "Needs first backup" ? "badge badge-amber" : "badge badge-gray"}>{backupLabel}</span>
+        </div>
+        <div className="setting-row static">
+          <span>
+            <strong>Cloud sync</strong>
+            <small>
+              {session
+                ? integrationSettings.cloudSync === "enabled"
+                  ? "Signed-in changes upload automatically after edits."
+                  : "Cloud sync is available after your first upload."
+                : "Sign in to turn on private backup and auto-sync."}
+            </small>
+          </span>
+          <span className={session && integrationSettings.cloudSync === "enabled" ? "badge badge-green" : "badge badge-gray"}>
+            {session && integrationSettings.cloudSync === "enabled" ? "Auto" : "Off"}
+          </span>
         </div>
         <div className="setting-row static">
           <span>
