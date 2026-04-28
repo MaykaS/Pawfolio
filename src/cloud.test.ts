@@ -10,6 +10,7 @@ describe("cloud auth callback helpers", () => {
       authReturn: true,
       code: "abc123",
       error: "",
+      intent: "",
     });
   });
 
@@ -31,6 +32,27 @@ describe("cloud auth callback helpers", () => {
       authReturn: false,
       code: "",
       error: "Provider disabled",
+      intent: "",
     });
+  });
+
+  it("keeps integration intent during auth callback parsing and cleans it after return", () => {
+    expect(
+      parseAuthCallbackUrl(
+        "https://pawfolio-zeta.vercel.app/?tab=profile&auth-return=1&intent=calendar&code=abc123",
+      ),
+    ).toEqual({
+      requestedTab: "profile",
+      authReturn: true,
+      code: "abc123",
+      error: "",
+      intent: "calendar",
+    });
+
+    expect(
+      cleanupAuthCallbackUrl(
+        "https://pawfolio-zeta.vercel.app/?tab=profile&auth-return=1&intent=calendar&code=abc123",
+      ),
+    ).toBe("/?tab=profile");
   });
 });

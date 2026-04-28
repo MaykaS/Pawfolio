@@ -14,13 +14,13 @@ The next job is not feature accumulation. It is trust, validation, and product h
 
 ## Priority Order
 
-### 1. Finish the trust layer
+### 1. Validate the trust layer in the real world
 
-This is the highest-value work because it determines whether Pawfolio feels dependable in daily care use.
+This is still the highest-value work because it determines whether Pawfolio actually feels dependable in daily care use, not just well-implemented in code.
 
-- Repair and validate the backend sender path used by `api/send-due-push.ts`
-- Move beyond coarse daily scheduling so closed-app reminders can become truly credible
-- Verify due-now, lead-time, and missed-care reminder behavior with the app closed
+- Validate the Supabase Cron path from `supabase/cron.sql`
+- Prove that closed-app reminders arrive with the app fully closed
+- Verify due-now, lead-time, recurring, and missed-care reminder behavior with real devices
 - Keep refining the account surface so the user understands:
   - what lives on this phone
   - what is backed up privately
@@ -36,6 +36,7 @@ This is the highest-value work because it determines whether Pawfolio feels depe
   - restore success
   - restore failure
 - Confirm what restore currently includes and call out any photo or device-specific limitations honestly
+- Validate Google sign-in, auto-sync, and restore under weak or changing network conditions
 
 ### 3. Run repeated PM-style product QA
 
@@ -50,7 +51,14 @@ This is the highest-value work because it determines whether Pawfolio feels depe
   - installed PWA open/reopen behavior
 - Turn observed friction into the next implementation queue instead of reacting to isolated issues
 
-### 4. Deepen PawPal after trust work is steadier
+### 4. Validate the new integrations before widening them
+
+- Test Google Calendar connect and one-way sync in a real account
+- Confirm create, update, and delete behavior without duplicate calendar events
+- Test real reminder emails to the signed-in account address
+- Improve integration failure states before adding more integration surface area
+
+### 5. Deepen PawPal after trust work is steadier
 
 - Strengthen pattern memory and suggestion outcomes
 - Add sharper one-tap prefills into care and reminder flows
@@ -58,14 +66,14 @@ This is the highest-value work because it determines whether Pawfolio feels depe
 - Keep PawPal as a companion feed, not a second alert list
 - Prepare structured memory for later optional LLM help without depending on LLMs yet
 
-### 5. Make care feel more serious over time
+### 6. Make care feel more serious over time
 
 - Medication start/end dates and missed-dose notes
 - Vaccine manufacturer / lot fields
 - Vet attachments or visit documents
 - Stronger follow-up states and clearer history views
 
-### 6. Refactor before the app grows further
+### 7. Keep refactoring before the app grows further
 
 - Split the oversized app shell into clearer screens, hooks, and helper boundaries
 - Isolate cloud/push/account logic from the main app surface
@@ -73,11 +81,11 @@ This is the highest-value work because it determines whether Pawfolio feels depe
 
 ## Later Product Layers
 
-After trust, validation, and app-structure work are stronger:
+After trust, validation, and current integrations are stronger:
 
-1. Google Calendar real sync
-2. Normalized cloud tables beyond the snapshot backup layer
-3. Backend email reminders
+1. Normalized cloud tables beyond the snapshot backup layer
+2. Shared caregiver access
+3. Multiple pets
 4. Optional LLM-powered PawPal summaries, recaps, or natural-language help
 
 ## What Is Still Partial
@@ -85,8 +93,8 @@ After trust, validation, and app-structure work are stronger:
 - Fully reliable closed-app scheduled phone push
 - Cross-device cloud confidence validated in the real world
 - Normalized multi-device cloud sync
-- Google Calendar real sync
-- Email reminder sending
+- Real-world Google Calendar validation
+- Real-world email reminder validation
 - Shared caregiver access
 - Multiple pets
 

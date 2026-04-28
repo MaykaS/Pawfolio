@@ -1,41 +1,106 @@
 import webpush from "web-push";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requiredEnv, sendJson, supabaseAdmin } from "./_supabase.js";
+import { collectDueDeliveryCandidates, type DeliveryCandidate } from "./_delivery.js";
 
-type ReminderLike = {
+type StoredSubscription = {
   id: string;
-  title: string;
-  type: string;
-  date: string;
-  time?: string;
-  recurrence?: string;
-  notifyLeadMinutes?: number;
+  endpoint: string;
+  subscription: { endpoint: string; keys: { p256dh: string; auth: string } };
 };
 
-function localISO(date: Date) {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+async function alreadyDelivered(
+  userId: string,
+  channel: "push" | "email",
+  candidate: DeliveryCandidate,
+) {
+  const { data } = await supabaseAdmin()
+    .from("notification_deliveries")
+    .select("id,status")
+    .eq("user_id", userId)
+    .eq("channel", channel)
+    .eq("item_type", candidate.channelItemType)
+    .eq("item_id", candidate.itemId)
+    .eq("occurrence_at", candidate.occurrenceAt)
+    .maybeSingle();
+
+  return data?.status === "sent";
 }
 
-function reminderDateTime(reminder: ReminderLike) {
-  const [hours = "9", minutes = "0"] = (reminder.time || "09:00").split(":");
-  const date = new Date(`${reminder.date}T00:00:00.000Z`);
-  date.setUTCHours(Number(hours), Number(minutes), 0, 0);
-  if (reminder.notifyLeadMinutes === 720) {
-    date.setUTCHours(9, 0, 0, 0);
-  } else {
-    date.setUTCMinutes(date.getUTCMinutes() - (reminder.notifyLeadMinutes || 0));
+async function recordDelivery(
+  userId: string,
+  channel: "push" | "email",
+  candidate: DeliveryCandidate,
+  status: "sent" | "failed",
+  error?: string,
+) {
+  await supabaseAdmin().from("notification_deliveries").upsert(
+    {
+      user_id: userId,
+      channel,
+      item_type: candidate.channelItemType,
+      item_id: candidate.itemId,
+      occurrence_at: candidate.occurrenceAt,
+      status,
+      error: error || null,
+      sent_at: status === "sent" ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "user_id,channel,item_type,item_id,occurrence_at",
+    },
+  );
+}
+
+async function sendPushCandidate(userId: string, subscriptions: StoredSubscription[], candidate: DeliveryCandidate) {
+  let sent = 0;
+  for (const subscription of subscriptions) {
+    try {
+      await webpush.sendNotification(
+        subscription.subscription,
+        JSON.stringify({
+          title: candidate.title,
+          body: candidate.body,
+          tag: `pawfolio-${candidate.channelItemType}-${candidate.itemId}-${candidate.occurrenceAt}`,
+          url: candidate.url,
+        }),
+      );
+      sent += 1;
+    } catch (error) {
+      const statusCode = (error as { statusCode?: number }).statusCode;
+      if (statusCode === 404 || statusCode === 410) {
+        await supabaseAdmin().from("push_subscriptions").delete().eq("id", subscription.id);
+      }
+    }
   }
-  return date;
+  return sent;
 }
 
-function dueReminders(state: { reminders?: ReminderLike[]; careEvents?: ReminderLike[] }, now = new Date()) {
-  const start = new Date(now.getTime() - 5 * 60 * 1000);
-  const end = new Date(now.getTime() + 10 * 60 * 1000);
-  return [...(state.reminders || []), ...(state.careEvents || [])].filter((reminder) => {
-    if (!reminder.date) return false;
-    const alertAt = reminderDateTime(reminder);
-    return alertAt >= start && alertAt <= end && localISO(alertAt) === localISO(now);
+async function sendEmailCandidate(userId: string, candidate: DeliveryCandidate) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const emailFrom = process.env.EMAIL_FROM;
+  if (!apiKey || !emailFrom) return false;
+
+  const { data: userData, error: userError } = await supabaseAdmin().auth.admin.getUserById(userId);
+  if (userError || !userData.user?.email) return false;
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "User-Agent": "pawfolio/0.1",
+      "Idempotency-Key": `pawfolio-${userId}-${candidate.channelItemType}-${candidate.itemId}-${candidate.occurrenceAt}`,
+    },
+    body: JSON.stringify({
+      from: emailFrom,
+      to: [userData.user.email],
+      subject: candidate.title,
+      html: `<p>${candidate.body}</p><p><a href="https://pawfolio-zeta.vercel.app${candidate.url}">Open Pawfolio</a></p>`,
+    }),
   });
+
+  return response.ok;
 }
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
@@ -64,34 +129,46 @@ export default async function handler(request: VercelRequest, response: VercelRe
   if (snapshotError) return sendJson(response, 500, { error: snapshotError.message });
 
   let sent = 0;
+  let emailed = 0;
   for (const snapshot of snapshots || []) {
-    const reminders = dueReminders(snapshot.state || {});
-    if (reminders.length === 0) continue;
+    const candidates = collectDueDeliveryCandidates(snapshot.state || {});
+    if (candidates.length === 0) continue;
 
     const { data: subscriptions } = await supabase
       .from("push_subscriptions")
-      .select("id,subscription")
+      .select("id,endpoint,subscription")
       .eq("user_id", snapshot.user_id);
 
-    for (const reminder of reminders) {
-      for (const subscription of subscriptions || []) {
-        await webpush
-          .sendNotification(
-            subscription.subscription,
-            JSON.stringify({
-              title: "Pawfolio reminder",
-              body: `${reminder.title} is due ${reminder.time || "today"}.`,
-              tag: `pawfolio-${reminder.id}-${reminder.date}`,
-              url: "/",
-            }),
-          )
-          .then(() => {
-            sent += 1;
-          })
-          .catch(() => undefined);
+    const preferences = snapshot.state?.notificationPreferences || {};
+
+    for (const candidate of candidates) {
+      if (preferences.push) {
+        const skipPush = await alreadyDelivered(snapshot.user_id, "push", candidate);
+        if (!skipPush) {
+          const sentCount = await sendPushCandidate(snapshot.user_id, (subscriptions || []) as StoredSubscription[], candidate);
+          if (sentCount > 0) {
+            sent += sentCount;
+            await recordDelivery(snapshot.user_id, "push", candidate, "sent");
+          } else {
+            await recordDelivery(snapshot.user_id, "push", candidate, "failed", "No valid push subscriptions accepted the notification.");
+          }
+        }
+      }
+
+      if (preferences.email) {
+        const skipEmail = await alreadyDelivered(snapshot.user_id, "email", candidate);
+        if (!skipEmail) {
+          const ok = await sendEmailCandidate(snapshot.user_id, candidate);
+          if (ok) {
+            emailed += 1;
+            await recordDelivery(snapshot.user_id, "email", candidate, "sent");
+          } else {
+            await recordDelivery(snapshot.user_id, "email", candidate, "failed", "Email send failed.");
+          }
+        }
       }
     }
   }
 
-  return sendJson(response, 200, { ok: true, sent });
+  return sendJson(response, 200, { ok: true, sent, emailed });
 }

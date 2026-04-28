@@ -133,9 +133,10 @@ The app now includes these reminder-delivery layers:
 - Signed-in auto-sync of local reminder data into `pawfolio_snapshots`
 - Near-term local reminder scheduling in the client for reminders due within roughly the next hour while the app is active or backgrounded
 - Profile-level push diagnostics showing the working copy, account, permission, saved-device, cloud backup, and latest cloud timing state
-- A backend Vercel cron/API sender scaffold for closed-app push delivery from cloud snapshots
+- A backend sender that reads cloud snapshots, computes due reminder/task deliveries, records them in `notification_deliveries`, and sends push/email channels
+- A free-first Supabase Cron scheduling path documented in `supabase/cron.sql`
 
-Current limitation: the closed-app push sender path is not yet production-complete. It still depends on a healthy backend service-role key path plus a scheduler that can run more frequently than the current Vercel Hobby daily cron. That means local/foreground reminder delivery is usable now, while true precise closed-app scheduled push remains a follow-on infrastructure milestone.
+Current limitation: the closed-app sender path is now structurally in place, but it still needs live production validation for scheduler cadence, cross-device trust, and real-world delivery behavior. Local/foreground reminder delivery remains the fallback layer while the free-first backend path is being proven.
 
 The app should eventually support:
 
@@ -157,6 +158,18 @@ Reminder records should be designed with:
 - Optional assigned user later
 
 Real push should be handled by Supabase-backed auth/device subscriptions plus PWA Push API and a backend push sender, or by Expo push in the native app phase. Email and Google Calendar sync must happen through server-side code so secrets are not exposed in the browser.
+
+## Free-First Integration Direction
+
+The current trust/integration path is intentionally free-first:
+
+- Supabase Auth + snapshot backup remain the account foundation
+- Supabase Cron is the intended frequent scheduler path instead of Vercel Pro cron
+- Google Calendar sync uses per-user OAuth plus server-side stored refresh tokens
+- Email reminders use a lightweight provider path such as Resend
+- The working phone/browser remains the operational copy until normalized multi-table cloud sync is introduced later
+
+This lets Pawfolio become more trustworthy without requiring a paid platform upgrade before the product has earned it.
 
 ## Profile Editing Pattern
 

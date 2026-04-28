@@ -24,6 +24,7 @@ type AuthCallbackState = {
   authReturn: boolean;
   code: string;
   error: string;
+  intent: string;
 };
 
 export function parseAuthCallbackUrl(input: string): AuthCallbackState {
@@ -33,12 +34,13 @@ export function parseAuthCallbackUrl(input: string): AuthCallbackState {
     authReturn: url.searchParams.get("auth-return") === "1",
     code: url.searchParams.get("code") || "",
     error: url.searchParams.get("error_description") || url.searchParams.get("error") || "",
+    intent: url.searchParams.get("intent") || "",
   };
 }
 
 export function cleanupAuthCallbackUrl(input: string) {
   const url = new URL(input, "https://pawfolio.local");
-  ["auth-return", "code", "state", "error", "error_description"].forEach((key) => url.searchParams.delete(key));
+  ["auth-return", "code", "state", "error", "error_description", "intent"].forEach((key) => url.searchParams.delete(key));
   const search = url.searchParams.toString();
   return `${url.pathname}${search ? `?${search}` : ""}`;
 }
@@ -48,15 +50,27 @@ export function missingCloudConfigMessage() {
   return "Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel to enable accounts.";
 }
 
-export async function signInWithGoogle() {
+type GoogleSignInOptions = {
+  intent?: string;
+  scopes?: string;
+  forceConsent?: boolean;
+};
+
+export async function signInWithGoogle(options: GoogleSignInOptions = {}) {
   if (!supabase) throw new Error(missingCloudConfigMessage());
-  const redirectTo = `${window.location.origin}/?tab=profile&auth-return=1`;
+  const redirectUrl = new URL(`${window.location.origin}/`);
+  redirectUrl.searchParams.set("tab", "profile");
+  redirectUrl.searchParams.set("auth-return", "1");
+  if (options.intent) redirectUrl.searchParams.set("intent", options.intent);
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo,
+      redirectTo: redirectUrl.toString(),
+      scopes: options.scopes,
       queryParams: {
-        prompt: "select_account",
+        prompt: options.forceConsent ? "consent select_account" : "select_account",
+        ...(options.forceConsent ? { access_type: "offline" } : {}),
+        ...(options.scopes ? { include_granted_scopes: "true" } : {}),
       },
     },
   });
@@ -100,6 +114,43 @@ export async function getCloudSession() {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
   return data.session;
+}
+
+export async function connectGoogleCalendar(
+  session: Session,
+  providerAccessToken: string,
+  providerRefreshToken?: string,
+) {
+  const response = await fetch("/api/google-calendar-connect", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
+      providerAccessToken,
+      providerRefreshToken,
+      scopes: "https://www.googleapis.com/auth/calendar",
+      providerEmail: session.user.email || "",
+      providerUserId: session.user.user_metadata?.sub || session.user.id,
+    }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Could not connect Google Calendar.");
+  return payload;
+}
+
+export async function syncGoogleCalendar(session: Session) {
+  const response = await fetch("/api/google-calendar-sync", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Could not sync Google Calendar.");
+  return payload as { ok: true; synced: number; deleted: number; lastSyncAt?: string };
 }
 
 function urlBase64ToUint8Array(value: string) {

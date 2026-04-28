@@ -24,17 +24,9 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
-  cleanupAuthCallbackUrl,
   cloudConfigured,
-  downloadCloudPawfolioToLocal,
-  getCloudSession,
   missingCloudConfigMessage,
-  parseAuthCallbackUrl,
   pushConfigured,
-  signInWithGoogle,
-  subscribeDeviceToPush,
-  supabase,
-  uploadLocalPawfolioToAccount,
 } from "./cloud";
 import {
   ageLabel,
@@ -77,13 +69,12 @@ import {
   normalizeState,
   notificationBody,
   notificationLeadLabel,
-  photoRefPrefix,
   notificationPermissionStatus,
+  photoRefPrefix,
   prettySyncTime,
   pushStatusDetail,
   pushStatusLabel,
   reminderLeadOptions,
-  reminderAlertDate,
   prettyDate,
   recurrenceLabel,
   reminderRecurrenceOptions,
@@ -130,6 +121,9 @@ import {
   type ReminderRecurrence,
   type Tab,
 } from "./pawfolio";
+import { useCloudAccount, type CloudActionState, type TrustState } from "./hooks/useCloudAccount";
+import { useLocalReminderScheduling } from "./hooks/useLocalReminderScheduling";
+import { usePushStatus } from "./hooks/usePushStatus";
 
 type TaskMode = { mode: "create" } | { mode: "edit"; task: DailyTask };
 type MemoryMode = { mode: "create" } | { mode: "edit"; entry: DiaryEntry };
@@ -137,8 +131,6 @@ type CareMode = { mode: "create" } | { mode: "edit"; record: CareRecord };
 type ReminderMode = { mode: "create"; date?: string } | { mode: "edit"; reminder: Reminder };
 type PhotoRecord = { id: string; dataUrl: string; createdAt: string };
 type BackupPayload = { app: "Pawfolio"; version: number; exportedAt: string; state: PawfolioState; photos?: PhotoRecord[] };
-type CloudActionState = "idle" | "uploading" | "restoring" | "enabling_push";
-
 const photoDbName = "pawfolio-photos-v1";
 const photoStoreName = "photos";
 
@@ -360,11 +352,6 @@ function monthKey(date: Date) {
   return `${date.getFullYear()}-${date.getMonth()}`;
 }
 
-function cloudSyncFingerprint(state: PawfolioState) {
-  const { cloudSyncMeta: _cloudSyncMeta, ...rest } = state;
-  return JSON.stringify(rest);
-}
-
 export default function App() {
   const [state, setState] = useState<PawfolioState>(() => loadState());
   const [tab, setTab] = useState<Tab>("today");
@@ -375,76 +362,7 @@ export default function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [selectedMemory, setSelectedMemory] = useState<DiaryEntry | null>(null);
   const [saveError, setSaveError] = useState("");
-  const [session, setSession] = useState<Session | null>(null);
-  const [cloudStatus, setCloudStatus] = useState("");
-  const [cloudAction, setCloudAction] = useState<CloudActionState>("idle");
   const [pushDiagnosticsOpen, setPushDiagnosticsOpen] = useState(false);
-  const [pushPermission, setPushPermission] = useState<PawfolioNotificationStatus>(notificationPermissionStatus(globalThis.Notification));
-  const [hasPushSubscription, setHasPushSubscription] = useState(false);
-  const cloudSyncTimer = useRef<number | null>(null);
-  const scheduledReminderTimers = useRef<number[]>([]);
-  const lastUploadedFingerprint = useRef("");
-
-  useEffect(() => {
-    const callback = parseAuthCallbackUrl(window.location.href);
-    if (callback.requestedTab === "profile" || callback.authReturn || callback.code || callback.error) {
-      setTab("profile");
-    }
-  }, []);
-
-  useEffect(() => {
-    const client = supabase;
-    if (!client) return undefined;
-    let cancelled = false;
-
-    const finishAuthReturn = async () => {
-      const callback = parseAuthCallbackUrl(window.location.href);
-      if (callback.requestedTab === "profile" || callback.authReturn || callback.code || callback.error) {
-        setTab("profile");
-      }
-
-      if (callback.error) {
-        if (!cancelled) setCloudStatus(`Google sign-in didn't finish: ${callback.error}`);
-        window.history.replaceState({}, document.title, cleanupAuthCallbackUrl(window.location.href));
-        return;
-      }
-
-      if (callback.code) {
-        if (!cancelled) setCloudStatus("Finishing Google sign-in...");
-        const { data, error } = await client.auth.exchangeCodeForSession(callback.code);
-        if (cancelled) return;
-        if (error) {
-          setSession(null);
-          setCloudStatus(`Google sign-in didn't finish: ${error.message}`);
-        } else {
-          setSession(data.session);
-          setCloudStatus("Signed in. This phone keeps the working copy, and you can back it up or save push now.");
-        }
-        window.history.replaceState({}, document.title, cleanupAuthCallbackUrl(window.location.href));
-        return;
-      }
-
-      const { data } = await client.auth.getSession();
-      if (!cancelled) setSession(data.session);
-    };
-
-    void finishAuthReturn();
-
-    const { data } = client.auth.onAuthStateChange((_event, nextSession) => {
-      if (cancelled) return;
-      setSession(nextSession);
-      if (nextSession) {
-        setTab("profile");
-        setCloudStatus("Signed in. This phone keeps the working copy, and you can back it up or save push now.");
-        window.history.replaceState({}, document.title, cleanupAuthCallbackUrl(window.location.href));
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      data.subscription.unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -502,60 +420,27 @@ export default function App() {
     setSaveError(result.ok ? "" : result.message);
   }, [state]);
 
-  useEffect(() => {
-    let active = true;
-
-    const refreshPushStatus = async () => {
-      setPushPermission(notificationPermissionStatus(globalThis.Notification));
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-        if (active) setHasPushSubscription(false);
-        return;
-      }
-
-      try {
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
-        if (active) setHasPushSubscription(Boolean(subscription));
-      } catch {
-        if (active) setHasPushSubscription(false);
-      }
-    };
-
-    void refreshPushStatus();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!session) return undefined;
-    const syncFingerprint = cloudSyncFingerprint(state);
-    if (syncFingerprint === lastUploadedFingerprint.current) return undefined;
-    if (cloudSyncTimer.current) window.clearTimeout(cloudSyncTimer.current);
-    cloudSyncTimer.current = window.setTimeout(() => {
-      uploadLocalPawfolioToAccount({ ...state, cloudSyncMeta: initialState.cloudSyncMeta })
-        .then(() => {
-          lastUploadedFingerprint.current = syncFingerprint;
-          setState((current) => ({
-            ...current,
-            integrationSettings: {
-              ...current.integrationSettings,
-              cloudSync: "enabled",
-            },
-            cloudSyncMeta: {
-              ...current.cloudSyncMeta,
-              lastUploadedAt: new Date().toISOString(),
-            },
-          }));
-        })
-        .catch(() => undefined);
-    }, 1200);
-
-    return () => {
-      if (cloudSyncTimer.current) window.clearTimeout(cloudSyncTimer.current);
-    };
-  }, [session, state]);
+  const { pushPermission, hasPushSubscription, refreshPushStatus } = usePushStatus();
+  const {
+    session,
+    cloudStatus,
+    cloudAction,
+    trustState,
+    signIn,
+    signOut,
+    uploadCloud,
+    restoreCloud,
+    enablePush,
+    connectCalendar,
+    syncCalendarNow,
+  } = useCloudAccount({
+    state,
+    setState,
+    setTab,
+    pushPermission,
+    hasPushSubscription,
+    refreshPushStatus,
+  });
 
   const today = todayISO();
   const todayTasks = useMemo(() => tasksForDate(state.tasks, state.taskHistory, today), [state.tasks, state.taskHistory, today]);
@@ -570,50 +455,11 @@ export default function App() {
     [calendarItems, state.reminderHistory],
   );
 
-  useEffect(() => {
-    scheduledReminderTimers.current.forEach((timer) => window.clearTimeout(timer));
-    scheduledReminderTimers.current = [];
-
-    if (notificationPermissionStatus(Notification) !== "granted") return undefined;
-
-    const now = new Date();
-    const upcoming = getUpcomingReminders(calendarItems, now, state.reminderHistory).slice(0, 12);
-    const withinNextHour = upcoming.filter((reminder) => {
-      const alertAt = reminderAlertDate(reminder);
-      const delay = alertAt.getTime() - now.getTime();
-      return delay >= 0 && delay <= 60 * 60 * 1000;
-    });
-
-    withinNextHour.forEach((reminder) => {
-      const alertAt = reminderAlertDate(reminder);
-      const delay = Math.max(0, alertAt.getTime() - Date.now());
-      const notificationKey = `pawfolio-local-alert:${reminder.id}:${reminder.date}`;
-      const timer = window.setTimeout(async () => {
-        if (sessionStorage.getItem(notificationKey) === "1") return;
-        sessionStorage.setItem(notificationKey, "1");
-        const body = `${reminder.title} is due ${reminder.time || "today"}.`;
-        if ("serviceWorker" in navigator) {
-          const registration = await navigator.serviceWorker.ready;
-          await registration.showNotification("Pawfolio reminder", {
-            body,
-            icon: "/pwa-192x192.png",
-            badge: "/pwa-192x192.png",
-            tag: `pawfolio-local-${reminder.id}-${reminder.date}`,
-            data: { url: "/?tab=calendar" },
-          });
-          return;
-        }
-
-        new Notification("Pawfolio reminder", { body });
-      }, delay);
-      scheduledReminderTimers.current.push(timer);
-    });
-
-    return () => {
-      scheduledReminderTimers.current.forEach((timer) => window.clearTimeout(timer));
-      scheduledReminderTimers.current = [];
-    };
-  }, [calendarItems, state.reminderHistory]);
+  useLocalReminderScheduling({
+    reminders: calendarItems,
+    reminderHistory: state.reminderHistory,
+    enabled: state.notificationPreferences.push,
+  });
 
   const handleCoachAction = (suggestion: CoachSuggestion) => {
     if (suggestion.action.type === "add_task") {
@@ -814,108 +660,24 @@ export default function App() {
           onImportData={importPawfolioData}
           notificationPreferences={state.notificationPreferences}
           integrationSettings={state.integrationSettings}
+          googleCalendarSyncState={state.googleCalendarSyncState}
           cloudSyncMeta={state.cloudSyncMeta}
           coachSettings={state.coachSettings}
           session={session}
           cloudStatus={cloudStatus}
           cloudAction={cloudAction}
+          trustState={trustState}
           cloudConfigured={cloudConfigured}
           pushConfigured={pushConfigured}
           pushPermission={pushPermission}
           hasPushSubscription={hasPushSubscription}
-          onSignIn={() => {
-            signInWithGoogle().catch((error: Error) => setCloudStatus(error.message));
-          }}
-          onSignOut={() => {
-            supabase?.auth.signOut();
-            setCloudStatus("Signed out. This phone still has its local Pawfolio, but cloud backup and phone push are off until you sign back in.");
-          }}
-          onUploadCloud={() => {
-            setCloudAction("uploading");
-            setCloudStatus("Uploading this phone's Pawfolio into your private account...");
-            const syncFingerprint = cloudSyncFingerprint(state);
-            uploadLocalPawfolioToAccount({ ...state, cloudSyncMeta: initialState.cloudSyncMeta })
-              .then(() => {
-                lastUploadedFingerprint.current = syncFingerprint;
-                setState((current) => ({
-                  ...current,
-                  integrationSettings: {
-                    ...current.integrationSettings,
-                    cloudSync: "enabled",
-                  },
-                  cloudSyncMeta: {
-                    ...current.cloudSyncMeta,
-                    lastUploadedAt: new Date().toISOString(),
-                  },
-                }));
-                setCloudStatus("Local Pawfolio uploaded to your account.");
-              })
-              .catch((error: Error) => setCloudStatus(error.message))
-              .finally(() => setCloudAction("idle"));
-          }}
-          onRestoreCloud={() => {
-            setCloudAction("restoring");
-            setCloudStatus("Restoring your latest private Pawfolio backup...");
-            downloadCloudPawfolioToLocal()
-              .then((snapshot) => {
-                if (!snapshot?.state) {
-                  setCloudStatus("No cloud Pawfolio backup was found yet. This phone is still your working copy.");
-                  return;
-                }
-                const restoredState = normalizeState(snapshot.state as Partial<PawfolioState>);
-                const nextState = normalizeState({
-                  ...restoredState,
-                  cloudSyncMeta: {
-                    ...restoredState.cloudSyncMeta,
-                    lastUploadedAt: snapshot.updated_at || restoredState.cloudSyncMeta?.lastUploadedAt,
-                    lastRestoredAt: new Date().toISOString(),
-                  },
-                  integrationSettings: {
-                    ...restoredState.integrationSettings,
-                    cloudSync: "enabled",
-                  },
-                });
-                lastUploadedFingerprint.current = cloudSyncFingerprint(nextState);
-                setState(nextState);
-                setCloudStatus("Cloud Pawfolio restored to this phone.");
-              })
-              .catch((error: Error) => setCloudStatus(error.message))
-              .finally(() => setCloudAction("idle"));
-          }}
-          onEnablePush={() => {
-            setCloudAction("enabling_push");
-            setCloudStatus("Saving this phone for Pawfolio reminders...");
-            getCloudSession()
-              .then((activeSession) => {
-                if (!activeSession) {
-                  setCloudStatus("Sign in before enabling phone push.");
-                  return;
-                }
-                setSession(activeSession);
-                return subscribeDeviceToPush(activeSession).then(() => {
-                  setPushPermission(notificationPermissionStatus(globalThis.Notification));
-                  setHasPushSubscription(true);
-                  setState((current) => ({
-                    ...current,
-                    notificationPreferences: {
-                      ...current.notificationPreferences,
-                      push: true,
-                    },
-                    integrationSettings: {
-                      ...current.integrationSettings,
-                      push: "enabled",
-                    },
-                    cloudSyncMeta: {
-                      ...current.cloudSyncMeta,
-                      lastPushRegisteredAt: new Date().toISOString(),
-                    },
-                  }));
-                  setCloudStatus("This phone is saved for Pawfolio push reminders.");
-                });
-              })
-              .catch((error: Error) => setCloudStatus(error.message))
-              .finally(() => setCloudAction("idle"));
-          }}
+          onSignIn={signIn}
+          onSignOut={signOut}
+          onUploadCloud={uploadCloud}
+          onRestoreCloud={restoreCloud}
+          onEnablePush={enablePush}
+          onConnectCalendar={connectCalendar}
+          onSyncCalendar={syncCalendarNow}
           onOpenPushDiagnostics={() => setPushDiagnosticsOpen(true)}
           onTogglePreference={(key) =>
             setState((current) => ({
@@ -923,6 +685,21 @@ export default function App() {
               notificationPreferences: {
                 ...current.notificationPreferences,
                 [key]: !current.notificationPreferences[key],
+              },
+              integrationSettings: {
+                ...current.integrationSettings,
+                googleCalendar:
+                  key === "googleCalendar"
+                    ? current.googleCalendarSyncState.connected
+                      ? "connected"
+                      : "not_connected"
+                    : current.integrationSettings.googleCalendar,
+                email:
+                  key === "email"
+                    ? session
+                      ? "configured"
+                      : "planned"
+                    : current.integrationSettings.email,
               },
             }))
           }
@@ -2188,11 +1965,13 @@ function ProfileScreen({
   onImportData,
   notificationPreferences,
   integrationSettings,
+  googleCalendarSyncState,
   cloudSyncMeta,
   coachSettings,
   session,
   cloudStatus,
   cloudAction,
+  trustState,
   cloudConfigured: isCloudConfigured,
   pushConfigured: isPushConfigured,
   pushPermission,
@@ -2202,6 +1981,8 @@ function ProfileScreen({
   onUploadCloud,
   onRestoreCloud,
   onEnablePush,
+  onConnectCalendar,
+  onSyncCalendar,
   onOpenPushDiagnostics,
   onTogglePreference,
   onToggleCoach,
@@ -2216,11 +1997,13 @@ function ProfileScreen({
   onImportData: (file: File) => Promise<void>;
   notificationPreferences: PawfolioState["notificationPreferences"];
   integrationSettings: PawfolioState["integrationSettings"];
+  googleCalendarSyncState: PawfolioState["googleCalendarSyncState"];
   cloudSyncMeta: CloudSyncMeta;
   coachSettings: CoachSettings;
   session: Session | null;
   cloudStatus: string;
   cloudAction: CloudActionState;
+  trustState: TrustState;
   cloudConfigured: boolean;
   pushConfigured: boolean;
   pushPermission: PawfolioNotificationStatus;
@@ -2230,6 +2013,8 @@ function ProfileScreen({
   onUploadCloud: () => void;
   onRestoreCloud: () => void;
   onEnablePush: () => void;
+  onConnectCalendar: () => void;
+  onSyncCalendar: () => void;
   onOpenPushDiagnostics: () => void;
   onTogglePreference: (key: keyof PawfolioState["notificationPreferences"]) => void;
   onToggleCoach: () => void;
@@ -2320,10 +2105,10 @@ function ProfileScreen({
       <section className="card settings-card">
         <p className="label no-margin">Integrations</p>
         <SettingRow label="Google Calendar" value={integrationStatusLabel(integrationSettings.googleCalendar)} checked={notificationPreferences.googleCalendar} onToggle={() => onTogglePreference("googleCalendar")} />
-        <SettingRow label="Email reminders" value={integrationStatusLabel(integrationSettings.email)} checked={notificationPreferences.email} onToggle={() => onTogglePreference("email")} />
+        <SettingRow label="Email reminders" value={trustState.email === "active" ? "Active now" : integrationStatusLabel(integrationSettings.email)} checked={notificationPreferences.email} onToggle={() => onTogglePreference("email")} />
         <SettingRow label="Phone push" value={phonePushLabel} checked={notificationPreferences.push || hasPushSubscription} onToggle={() => onTogglePreference("push")} />
         <SettingRow label="In-app reminders" value="Active now" checked={notificationPreferences.inApp} onToggle={() => onTogglePreference("inApp")} />
-        <p className="settings-note">{phonePushDetail}</p>
+        <p className="settings-note">{notificationPreferences.email && session ? `Reminder emails can go to ${session.user.email}.` : phonePushDetail}</p>
       </section>
       <section className="card settings-card">
         <p className="label no-margin">PawPal</p>
@@ -2446,6 +2231,27 @@ function ProfileScreen({
           <span>
             <strong>{cloudAction === "enabling_push" ? "Saving this phone..." : hasPushSubscription ? "Refresh phone push" : "Enable phone push"}</strong>
             <small>{isPushConfigured ? "Save this phone for Pawfolio reminders." : "Add VAPID keys first."}</small>
+          </span>
+          <ChevronRight size={17} />
+        </button>
+        <button className="setting-row" type="button" onClick={integrationSettings.googleCalendar === "connected" ? onSyncCalendar : onConnectCalendar} disabled={!session || cloudAction !== "idle"}>
+          <span>
+            <strong>
+              {cloudAction === "connecting_calendar"
+                ? "Connecting Google Calendar..."
+                : cloudAction === "syncing_calendar"
+                  ? "Syncing Google Calendar..."
+                  : integrationSettings.googleCalendar === "connected"
+                    ? "Sync Google Calendar"
+                    : "Connect Google Calendar"}
+            </strong>
+            <small>
+              {integrationSettings.googleCalendar === "connected"
+                ? googleCalendarSyncState.lastSyncAt
+                  ? `Last synced ${prettySyncTime(googleCalendarSyncState.lastSyncAt)}.`
+                  : "Sync Pawfolio reminders into your primary Google Calendar."
+                : "Connect your primary Google Calendar for one-way reminder sync."}
+            </small>
           </span>
           <ChevronRight size={17} />
         </button>

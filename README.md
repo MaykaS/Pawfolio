@@ -69,7 +69,9 @@ Today, Pawfolio already does these product jobs well:
 - One-tap cloud restore from the latest private Supabase snapshot
 - Phone push subscription save for the current signed-in device
 - Near-term local reminder notifications while the app is open or backgrounded with notification permission granted
-- Integration settings for Google Calendar, email, phone push, and cloud sync, with live push/account status
+- Integration settings for Google Calendar, email, phone push, and cloud sync, with live trust/account status
+- Google Calendar connection and one-way sync into the user's primary calendar when Google Calendar envs and provider scopes are configured
+- Backend email reminder delivery plumbing for the signed-in account email when Resend envs are configured
 - Floating PawPal companion with local rule-based care gaps, patterns, breed/season context, optional collapsed Climate care context, and one-tap actions
 - Full Pawfolio data export/import for localStorage and IndexedDB photo safety
 - Supabase Google sign-in, private cloud snapshot upload, and PWA push subscription setup
@@ -88,10 +90,12 @@ Current data/auth note:
 
 Cloud/push setup files:
 
-- `.env.example` lists the needed Vercel variables.
-- `supabase/schema.sql` creates the private snapshot and push subscription tables with RLS.
-- `api/push-subscriptions.ts` is the backend push-subscription endpoint scaffold.
-- `api/send-due-push.ts` is the scheduled push sender scaffold for due reminders.
+- `.env.example` lists the needed frontend, Supabase, VAPID, Google Calendar, and email variables.
+- `supabase/schema.sql` creates the snapshot, push, integration, calendar-link, and delivery-ledger tables with RLS.
+- `supabase/cron.sql` documents the free-first Supabase Cron path for frequent reminder delivery.
+- `api/google-calendar-connect.ts` stores server-side Google Calendar integration credentials for the signed-in user.
+- `api/google-calendar-sync.ts` performs one-way Pawfolio-to-Google-Calendar sync for reminders and shared care-calendar items.
+- `api/send-due-push.ts` now acts as the scheduled reminder sender for push and email channels, backed by a delivery ledger.
 
 Run locally:
 
@@ -133,7 +137,7 @@ Notes:
 - The Profile account area now shows live cloud sync time, phone-push status, and a push diagnostics sheet.
 - The Profile account area now explains the difference between the working copy on this phone, the latest cloud backup, and the last restore.
 - Today is now a compact urgent inbox, while PawPal is the broader companion feed.
-- Fully reliable closed-app scheduled phone push still remains a backend milestone. It needs a healthy server-side sender path plus a scheduler that can run more frequently than the current Hobby-plan daily cron.
+- Fully validated closed-app scheduled phone push still needs production scheduling verification, but the app now includes a free-first Supabase Cron path, a delivery ledger, and backend channel senders instead of relying only on local reminders.
 
 See:
 

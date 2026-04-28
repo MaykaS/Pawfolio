@@ -240,6 +240,30 @@ Decision: The next implementation cycle prioritizes push reliability, restore co
 
 Reason: Pawfolio already has enough feature depth that trust and clarity now matter more than raw surface area. Hardening the product first is the fastest path toward an app that feels dependable instead of merely ambitious.
 
+## 2026-04-27: Keep Trust And Integrations Free-First
+
+Decision: Closed-app push, Google Calendar sync, and email reminders should be implemented on a free-first infrastructure path.
+
+Reason: Pawfolio should become trustworthy before it becomes expensive. Supabase-backed scheduling, direct Google Calendar integration, and lightweight email delivery let the product harden without depending on Vercel Pro or paid sync middleware.
+
+## 2026-04-27: Move Trust Logic Out Of The Main App Shell
+
+Decision: Cloud account state, push subscription state, and local reminder scheduling now live in focused hooks instead of staying embedded directly in the main app shell.
+
+Reason: The trust layer had grown large enough that continuing to add push, restore, and integration behavior directly inside `App.tsx` would raise regression risk. Pulling these paths into smaller modules makes the codebase read more like a senior-owned product surface and makes future debugging less fragile.
+
+## 2026-04-27: Add A Delivery Ledger Before Treating Notifications As Trustworthy
+
+Decision: Reminder delivery now records occurrence-level push and email sends in `notification_deliveries`.
+
+Reason: A recurring scheduler without idempotency is not trustworthy. The delivery ledger gives Pawfolio a clean way to avoid duplicate sends, track failures, and harden notification behavior over time.
+
+## 2026-04-27: Sync Google Calendar One-Way First
+
+Decision: The first real Google Calendar version is one-way sync from Pawfolio into the user's primary Google Calendar.
+
+Reason: One-way sync covers the core “see my reminders and care events outside the app” job while avoiding the complexity and conflict handling of bidirectional calendar editing too early.
+
 ## 2026-04-22: Use A Dog-Face PWA Icon
 
 Decision: The installed PWA icon should be a cute dog face in Pawfolio colors rather than a generic mark.
