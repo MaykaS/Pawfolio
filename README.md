@@ -67,6 +67,7 @@ Today, Pawfolio already does these product jobs well:
 - In-app notification center with Due now, Soon, and Upcoming reminder groups plus service-worker test notifications for installed PWA checks
 - Signed-in auto-sync of local Pawfolio state to a private Supabase snapshot row
 - One-tap cloud restore from the latest private Supabase snapshot
+- Restore-first onboarding that lets a signed-in user recover from cloud before creating a new profile
 - Phone push subscription save for the current signed-in device
 - Near-term local reminder notifications while the app is open or backgrounded with notification permission granted
 - Integration settings for Google Calendar, phone push, cloud sync, and deferred email, with live trust/account status
@@ -83,6 +84,7 @@ Current data/auth note:
 - Pawfolio now supports Google sign-in through Supabase when the project is configured.
 - Signed-in users can upload or auto-sync local state into their own private Supabase snapshot row.
 - Signed-in users can also restore the latest cloud snapshot back onto the phone/browser.
+- Fresh installs or cleared browser storage can restore from cloud directly from onboarding without creating a placeholder pet profile first.
 - Browser-local data still remains the main working layer for the current product experience.
 - The Profile account surface now treats the current phone/browser as the working copy, with cloud backup and restore layered around it.
 - `Upload local Pawfolio` means copying the data already on this phone/browser into the signed-in private account as a backup and trust-building handoff step.

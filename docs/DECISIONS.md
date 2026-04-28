@@ -276,6 +276,12 @@ Decision: The Profile account area should separate compact trust summary, explic
 
 Reason: The old Cloud & phone section had become too crowded and hard to scan on mobile. The account area should help users quickly understand what is local, what is backed up, what this phone can do, and where to go next.
 
+## 2026-04-28: Let Restore Happen Before Profile Creation
+
+Decision: First-run onboarding should offer sign-in, cloud restore, and local backup import before forcing users to create a new pet profile.
+
+Reason: Clearing browser storage or moving to a new device should feel recoverable, not like data loss. Requiring a placeholder profile just to reach restore breaks trust at exactly the moment users most need recovery.
+
 ## 2026-04-22: Use A Dog-Face PWA Icon
 
 Decision: The installed PWA icon should be a cute dog face in Pawfolio colors rather than a generic mark.

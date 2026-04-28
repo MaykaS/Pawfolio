@@ -534,7 +534,13 @@ export default function App() {
       <main className="app-root">
         {saveError && <div className="app-alert">{saveError}</div>}
         <Onboarding
+          session={session}
+          cloudStatus={cloudStatus}
+          cloudAction={cloudAction}
           onSave={(profile) => setState((current) => ({ ...current, profile }))}
+          onSignIn={signIn}
+          onRestoreCloud={restoreCloud}
+          onImportData={importPawfolioData}
         />
       </main>
     );
@@ -873,7 +879,23 @@ function ScreenHeader({
   );
 }
 
-function Onboarding({ onSave }: { onSave: (profile: DogProfile) => void }) {
+function Onboarding({
+  session,
+  cloudStatus,
+  cloudAction,
+  onSave,
+  onSignIn,
+  onRestoreCloud,
+  onImportData,
+}: {
+  session: Session | null;
+  cloudStatus: string;
+  cloudAction: CloudActionState;
+  onSave: (profile: DogProfile) => void;
+  onSignIn: () => void;
+  onRestoreCloud: () => void;
+  onImportData: (file: File) => Promise<void>;
+}) {
   const [profile, setProfile] = useState<DogProfile>({
     name: "",
     breed: "",
@@ -903,6 +925,12 @@ function Onboarding({ onSave }: { onSave: (profile: DogProfile) => void }) {
     setProfile((current) => ({ ...current, photo }));
   };
 
+  const restoreLabel = cloudAction === "restoring"
+    ? "Restoring..."
+    : session
+      ? "Restore from cloud"
+      : "Sign in to restore";
+
   return (
     <section className="onboarding">
       <div className="ob-progress">
@@ -930,6 +958,48 @@ function Onboarding({ onSave }: { onSave: (profile: DogProfile) => void }) {
             </label>
           </div>
         </div>
+
+        <section className="card onboarding-recovery">
+          <div className="section-heading onboarding-recovery-head">
+            <div>
+              <p className="label no-margin">Recovery</p>
+              <h2>Already have a Pawfolio backup?</h2>
+            </div>
+            <span className={`badge ${session ? "badge-green" : "badge-gray"}`}>{session ? "Signed in" : "Ready"}</span>
+          </div>
+          <p className="ob-sub onboarding-recovery-copy">
+            Sign in and pull your latest cloud Pawfolio onto this device before creating a new profile.
+          </p>
+          <div className="onboarding-recovery-actions">
+            {!session && (
+              <button className="btn btn-secondary" type="button" onClick={onSignIn}>
+                Sign in with Google
+              </button>
+            )}
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={onRestoreCloud}
+              disabled={cloudAction === "restoring"}
+            >
+              {restoreLabel}
+            </button>
+            <label className="btn btn-secondary upload-btn">
+              <Download size={17} />
+              Import backup file
+              <input
+                type="file"
+                accept="application/json"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void onImportData(file);
+                  event.target.value = "";
+                }}
+              />
+            </label>
+          </div>
+          {cloudStatus && <p className="onboarding-recovery-status">{cloudStatus}</p>}
+        </section>
 
         <form
           onSubmit={(event) => {

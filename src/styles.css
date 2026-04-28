@@ -2095,6 +2095,39 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   margin-bottom: 10px;
 }
 
+.onboarding-recovery {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.onboarding-recovery-head {
+  margin-bottom: 0;
+}
+
+.onboarding-recovery-copy {
+  margin-bottom: 0;
+}
+
+.onboarding-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.onboarding-recovery-actions .btn {
+  flex: 1 1 180px;
+  justify-content: center;
+}
+
+.onboarding-recovery-status {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+  margin: 0;
+}
+
 .avatar-builder h2,
 .section-heading h2 {
   color: var(--text);

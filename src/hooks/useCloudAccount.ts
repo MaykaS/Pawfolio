@@ -140,6 +140,31 @@ export function useCloudAccount({
     [setState],
   );
 
+  const applyCloudRestore = useCallback(async () => {
+    const snapshot = await downloadCloudPawfolioToLocal();
+    if (!snapshot?.state) {
+      setCloudStatus("No cloud Pawfolio backup was found for this account yet. You can create a new Pawfolio here or try another signed-in account.");
+      return false;
+    }
+    const restoredState = normalizeState(snapshot.state as Partial<PawfolioState>);
+    const nextState = normalizeState({
+      ...restoredState,
+      cloudSyncMeta: {
+        ...restoredState.cloudSyncMeta,
+        lastUploadedAt: snapshot.updated_at || restoredState.cloudSyncMeta?.lastUploadedAt,
+        lastRestoredAt: new Date().toISOString(),
+      },
+      integrationSettings: {
+        ...restoredState.integrationSettings,
+        cloudSync: "enabled",
+      },
+    });
+    lastUploadedFingerprint.current = cloudSyncFingerprint(nextState);
+    setState(nextState);
+    setCloudStatus("Cloud Pawfolio restored to this device.");
+    return true;
+  }, [setState]);
+
   useEffect(() => {
     const callback = parseAuthCallbackUrl(window.location.href);
     if (callback.requestedTab === "profile" || callback.authReturn || callback.code || callback.error) {
@@ -201,6 +226,15 @@ export function useCloudAccount({
               setCloudAction("idle");
               setCloudStatus(calendarAccessDeniedMessage((calendarError as Error).message));
             }
+          } else if (callback.intent === "restore") {
+            try {
+              setCloudAction("restoring");
+              await applyCloudRestore();
+            } catch (restoreError) {
+              setCloudStatus((restoreError as Error).message);
+            } finally {
+              setCloudAction("idle");
+            }
           } else {
             setCloudStatus("Signed in. This phone keeps the working copy, and you can back it up or save push now.");
           }
@@ -230,7 +264,7 @@ export function useCloudAccount({
       cancelled = true;
       data.subscription.unsubscribe();
     };
-  }, [finalizeGoogleCalendarConnection, setState, setTab]);
+  }, [applyCloudRestore, finalizeGoogleCalendarConnection, setState, setTab]);
 
   useEffect(() => {
     if (!session) return undefined;
@@ -334,33 +368,18 @@ export function useCloudAccount({
 
   const restoreCloud = useCallback(() => {
     setCloudAction("restoring");
+    if (!session) {
+      setCloudStatus("Sign in with Google to restore your cloud Pawfolio.");
+      signInWithGoogle({ intent: "restore" })
+        .catch((error: Error) => setCloudStatus(error.message))
+        .finally(() => setCloudAction("idle"));
+      return;
+    }
     setCloudStatus("Restoring your latest private Pawfolio backup...");
-    downloadCloudPawfolioToLocal()
-      .then((snapshot) => {
-        if (!snapshot?.state) {
-          setCloudStatus("No cloud Pawfolio backup was found yet. This phone is still your working copy.");
-          return;
-        }
-        const restoredState = normalizeState(snapshot.state as Partial<PawfolioState>);
-        const nextState = normalizeState({
-          ...restoredState,
-          cloudSyncMeta: {
-            ...restoredState.cloudSyncMeta,
-            lastUploadedAt: snapshot.updated_at || restoredState.cloudSyncMeta?.lastUploadedAt,
-            lastRestoredAt: new Date().toISOString(),
-          },
-          integrationSettings: {
-            ...restoredState.integrationSettings,
-            cloudSync: "enabled",
-          },
-        });
-        lastUploadedFingerprint.current = cloudSyncFingerprint(nextState);
-        setState(nextState);
-        setCloudStatus("Cloud Pawfolio restored to this phone.");
-      })
+    applyCloudRestore()
       .catch((error: Error) => setCloudStatus(error.message))
       .finally(() => setCloudAction("idle"));
-  }, [setState]);
+  }, [applyCloudRestore, session]);
 
   const enablePush = useCallback(() => {
     setCloudAction("enabling_push");

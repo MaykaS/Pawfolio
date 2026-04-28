@@ -30,6 +30,7 @@ This is still the highest-value work because it determines whether Pawfolio actu
 ### 2. Validate cloud restore confidence
 
 - Test sign-in, upload/auto-sync, and restore on a second browser/device
+- Re-test the new restore-first onboarding path after clearing browser/site data
 - Improve restore messaging for:
   - no backup yet
   - restore in progress
