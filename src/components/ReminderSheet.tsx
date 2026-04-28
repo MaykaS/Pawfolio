@@ -129,24 +129,22 @@ export function ReminderSheet({
               ))}
             </select>
           </Field>
-          <div className="time-zone-stack">
+          <div className="time-block">
             <Field label="Time">
-              <input className="input" type="time" value={reminder.time} onChange={(event) => update("time", event.target.value)} />
+              <div className="time-inline-row">
+                <input className="input time-input" type="time" value={reminder.time} onChange={(event) => update("time", event.target.value)} />
+                <button
+                  className="time-zone-mini"
+                  type="button"
+                  onClick={() => setTimeZoneSheetOpen(true)}
+                  aria-label={`Change time zone, currently ${effectiveTimeZone}`}
+                >
+                  <span className="time-zone-mini-label">TZ</span>
+                  <span className="time-zone-mini-value">{effectiveTimeZone.split("/").pop()?.replace(/_/g, " ") || effectiveTimeZone}</span>
+                  <ChevronRight size={14} />
+                </button>
+              </div>
             </Field>
-            <button
-              className="setting-row reminder-timezone-row compact"
-              type="button"
-              onClick={() => setTimeZoneSheetOpen(true)}
-            >
-              <span>
-                <strong>Time zone</strong>
-                <small>{timeZoneMode === "device" ? "Uses this device by default." : "Custom for this reminder."}</small>
-              </span>
-              <span className="reminder-timezone-value">
-                {effectiveTimeZone}
-                <ChevronRight size={16} />
-              </span>
-            </button>
           </div>
         </div>
         <Field label="Repeat">
