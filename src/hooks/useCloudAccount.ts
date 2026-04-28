@@ -57,6 +57,41 @@ function sessionWithProvider(session: Session) {
   };
 }
 
+const calendarTokenStorageKey = "pawfolio-google-calendar-tokens";
+
+function persistCalendarTokens(session: Session | null) {
+  if (typeof window === "undefined") return;
+  if (!session) {
+    sessionStorage.removeItem(calendarTokenStorageKey);
+    return;
+  }
+  const sessionData = sessionWithProvider(session);
+  if (!sessionData.provider_token && !sessionData.provider_refresh_token) return;
+  sessionStorage.setItem(
+    calendarTokenStorageKey,
+    JSON.stringify({
+      providerToken: sessionData.provider_token || "",
+      providerRefreshToken: sessionData.provider_refresh_token || "",
+    }),
+  );
+}
+
+function readStoredCalendarTokens() {
+  if (typeof window === "undefined") return undefined;
+  const raw = sessionStorage.getItem(calendarTokenStorageKey);
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as {
+      providerToken?: string;
+      providerRefreshToken?: string;
+    };
+    if (!parsed.providerToken) return undefined;
+    return parsed;
+  } catch {
+    return undefined;
+  }
+}
+
 export function useCloudAccount({
   state,
   setState,
@@ -76,14 +111,18 @@ export function useCloudAccount({
     async (nextSession: Session | null) => {
       if (!nextSession) return;
       const sessionData = sessionWithProvider(nextSession);
-      if (!sessionData.provider_token) {
+      const storedTokens = readStoredCalendarTokens();
+      const providerToken = sessionData.provider_token || storedTokens?.providerToken || "";
+      const providerRefreshToken = sessionData.provider_refresh_token || storedTokens?.providerRefreshToken || "";
+      if (!providerToken) {
         throw new Error("Google Calendar access token was not returned. Try connecting again.");
       }
       await connectGoogleCalendar(
         nextSession,
-        sessionData.provider_token,
-        sessionData.provider_refresh_token,
+        providerToken,
+        providerRefreshToken,
       );
+      persistCalendarTokens(null);
       setState((current) => ({
         ...current,
         integrationSettings: {
@@ -112,6 +151,21 @@ export function useCloudAccount({
     const client = supabase;
     if (!client) return undefined;
     let cancelled = false;
+    const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+
+    if (deviceTimeZone) {
+      setState((current) => (
+        current.cloudSyncMeta.deviceTimeZone === deviceTimeZone
+          ? current
+          : {
+              ...current,
+              cloudSyncMeta: {
+                ...current.cloudSyncMeta,
+                deviceTimeZone,
+              },
+            }
+      ));
+    }
 
     const finishAuthReturn = async () => {
       const callback = parseAuthCallbackUrl(window.location.href);
@@ -133,6 +187,7 @@ export function useCloudAccount({
           setSession(null);
           setCloudStatus(`Google sign-in didn't finish: ${error.message}`);
         } else {
+          persistCalendarTokens(data.session);
           setSession(data.session);
           if (callback.intent === "calendar") {
             try {
@@ -157,6 +212,7 @@ export function useCloudAccount({
 
     const { data } = client.auth.onAuthStateChange((_event, nextSession) => {
       if (cancelled) return;
+      persistCalendarTokens(nextSession);
       setSession(nextSession);
       if (nextSession) {
         setTab("profile");
@@ -169,7 +225,7 @@ export function useCloudAccount({
       cancelled = true;
       data.subscription.unsubscribe();
     };
-  }, [finalizeGoogleCalendarConnection, setTab]);
+  }, [finalizeGoogleCalendarConnection, setState, setTab]);
 
   useEffect(() => {
     if (!session) return undefined;
@@ -229,6 +285,7 @@ export function useCloudAccount({
 
   const signOut = useCallback(() => {
     supabase?.auth.signOut();
+    persistCalendarTokens(null);
     setCloudStatus("Signed out. This phone still has its local Pawfolio, but cloud backup and phone push are off until you sign back in.");
   }, []);
 

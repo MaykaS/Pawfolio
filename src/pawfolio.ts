@@ -119,6 +119,7 @@ export type CloudSyncMeta = {
   lastUploadedAt?: string;
   lastRestoredAt?: string;
   lastPushRegisteredAt?: string;
+  deviceTimeZone?: string;
 };
 
 export type GoogleCalendarSyncState = {

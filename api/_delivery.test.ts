@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import { collectDueDeliveryCandidates } from "./_delivery";
 
 describe("delivery candidates", () => {
-  it("collects due reminder occurrences using local reminder timing", () => {
+  it("collects due reminder occurrences using the device time zone", () => {
     const candidates = collectDueDeliveryCandidates(
       {
         tasks: [],
         diary: [],
         care: [],
+        cloudSyncMeta: {
+          deviceTimeZone: "America/New_York",
+        },
         reminders: [
           {
             id: "vet",
@@ -21,7 +24,7 @@ describe("delivery candidates", () => {
           },
         ],
       },
-      new Date("2026-04-27T11:02:00"),
+      new Date("2026-04-27T15:02:00Z"),
     );
 
     expect(candidates.map((item) => item.itemId)).toContain("vet");
@@ -36,13 +39,16 @@ describe("delivery candidates", () => {
         diary: [],
         care: [],
         reminders: [],
+        cloudSyncMeta: {
+          deviceTimeZone: "America/New_York",
+        },
         routineCoachSettings: {
           enabled: true,
           missedRoutineNudges: true,
           missedRoutineGraceMinutes: 30,
         },
       },
-      new Date(2026, 3, 27, 8, 45),
+      new Date("2026-04-27T12:45:00Z"),
     );
 
     expect(candidates.map((item) => item.itemId)).toContain("walk");

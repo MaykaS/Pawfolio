@@ -79,10 +79,14 @@ async function sendPushCandidate(userId: string, subscriptions: StoredSubscripti
 async function sendEmailCandidate(userId: string, candidate: DeliveryCandidate) {
   const apiKey = process.env.RESEND_API_KEY;
   const emailFrom = process.env.EMAIL_FROM;
-  if (!apiKey || !emailFrom) return false;
+  if (!apiKey || !emailFrom) {
+    return { ok: false, error: "Missing RESEND_API_KEY or EMAIL_FROM." };
+  }
 
   const { data: userData, error: userError } = await supabaseAdmin().auth.admin.getUserById(userId);
-  if (userError || !userData.user?.email) return false;
+  if (userError || !userData.user?.email) {
+    return { ok: false, error: userError?.message || "Signed-in account email was not found." };
+  }
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -100,7 +104,15 @@ async function sendEmailCandidate(userId: string, candidate: DeliveryCandidate) 
     }),
   });
 
-  return response.ok;
+  if (response.ok) {
+    return { ok: true as const };
+  }
+
+  const payload = await response.json().catch(() => ({})) as { message?: string; error?: string };
+  return {
+    ok: false as const,
+    error: payload.message || payload.error || `Resend request failed with ${response.status}.`,
+  };
 }
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
@@ -158,12 +170,12 @@ export default async function handler(request: VercelRequest, response: VercelRe
       if (preferences.email) {
         const skipEmail = await alreadyDelivered(snapshot.user_id, "email", candidate);
         if (!skipEmail) {
-          const ok = await sendEmailCandidate(snapshot.user_id, candidate);
-          if (ok) {
+          const result = await sendEmailCandidate(snapshot.user_id, candidate);
+          if (result.ok) {
             emailed += 1;
             await recordDelivery(snapshot.user_id, "email", candidate, "sent");
           } else {
-            await recordDelivery(snapshot.user_id, "email", candidate, "failed", "Email send failed.");
+            await recordDelivery(snapshot.user_id, "email", candidate, "failed", result.error || "Email send failed.");
           }
         }
       }
