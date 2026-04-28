@@ -1122,13 +1122,12 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   stroke: var(--green);
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 2.5;
+  stroke-width: 1.7;
 }
 
 .weight-chart-point {
-  fill: white;
-  stroke: var(--green);
-  stroke-width: 1.8;
+  fill: var(--green);
+  stroke: none;
 }
 
 .weight-chart-labels {

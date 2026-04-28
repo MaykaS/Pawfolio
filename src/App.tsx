@@ -1567,7 +1567,7 @@ function WeightTrendChart({
             className="weight-chart-point"
             cx={point.x}
             cy={point.y}
-            r="2.2"
+            r="1.5"
           />
         ))}
       </svg>
