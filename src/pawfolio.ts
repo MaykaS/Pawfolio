@@ -1320,15 +1320,19 @@ export function medicationConsistency(records: CareRecord[], now = new Date()) {
   };
 }
 
-export function buildGoogleCalendarEvent(reminder: Reminder, petName = "Pawfolio") {
+export function buildGoogleCalendarEvent(
+  reminder: Reminder,
+  petName = "Pawfolio",
+  timeZone = "UTC",
+) {
   return {
     summary: `${petName}: ${reminder.title}`,
     description: [reminder.type, reminder.note].filter(Boolean).join(" - "),
     start: reminder.time
-      ? { dateTime: `${reminder.date}T${reminder.time}:00` }
+      ? { dateTime: `${reminder.date}T${reminder.time}:00`, timeZone }
       : { date: reminder.date },
     end: reminder.time
-      ? { dateTime: `${reminder.date}T${reminder.time}:00` }
+      ? { dateTime: `${reminder.date}T${reminder.time}:00`, timeZone }
       : { date: reminder.date },
     recurrence: reminder.recurrence === "none" ? [] : [`RRULE:FREQ=${reminder.recurrence.toUpperCase()}`],
   };

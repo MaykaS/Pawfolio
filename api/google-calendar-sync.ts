@@ -42,6 +42,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
   const accessToken = await resolveGoogleAccessToken(account as StoredGoogleIntegration);
   const state = normalizeState(snapshot.state);
   const petName = state.profile?.name || "Pawfolio";
+  const timeZone = state.cloudSyncMeta.deviceTimeZone || "UTC";
   const reminders = visibleReminders(state);
   const { data: links, error: linkError } = await supabase
     .from("calendar_event_links")
@@ -55,7 +56,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
   for (const reminder of reminders) {
     const body = {
-      ...buildGoogleCalendarEvent(reminder, petName),
+      ...buildGoogleCalendarEvent(reminder, petName, timeZone),
       eventType: "default",
     };
     const key = `reminder:${reminder.id}`;

@@ -605,8 +605,10 @@ describe("pawfolio helpers", () => {
     expect(getUpcomingReminders([reminder], new Date("2026-04-22T12:00:00"))[0].date).toBe("2026-05-01");
     expect(eventsForMonth([reminder], new Date("2026-05-01T12:00:00"))[0].date).toBe("2026-05-01");
     expect(eventsForDate([reminder], "2026-05-01")[0].date).toBe("2026-05-01");
-    expect(buildGoogleCalendarEvent(reminder, "Mochi")).toMatchObject({
+    expect(buildGoogleCalendarEvent(reminder, "Mochi", "America/New_York")).toMatchObject({
       summary: "Mochi: Heartgard",
+      start: { dateTime: "2026-01-01T08:00:00", timeZone: "America/New_York" },
+      end: { dateTime: "2026-01-01T08:00:00", timeZone: "America/New_York" },
       recurrence: ["RRULE:FREQ=MONTHLY"],
     });
   });
