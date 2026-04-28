@@ -1093,8 +1093,8 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 
 .mini-metrics {
   display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-top: 10px;
 }
 
@@ -1103,16 +1103,19 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   border-radius: 12px;
   color: var(--muted);
   display: grid;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   gap: 2px;
-  padding: 8px;
+  line-height: 1.2;
+  min-width: 0;
+  padding: 8px 4px;
+  place-items: center;
   text-align: center;
 }
 
 .mini-metrics strong {
   color: var(--text);
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .stats-grid {
