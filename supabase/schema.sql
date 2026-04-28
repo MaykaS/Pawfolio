@@ -4,10 +4,13 @@
 create table if not exists public.pawfolio_snapshots (
   user_id uuid primary key references auth.users(id) on delete cascade,
   state jsonb not null,
+  photos jsonb not null default '[]'::jsonb,
   local_storage_key text not null default 'pawfolio-local-v1',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.pawfolio_snapshots add column if not exists photos jsonb not null default '[]'::jsonb;
 
 create table if not exists public.push_subscriptions (
   id uuid primary key default gen_random_uuid(),

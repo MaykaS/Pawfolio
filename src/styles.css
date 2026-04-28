@@ -1697,6 +1697,22 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   gap: 8px;
 }
 
+.timezone-settings-card {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.timezone-field {
+  margin-bottom: 0;
+}
+
+.timezone-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .diagnostic-row {
   align-items: center;
   display: flex;

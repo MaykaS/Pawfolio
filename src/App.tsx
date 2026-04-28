@@ -29,6 +29,14 @@ import {
   pushConfigured,
 } from "./cloud";
 import {
+  deletePhotoFromStore,
+  loadPhotoFromStore,
+  loadPhotoRecordFromStore,
+  savePhotoRecordToStore,
+  savePhotoToStore,
+  type PhotoRecord,
+} from "./photoStore";
+import {
   ageLabel,
   applyCoachSuggestion,
   avatarOptions,
@@ -69,7 +77,6 @@ import {
   notificationBody,
   notificationLeadLabel,
   notificationPermissionStatus,
-  photoRefPrefix,
   prettySyncTime,
   pushStatusDetail,
   pushStatusLabel,
@@ -80,6 +87,7 @@ import {
   reminderTypes,
   reminderCompletionStatus,
   regionFromCoordinates,
+  resolvedScheduleTimeZone,
   routineCoachInsights,
   safeSetLocalStorage,
   saveCareRecordToState,
@@ -128,10 +136,7 @@ type TaskMode = { mode: "create" } | { mode: "edit"; task: DailyTask };
 type MemoryMode = { mode: "create" } | { mode: "edit"; entry: DiaryEntry };
 type CareMode = { mode: "create" } | { mode: "edit"; record: CareRecord };
 type ReminderMode = { mode: "create"; date?: string } | { mode: "edit"; reminder: Reminder };
-type PhotoRecord = { id: string; dataUrl: string; createdAt: string };
 type BackupPayload = { app: "Pawfolio"; version: number; exportedAt: string; state: PawfolioState; photos?: PhotoRecord[] };
-const photoDbName = "pawfolio-photos-v1";
-const photoStoreName = "photos";
 
 function loadState(): PawfolioState {
   try {
@@ -145,95 +150,6 @@ function loadState(): PawfolioState {
 
 function uid(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
-}
-
-function openPhotoDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(photoDbName, 1);
-    request.onupgradeneeded = () => {
-      request.result.createObjectStore(photoStoreName, { keyPath: "id" });
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function savePhotoToStore(dataUrl: string) {
-  const id = uid("photo");
-  const db = await openPhotoDb();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction(photoStoreName, "readwrite");
-      transaction.objectStore(photoStoreName).put({ id, dataUrl, createdAt: new Date().toISOString() } satisfies PhotoRecord);
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-    });
-  } finally {
-    db.close();
-  }
-  return `${photoRefPrefix}${id}`;
-}
-
-async function savePhotoRecordToStore(record: PhotoRecord) {
-  const db = await openPhotoDb();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction(photoStoreName, "readwrite");
-      transaction.objectStore(photoStoreName).put(record);
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-    });
-  } finally {
-    db.close();
-  }
-}
-
-async function loadPhotoFromStore(ref: string) {
-  if (!isStoredPhotoRef(ref)) return ref;
-  const id = ref.slice(photoRefPrefix.length);
-  const db = await openPhotoDb();
-  try {
-    return await new Promise<string>((resolve, reject) => {
-      const transaction = db.transaction(photoStoreName, "readonly");
-      const request = transaction.objectStore(photoStoreName).get(id);
-      request.onsuccess = () => resolve((request.result as PhotoRecord | undefined)?.dataUrl || "");
-      request.onerror = () => reject(request.error);
-    });
-  } finally {
-    db.close();
-  }
-}
-
-async function loadPhotoRecordFromStore(ref: string) {
-  if (!isStoredPhotoRef(ref)) return undefined;
-  const id = ref.slice(photoRefPrefix.length);
-  const db = await openPhotoDb();
-  try {
-    return await new Promise<PhotoRecord | undefined>((resolve, reject) => {
-      const transaction = db.transaction(photoStoreName, "readonly");
-      const request = transaction.objectStore(photoStoreName).get(id);
-      request.onsuccess = () => resolve(request.result as PhotoRecord | undefined);
-      request.onerror = () => reject(request.error);
-    });
-  } finally {
-    db.close();
-  }
-}
-
-async function deletePhotoFromStore(ref: string) {
-  if (!isStoredPhotoRef(ref)) return;
-  const id = ref.slice(photoRefPrefix.length);
-  const db = await openPhotoDb();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction(photoStoreName, "readwrite");
-      transaction.objectStore(photoStoreName).delete(id);
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-    });
-  } finally {
-    db.close();
-  }
 }
 
 function readFile(file: File): Promise<string> {
@@ -316,6 +232,32 @@ function prettyLongDate(date: string) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function availableTimeZones(current?: string) {
+  const supported = typeof Intl.supportedValuesOf === "function"
+    ? Intl.supportedValuesOf("timeZone")
+    : [
+        "UTC",
+        "America/New_York",
+        "America/Chicago",
+        "America/Denver",
+        "America/Los_Angeles",
+        "Europe/London",
+        "Europe/Paris",
+        "Asia/Tokyo",
+        "Australia/Sydney",
+      ];
+  return current && !supported.includes(current) ? [current, ...supported] : supported;
+}
+
+function isValidTimeZone(timeZone: string) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function PhotoImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
@@ -852,6 +794,15 @@ export default function App() {
           trustState={trustState}
           cloudStatus={cloudStatus}
           integrationSettings={state.integrationSettings}
+          onUpdateCalendarTimeZone={(timeZone) =>
+            setState((current) => ({
+              ...current,
+              cloudSyncMeta: {
+                ...current.cloudSyncMeta,
+                calendarTimeZone: timeZone || current.cloudSyncMeta.deviceTimeZone || "UTC",
+              },
+            }))
+          }
           onClose={() => setPushDiagnosticsOpen(false)}
         />
       )}
@@ -1948,6 +1899,7 @@ function PushDiagnosticsSheet({
   trustState,
   cloudStatus,
   integrationSettings,
+  onUpdateCalendarTimeZone,
   onClose,
 }: {
   session: Session | null;
@@ -1960,6 +1912,7 @@ function PushDiagnosticsSheet({
   trustState: TrustState;
   cloudStatus: string;
   integrationSettings: PawfolioState["integrationSettings"];
+  onUpdateCalendarTimeZone: (timeZone: string) => void;
   onClose: () => void;
 }) {
   const pushStatus = pushStatusLabel({
@@ -1968,6 +1921,14 @@ function PushDiagnosticsSheet({
     permission: pushPermission,
     hasSubscription: hasPushSubscription,
   });
+  const currentTimeZone = resolvedScheduleTimeZone(cloudSyncMeta);
+  const [timeZoneDraft, setTimeZoneDraft] = useState(currentTimeZone);
+  const [timeZoneMessage, setTimeZoneMessage] = useState("");
+  const timeZoneOptions = useMemo(() => availableTimeZones(currentTimeZone), [currentTimeZone]);
+
+  useEffect(() => {
+    setTimeZoneDraft(currentTimeZone);
+  }, [currentTimeZone]);
 
   return (
     <Sheet title="Trust details" onClose={onClose}>
@@ -2029,6 +1990,10 @@ function PushDiagnosticsSheet({
           <strong>{googleCalendarStatusLabel(trustState.calendar, notificationPreferencesEnabled(session, integrationSettings.googleCalendar, googleCalendarSyncState.connected), Boolean(session))}</strong>
         </div>
         <div className="diagnostic-row">
+          <span>Reminder time zone</span>
+          <strong>{currentTimeZone}</strong>
+        </div>
+        <div className="diagnostic-row">
           <span>Last calendar sync</span>
           <strong>{prettySyncTime(googleCalendarSyncState.lastSyncAt)}</strong>
         </div>
@@ -2042,6 +2007,62 @@ function PushDiagnosticsSheet({
             <strong>{cloudStatus}</strong>
           </div>
         )}
+      </section>
+
+      <section className="card timezone-settings-card">
+        <div className="section-heading">
+          <div>
+            <p className="label no-margin">Reminder time zone</p>
+            <h2>Use your device by default, or set one for travel.</h2>
+          </div>
+        </div>
+        <label className="field timezone-field">
+          <span>Time zone</span>
+          <input
+            className="input"
+            list="pawfolio-timezones"
+            value={timeZoneDraft}
+            onChange={(event) => {
+              setTimeZoneDraft(event.target.value);
+              setTimeZoneMessage("");
+            }}
+            placeholder="America/New_York"
+          />
+          <datalist id="pawfolio-timezones">
+            {timeZoneOptions.map((timeZone) => (
+              <option key={timeZone} value={timeZone} />
+            ))}
+          </datalist>
+        </label>
+        <div className="timezone-actions">
+          <button
+            className="btn btn-sm btn-secondary"
+            type="button"
+            onClick={() => {
+              if (!isValidTimeZone(timeZoneDraft)) {
+                setTimeZoneMessage("Use a valid IANA time zone like America/New_York.");
+                return;
+              }
+              onUpdateCalendarTimeZone(timeZoneDraft);
+              setTimeZoneMessage("Reminder time zone saved. Future cloud sync and Google Calendar updates will use it.");
+            }}
+          >
+            Save time zone
+          </button>
+          <button
+            className="btn btn-sm btn-ghost"
+            type="button"
+            onClick={() => {
+              const deviceTimeZone = cloudSyncMeta.deviceTimeZone || currentTimeZone;
+              setTimeZoneDraft(deviceTimeZone);
+              onUpdateCalendarTimeZone(deviceTimeZone);
+              setTimeZoneMessage("Using this device time zone again.");
+            }}
+          >
+            Use this device
+          </button>
+        </div>
+        <p className="settings-note">{timeZoneMessage || "This affects Google Calendar sync and backend reminder delivery."}</p>
       </section>
 
       <p className="notice-copy">
@@ -2347,7 +2368,7 @@ function ProfileScreen({
           <button className="setting-row" type="button" onClick={onOpenPushDiagnostics}>
             <span>
               <strong>Trust details</strong>
-              <small>See account, backup, push, and calendar details.</small>
+              <small>See account, backup, photos, push, calendar, and time zone details.</small>
             </span>
             <ChevronRight size={17} />
           </button>

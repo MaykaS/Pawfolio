@@ -120,6 +120,7 @@ export type CloudSyncMeta = {
   lastRestoredAt?: string;
   lastPushRegisteredAt?: string;
   deviceTimeZone?: string;
+  calendarTimeZone?: string;
 };
 
 export type GoogleCalendarSyncState = {
@@ -1336,6 +1337,10 @@ export function buildGoogleCalendarEvent(
       : { date: reminder.date },
     recurrence: reminder.recurrence === "none" ? [] : [`RRULE:FREQ=${reminder.recurrence.toUpperCase()}`],
   };
+}
+
+export function resolvedScheduleTimeZone(meta?: CloudSyncMeta) {
+  return meta?.calendarTimeZone || meta?.deviceTimeZone || "UTC";
 }
 
 export function routineCoachInsights(tasks: DailyTask[], taskHistory: TaskHistory, reminders: Reminder[], records: CareRecord[]) {

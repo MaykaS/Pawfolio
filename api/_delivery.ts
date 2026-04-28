@@ -1,6 +1,7 @@
 import {
   missedRoutineTasks,
   normalizeState,
+  resolvedScheduleTimeZone,
   tasksForDate,
   toLocalISO,
   visibleReminders,
@@ -91,7 +92,7 @@ function reminderAlertDateForTimeZone(reminder: Reminder, timeZone: string) {
 }
 
 function stateTimeZone(state: PawfolioState) {
-  return state.cloudSyncMeta?.deviceTimeZone || "UTC";
+  return resolvedScheduleTimeZone(state.cloudSyncMeta);
 }
 
 function dueReminderCandidates(state: PawfolioState, now: Date) {

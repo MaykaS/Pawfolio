@@ -1,4 +1,5 @@
 import { createClient, type Session } from "@supabase/supabase-js";
+import { collectSnapshotPhotoRecords, restoreSnapshotPhotos, type PhotoRecord } from "./photoStore";
 import { storageKey, type PawfolioState } from "./pawfolio";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -84,9 +85,11 @@ export async function uploadLocalPawfolioToAccount(state: PawfolioState) {
   const user = userData.user;
   if (!user) throw new Error("Sign in before uploading Pawfolio.");
 
+  const photos = await collectSnapshotPhotoRecords(state);
   const { error } = await supabase.from("pawfolio_snapshots").upsert({
     user_id: user.id,
     state,
+    photos,
     local_storage_key: storageKey,
     updated_at: new Date().toISOString(),
   });
@@ -102,11 +105,15 @@ export async function downloadCloudPawfolioToLocal() {
 
   const { data, error } = await supabase
     .from("pawfolio_snapshots")
-    .select("state,updated_at")
+    .select("state,updated_at,photos")
     .eq("user_id", user.id)
     .maybeSingle();
   if (error) throw error;
   return data;
+}
+
+export async function hydrateSnapshotPhotos(photos?: PhotoRecord[] | null) {
+  await restoreSnapshotPhotos(photos || []);
 }
 
 export async function getCloudSession() {

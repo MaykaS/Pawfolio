@@ -65,8 +65,8 @@ Today, Pawfolio already does these product jobs well:
 - Calendar month navigation with clickable day details
 - Smart reminder timing defaults with compact per-reminder alert lead chips, including at time, 15 min, 30 min, 1 hour, same day, and 1 day
 - In-app notification center with Due now, Soon, and Upcoming reminder groups plus service-worker test notifications for installed PWA checks
-- Signed-in auto-sync of local Pawfolio state to a private Supabase snapshot row
-- One-tap cloud restore from the latest private Supabase snapshot
+- Signed-in auto-sync of local Pawfolio state plus stored photos to a private Supabase snapshot row
+- One-tap cloud restore from the latest private Supabase snapshot, including photo records
 - Restore-first onboarding that lets a signed-in user recover from cloud before creating a new profile
 - Phone push subscription save for the current signed-in device
 - Near-term local reminder notifications while the app is open or backgrounded with notification permission granted

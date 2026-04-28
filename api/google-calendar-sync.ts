@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { buildGoogleCalendarEvent, normalizeState, visibleReminders } from "../src/pawfolio.js";
+import { buildGoogleCalendarEvent, normalizeState, resolvedScheduleTimeZone, visibleReminders } from "../src/pawfolio.js";
 import { googleCalendarRequest, resolveGoogleAccessToken, type StoredGoogleIntegration } from "./_google-calendar.js";
 import { sendJson, userFromRequest, supabaseAdmin } from "./_supabase.js";
 
@@ -42,7 +42,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
   const accessToken = await resolveGoogleAccessToken(account as StoredGoogleIntegration);
   const state = normalizeState(snapshot.state);
   const petName = state.profile?.name || "Pawfolio";
-  const timeZone = state.cloudSyncMeta.deviceTimeZone || "UTC";
+  const timeZone = resolvedScheduleTimeZone(state.cloudSyncMeta);
   const reminders = visibleReminders(state);
   const { data: links, error: linkError } = await supabase
     .from("calendar_event_links")

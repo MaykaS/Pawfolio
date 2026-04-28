@@ -5,6 +5,7 @@ import {
   connectGoogleCalendar,
   downloadCloudPawfolioToLocal,
   getCloudSession,
+  hydrateSnapshotPhotos,
   parseAuthCallbackUrl,
   signInWithGoogle,
   subscribeDeviceToPush,
@@ -12,7 +13,7 @@ import {
   syncGoogleCalendar,
   uploadLocalPawfolioToAccount,
 } from "../cloud";
-import { initialState, normalizeState, type PawfolioNotificationStatus, type PawfolioState, type Tab } from "../pawfolio";
+import { normalizeState, type PawfolioNotificationStatus, type PawfolioState, type Tab } from "../pawfolio";
 
 export type CloudActionState =
   | "idle"
@@ -146,6 +147,7 @@ export function useCloudAccount({
       setCloudStatus("No cloud Pawfolio backup was found for this account yet. You can create a new Pawfolio here or try another signed-in account.");
       return false;
     }
+    await hydrateSnapshotPhotos(snapshot.photos);
     const restoredState = normalizeState(snapshot.state as Partial<PawfolioState>);
     const nextState = normalizeState({
       ...restoredState,
@@ -181,12 +183,14 @@ export function useCloudAccount({
     if (deviceTimeZone) {
       setState((current) => (
         current.cloudSyncMeta.deviceTimeZone === deviceTimeZone
+          && current.cloudSyncMeta.calendarTimeZone
           ? current
           : {
               ...current,
               cloudSyncMeta: {
                 ...current.cloudSyncMeta,
                 deviceTimeZone,
+                calendarTimeZone: current.cloudSyncMeta.calendarTimeZone || deviceTimeZone,
               },
             }
       ));
@@ -273,7 +277,7 @@ export function useCloudAccount({
     if (cloudSyncTimer.current) window.clearTimeout(cloudSyncTimer.current);
 
     cloudSyncTimer.current = window.setTimeout(() => {
-      uploadLocalPawfolioToAccount({ ...state, cloudSyncMeta: initialState.cloudSyncMeta })
+      uploadLocalPawfolioToAccount(state)
         .then(() => {
           lastUploadedFingerprint.current = syncFingerprint;
           setState((current) => ({
@@ -332,7 +336,7 @@ export function useCloudAccount({
     setCloudAction("uploading");
     setCloudStatus("Uploading this phone's Pawfolio into your private account...");
     const syncFingerprint = cloudSyncFingerprint(state);
-    uploadLocalPawfolioToAccount({ ...state, cloudSyncMeta: initialState.cloudSyncMeta })
+    uploadLocalPawfolioToAccount(state)
       .then(async () => {
         lastUploadedFingerprint.current = syncFingerprint;
         setState((current) => ({
