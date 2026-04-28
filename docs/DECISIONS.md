@@ -264,6 +264,18 @@ Decision: The first real Google Calendar version is one-way sync from Pawfolio i
 
 Reason: One-way sync covers the core “see my reminders and care events outside the app” job while avoiding the complexity and conflict handling of bidirectional calendar editing too early.
 
+## 2026-04-28: Put Email Reminders On Hold In The Product
+
+Decision: Pawfolio keeps backend email reminder plumbing in code, but the product surface now treats email reminders as intentionally on hold instead of a live integration.
+
+Reason: Sender-domain setup adds real external complexity and is not worth making users think email is active before the core trust path is solid. Google Calendar, push, backup, and restore are more valuable right now.
+
+## 2026-04-28: Turn Cloud And Phone Into A Trust Center
+
+Decision: The Profile account area should separate compact trust summary, explicit cloud/calendar/push actions, and deeper diagnostics instead of stacking many equal-weight rows in one long card.
+
+Reason: The old Cloud & phone section had become too crowded and hard to scan on mobile. The account area should help users quickly understand what is local, what is backed up, what this phone can do, and where to go next.
+
 ## 2026-04-22: Use A Dog-Face PWA Icon
 
 Decision: The installed PWA icon should be a cute dog face in Pawfolio colors rather than a generic mark.

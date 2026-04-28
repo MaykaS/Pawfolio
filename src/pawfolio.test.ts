@@ -244,7 +244,7 @@ describe("pawfolio helpers", () => {
     expect(normalized.reminders).toEqual([]);
     expect(normalized.careEvents[0].recurrence).toBe("none");
     expect(normalized.notificationPreferences.inApp).toBe(true);
-    expect(normalized.integrationSettings.googleCalendar).toBe("planned");
+    expect(normalized.integrationSettings.googleCalendar).toBe("off");
     expect(normalized.routineCoachSettings.enabled).toBe(true);
     expect(normalized.routineCoachSettings.missedRoutineNudges).toBe(true);
     expect(normalized.routineCoachSettings.missedRoutineGraceMinutes).toBe(30);

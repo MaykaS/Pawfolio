@@ -1605,6 +1605,12 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   margin-bottom: 12px;
 }
 
+.profile-stack-section {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .setting-row {
   align-items: center;
   background: var(--primary-pale);

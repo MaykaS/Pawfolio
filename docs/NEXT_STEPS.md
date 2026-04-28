@@ -55,8 +55,8 @@ This is still the highest-value work because it determines whether Pawfolio actu
 
 - Test Google Calendar connect and one-way sync in a real account
 - Confirm create, update, and delete behavior without duplicate calendar events
-- Test real reminder emails to the signed-in account address
-- Improve integration failure states before adding more integration surface area
+- Improve Calendar failure states before adding more integration surface area
+- Keep email reminders on hold until sender-domain setup is worth adding to the product
 
 ### 5. Deepen PawPal after trust work is steadier
 
@@ -94,7 +94,7 @@ After trust, validation, and current integrations are stronger:
 - Cross-device cloud confidence validated in the real world
 - Normalized multi-device cloud sync
 - Real-world Google Calendar validation
-- Real-world email reminder validation
+- Account/trust UX still needs one more cleanup pass after the new trust-center structure settles
 - Shared caregiver access
 - Multiple pets
 

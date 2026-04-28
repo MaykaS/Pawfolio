@@ -109,10 +109,10 @@ export type NotificationPreferences = {
 };
 
 export type IntegrationSettings = {
-  googleCalendar: "not_connected" | "planned" | "connected";
-  email: "not_configured" | "planned" | "configured";
+  googleCalendar: "off" | "needs_setup" | "connected" | "issue";
+  email: "on_hold";
   push: "not_enabled" | "planned" | "enabled" | "local_only";
-  cloudSync: "local_only" | "planned" | "enabled";
+  cloudSync: "local_only" | "off" | "enabled";
 };
 
 export type CloudSyncMeta = {
@@ -225,10 +225,10 @@ export const initialState: PawfolioState = {
     googleCalendar: false,
   },
   integrationSettings: {
-    googleCalendar: "planned",
-    email: "planned",
+    googleCalendar: "off",
+    email: "on_hold",
     push: "planned",
-    cloudSync: "planned",
+    cloudSync: "off",
   },
   googleCalendarSyncState: {
     connected: false,

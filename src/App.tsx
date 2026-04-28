@@ -40,7 +40,6 @@ import {
   careStatus,
   careTypes,
   careEmptyState,
-  cloudBackupStatusDetail,
   cloudBackupStatusLabel,
   cloudRestoreDetail,
   collectPhotoRefs,
@@ -684,22 +683,19 @@ export default function App() {
               ...current,
               notificationPreferences: {
                 ...current.notificationPreferences,
-                [key]: !current.notificationPreferences[key],
+                [key]: key === "email" ? false : !current.notificationPreferences[key],
               },
               integrationSettings: {
                 ...current.integrationSettings,
                 googleCalendar:
                   key === "googleCalendar"
-                    ? current.googleCalendarSyncState.connected
-                      ? "connected"
-                      : "not_connected"
+                    ? !current.notificationPreferences.googleCalendar
+                      ? current.googleCalendarSyncState.connected
+                        ? "connected"
+                        : "needs_setup"
+                      : "off"
                     : current.integrationSettings.googleCalendar,
-                email:
-                  key === "email"
-                    ? session
-                      ? "configured"
-                      : "planned"
-                    : current.integrationSettings.email,
+                email: "on_hold",
               },
             }))
           }
@@ -846,6 +842,10 @@ export default function App() {
           pushPermission={pushPermission}
           hasPushSubscription={hasPushSubscription}
           cloudSyncMeta={state.cloudSyncMeta}
+          googleCalendarSyncState={state.googleCalendarSyncState}
+          trustState={trustState}
+          cloudStatus={cloudStatus}
+          integrationSettings={state.integrationSettings}
           onClose={() => setPushDiagnosticsOpen(false)}
         />
       )}
@@ -1874,6 +1874,10 @@ function PushDiagnosticsSheet({
   pushPermission,
   hasPushSubscription,
   cloudSyncMeta,
+  googleCalendarSyncState,
+  trustState,
+  cloudStatus,
+  integrationSettings,
   onClose,
 }: {
   session: Session | null;
@@ -1882,6 +1886,10 @@ function PushDiagnosticsSheet({
   pushPermission: PawfolioNotificationStatus;
   hasPushSubscription: boolean;
   cloudSyncMeta: CloudSyncMeta;
+  googleCalendarSyncState: PawfolioState["googleCalendarSyncState"];
+  trustState: TrustState;
+  cloudStatus: string;
+  integrationSettings: PawfolioState["integrationSettings"];
   onClose: () => void;
 }) {
   const pushStatus = pushStatusLabel({
@@ -1892,7 +1900,7 @@ function PushDiagnosticsSheet({
   });
 
   return (
-    <Sheet title="Phone push checks" onClose={onClose}>
+    <Sheet title="Trust details" onClose={onClose}>
       <section className="notice-card">
         <div>
           <p className="label no-margin">Status</p>
@@ -1924,7 +1932,7 @@ function PushDiagnosticsSheet({
         </div>
         <div className="diagnostic-row">
           <span>Cloud sync</span>
-          <strong>{isCloudConfigured ? "Ready" : "Missing env"}</strong>
+          <strong>{!session ? "Off" : integrationSettings.cloudSync === "enabled" ? "Auto" : isCloudConfigured ? "Off" : "Missing env"}</strong>
         </div>
         <div className="diagnostic-row">
           <span>Notification permission</span>
@@ -1946,10 +1954,28 @@ function PushDiagnosticsSheet({
           <span>Last phone save</span>
           <strong>{prettySyncTime(cloudSyncMeta.lastPushRegisteredAt)}</strong>
         </div>
+        <div className="diagnostic-row">
+          <span>Google Calendar</span>
+          <strong>{googleCalendarStatusLabel(trustState.calendar, notificationPreferencesEnabled(session, integrationSettings.googleCalendar, googleCalendarSyncState.connected), Boolean(session))}</strong>
+        </div>
+        <div className="diagnostic-row">
+          <span>Last calendar sync</span>
+          <strong>{prettySyncTime(googleCalendarSyncState.lastSyncAt)}</strong>
+        </div>
+        <div className="diagnostic-row">
+          <span>Email reminders</span>
+          <strong>On hold</strong>
+        </div>
+        {cloudStatus && (
+          <div className="diagnostic-row">
+            <span>Latest message</span>
+            <strong>{cloudStatus}</strong>
+          </div>
+        )}
       </section>
 
       <p className="notice-copy">
-        Near-term reminders can alert on this phone now. Fully reliable closed-app scheduled delivery is still being hardened on the backend scheduler side.
+        This view keeps the deeper trust details out of the main Profile screen. Closed-app scheduled delivery is still being hardened on the backend scheduler side.
       </p>
     </Sheet>
   );
@@ -2040,10 +2066,6 @@ function ProfileScreen({
     signedIn: Boolean(session),
     lastUploadedAt: cloudSyncMeta.lastUploadedAt,
   });
-  const backupDetail = cloudBackupStatusDetail({
-    signedIn: Boolean(session),
-    lastUploadedAt: cloudSyncMeta.lastUploadedAt,
-  });
   const restoreDetail = cloudRestoreDetail(cloudSyncMeta.lastRestoredAt);
   const enableAutoLocation = () => {
     if (!navigator.geolocation) {
@@ -2106,20 +2128,20 @@ function ProfileScreen({
           <p className="label no-margin">Integrations</p>
           <SettingRow
             label="Google Calendar"
-            value={googleCalendarStatusLabel(googleCalendarSyncState.connected, notificationPreferences.googleCalendar)}
+            value={googleCalendarStatusLabel(trustState.calendar, notificationPreferences.googleCalendar || googleCalendarSyncState.connected, Boolean(session))}
             checked={notificationPreferences.googleCalendar}
             onToggle={() => onTogglePreference("googleCalendar")}
           />
-          <SettingRow
-            label="Email reminders"
-            value={emailReminderStatusLabel(trustState.email, notificationPreferences.email, Boolean(session))}
-            checked={notificationPreferences.email}
-            onToggle={() => onTogglePreference("email")}
-          />
-          <SettingRow label="Phone push" value={phonePushLabel} checked={notificationPreferences.push || hasPushSubscription} onToggle={() => onTogglePreference("push")} />
+          <div className="setting-row static">
+            <span>
+              <strong>Email reminders</strong>
+              <small>On hold until sender-domain setup is worth doing.</small>
+            </span>
+            <span className="badge badge-gray">On hold</span>
+          </div>
           <SettingRow label="In-app reminders" value="Active now" checked={notificationPreferences.inApp} onToggle={() => onTogglePreference("inApp")} />
-        <p className="settings-note">{notificationPreferences.email && session ? `Reminder emails can go to ${session.user.email}.` : phonePushDetail}</p>
-      </section>
+          <p className="settings-note">Google Calendar is the active planning integration right now. Email is intentionally deferred, and phone push lives in the trust section below.</p>
+        </section>
       <section className="card settings-card">
         <p className="label no-margin">PawPal</p>
         <SettingRow label="Pattern suggestions" value="Local and private" checked={coachSettings.enabled} onToggle={onToggleCoach} />
@@ -2171,7 +2193,7 @@ function ProfileScreen({
         </div>
         <p className="settings-note">PawPal uses Pawfolio data on this device. Location is optional and only used for broad care context. LLM help can come later after cloud/privacy is ready.</p>
       </section>
-      <section className="card settings-card">
+      <section className="profile-stack-section">
         <p className="label no-margin">Cloud & phone</p>
         <div className="cloud-card">
           <div className="cloud-copy">
@@ -2187,106 +2209,79 @@ function ProfileScreen({
             {session ? "Sign out" : "Google sign-in"}
           </button>
         </div>
-        {session && (
-          <div className="cloud-confirmation">
-            <span className="cloud-confirm-dot" aria-hidden="true" />
-            <p>Pawfolio is connected to your Google account.</p>
+        <section className="card diagnostics-card trust-summary-card">
+          <div className="diagnostic-row">
+            <span>Private account</span>
+            <strong>{session ? "Connected" : "Signed out"}</strong>
           </div>
-        )}
-        <div className="setting-row static">
-          <span>
-            <strong>This phone/browser</strong>
-            <small>Your main Pawfolio working copy lives here first.</small>
-          </span>
-          <span className="badge badge-amber">Local</span>
-        </div>
-        <div className="setting-row static">
-          <span>
-            <strong>Cloud backup</strong>
-            <small>{backupDetail}</small>
-          </span>
-          <span className={backupLabel === "Backed up" ? "badge badge-green" : backupLabel === "Needs first backup" ? "badge badge-amber" : "badge badge-gray"}>{backupLabel}</span>
-        </div>
-        <div className="setting-row static">
-          <span>
-            <strong>Cloud sync</strong>
-            <small>
-              {session
-                ? integrationSettings.cloudSync === "enabled"
-                  ? "Signed-in changes upload automatically after edits."
-                  : "Cloud sync is available after your first upload."
-                : "Sign in to turn on private backup and auto-sync."}
-            </small>
-          </span>
-          <span className={session && integrationSettings.cloudSync === "enabled" ? "badge badge-green" : "badge badge-gray"}>
-            {session && integrationSettings.cloudSync === "enabled" ? "Auto" : "Off"}
-          </span>
-        </div>
-        <div className="setting-row static">
-          <span>
-            <strong>Last restore</strong>
-            <small>{restoreDetail}</small>
-          </span>
-          <span className={cloudSyncMeta.lastRestoredAt ? "badge badge-green" : "badge badge-gray"}>{cloudSyncMeta.lastRestoredAt ? "Restored" : "Not yet"}</span>
-        </div>
-        <div className="setting-row static">
-          <span>
-            <strong>Phone push</strong>
-            <small>{phonePushDetail}</small>
-          </span>
-          <span className={phonePushLabel === "Active now" ? "badge badge-green" : phonePushLabel === "Blocked" ? "badge badge-red" : "badge badge-gray"}>
-            {phonePushLabel}
-          </span>
-        </div>
-        <button className="setting-row" type="button" onClick={onUploadCloud} disabled={!session || cloudAction !== "idle"}>
-          <span>
-            <strong>{cloudAction === "uploading" ? "Uploading local Pawfolio..." : "Upload local Pawfolio"}</strong>
-            <small>Copies this phone's saved data into your private account.</small>
-          </span>
-          <ChevronRight size={17} />
-        </button>
-        <button className="setting-row" type="button" onClick={onRestoreCloud} disabled={!session || cloudAction !== "idle"}>
-          <span>
-            <strong>{cloudAction === "restoring" ? "Restoring cloud Pawfolio..." : "Restore cloud Pawfolio"}</strong>
-            <small>Pull your latest saved account snapshot back onto this phone.</small>
-          </span>
-          <ChevronRight size={17} />
-        </button>
-        <button className="setting-row" type="button" onClick={onEnablePush} disabled={!session || !isPushConfigured || cloudAction !== "idle"}>
-          <span>
-            <strong>{cloudAction === "enabling_push" ? "Saving this phone..." : hasPushSubscription ? "Refresh phone push" : "Enable phone push"}</strong>
-            <small>{isPushConfigured ? "Save this phone for Pawfolio reminders." : "Add VAPID keys first."}</small>
-          </span>
-          <ChevronRight size={17} />
-        </button>
-        <button className="setting-row" type="button" onClick={integrationSettings.googleCalendar === "connected" ? onSyncCalendar : onConnectCalendar} disabled={!session || cloudAction !== "idle"}>
-          <span>
-            <strong>
-              {cloudAction === "connecting_calendar"
-                ? "Connecting Google Calendar..."
-                : cloudAction === "syncing_calendar"
-                  ? "Syncing Google Calendar..."
-                  : integrationSettings.googleCalendar === "connected"
-                    ? "Sync Google Calendar"
-                    : "Connect Google Calendar"}
-            </strong>
-            <small>
-              {integrationSettings.googleCalendar === "connected"
-                ? googleCalendarSyncState.lastSyncAt
-                  ? `Last synced ${prettySyncTime(googleCalendarSyncState.lastSyncAt)}.`
-                  : "Sync Pawfolio reminders into your primary Google Calendar."
-                : "Connect your primary Google Calendar for one-way reminder sync."}
-            </small>
-          </span>
-          <ChevronRight size={17} />
-        </button>
-        <button className="setting-row" type="button" onClick={onOpenPushDiagnostics}>
-          <span>
-            <strong>Push diagnostics</strong>
-            <small>Check account, phone permission, saved device, and latest sync times.</small>
-          </span>
-          <ChevronRight size={17} />
-        </button>
+          <div className="diagnostic-row">
+            <span>This device</span>
+            <strong>Local</strong>
+          </div>
+          <div className="diagnostic-row">
+            <span>Backup</span>
+            <strong>{backupLabel}</strong>
+          </div>
+          <div className="diagnostic-row">
+            <span>Sync</span>
+            <strong>{cloudSyncStatusLabel(Boolean(session), integrationSettings.cloudSync === "enabled")}</strong>
+          </div>
+          <div className="diagnostic-row">
+            <span>Phone push</span>
+            <strong>{phonePushLabel}</strong>
+          </div>
+        </section>
+        <section className="card settings-card cloud-actions-card">
+          <p className="label no-margin">Actions</p>
+          <button className="setting-row" type="button" onClick={onUploadCloud} disabled={!session || cloudAction !== "idle"}>
+            <span>
+              <strong>{cloudAction === "uploading" ? "Uploading local Pawfolio..." : "Upload local Pawfolio"}</strong>
+              <small>Copy this phone's saved data into your private backup.</small>
+            </span>
+            <ChevronRight size={17} />
+          </button>
+          <button className="setting-row" type="button" onClick={onRestoreCloud} disabled={!session || cloudAction !== "idle"}>
+            <span>
+              <strong>{cloudAction === "restoring" ? "Restoring cloud Pawfolio..." : "Restore cloud Pawfolio"}</strong>
+              <small>{restoreDetail}</small>
+            </span>
+            <ChevronRight size={17} />
+          </button>
+          <button className="setting-row" type="button" onClick={onEnablePush} disabled={!session || !isPushConfigured || cloudAction !== "idle"}>
+            <span>
+              <strong>{cloudAction === "enabling_push" ? "Saving this phone..." : hasPushSubscription ? "Refresh phone push" : "Enable phone push"}</strong>
+              <small>{phonePushDetail}</small>
+            </span>
+            <ChevronRight size={17} />
+          </button>
+          <button className="setting-row" type="button" onClick={googleCalendarSyncState.connected ? onSyncCalendar : onConnectCalendar} disabled={!session || cloudAction !== "idle"}>
+            <span>
+              <strong>
+                {cloudAction === "connecting_calendar"
+                  ? "Connecting Google Calendar..."
+                  : cloudAction === "syncing_calendar"
+                    ? "Syncing Google Calendar..."
+                    : googleCalendarSyncState.connected
+                      ? "Sync Google Calendar"
+                      : "Connect Google Calendar"}
+              </strong>
+              <small>{googleCalendarStatusDetail({
+                status: trustState.calendar,
+                enabled: notificationPreferences.googleCalendar || googleCalendarSyncState.connected,
+                signedIn: Boolean(session),
+                lastSyncAt: googleCalendarSyncState.lastSyncAt,
+              })}</small>
+            </span>
+            <ChevronRight size={17} />
+          </button>
+          <button className="setting-row" type="button" onClick={onOpenPushDiagnostics}>
+            <span>
+              <strong>Trust details</strong>
+              <small>See account, backup, push, and calendar details.</small>
+            </span>
+            <ChevronRight size={17} />
+          </button>
+        </section>
         {cloudStatus && <p className="settings-note">{cloudStatus}</p>}
       </section>
       <div className="profile-actions">
@@ -2367,23 +2362,51 @@ function SettingRow({
 }
 
 function googleCalendarStatusLabel(
-  connected: boolean,
-  enabled: boolean,
-) {
-  if (connected) return "Connected";
-  if (enabled) return "Needs setup";
-  return "Off";
-}
-
-function emailReminderStatusLabel(
-  emailTrustState: TrustState["email"],
+  status: TrustState["calendar"],
   enabled: boolean,
   signedIn: boolean,
 ) {
-  if (emailTrustState === "send_error") return "Issue";
-  if (enabled && signedIn) return "Ready";
-  if (enabled) return "Needs setup";
+  if (status === "sync_error") return "Issue";
+  if (status === "connected") return "Connected";
+  if (enabled && signedIn) return "Needs setup";
   return "Off";
+}
+
+function googleCalendarStatusDetail({
+  status,
+  enabled,
+  signedIn,
+  lastSyncAt,
+}: {
+  status: TrustState["calendar"];
+  enabled: boolean;
+  signedIn: boolean;
+  lastSyncAt?: string;
+}) {
+  if (!signedIn) return "Sign in to connect your primary Google Calendar.";
+  if (status === "sync_error") return "Calendar setup hit an issue. Check the trust details message for the exact fix.";
+  if (status === "connected") {
+    return lastSyncAt
+      ? `Last synced ${prettySyncTime(lastSyncAt)}.`
+      : "Connected and ready for your first sync.";
+  }
+  if (enabled) return "Connect your primary Google Calendar for one-way reminder sync.";
+  return "Off";
+}
+
+function cloudSyncStatusLabel(signedIn: boolean, enabled: boolean) {
+  if (!signedIn) return "Off";
+  return enabled ? "Auto" : "Off";
+}
+
+function notificationPreferencesEnabled(
+  session: Session | null,
+  calendarSetting: PawfolioState["integrationSettings"]["googleCalendar"],
+  connected: boolean,
+) {
+  if (connected) return true;
+  if (!session) return false;
+  return calendarSetting === "needs_setup";
 }
 
 function isSharedCareTypeLabel(type: string) {

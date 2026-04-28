@@ -84,7 +84,7 @@ Included:
 
 - Google Calendar OAuth and event sync
 - Push notification subscriptions and backend push sending
-- Email reminders through server-side email delivery
+- Deferred email reminder plumbing that can be reactivated later if sender-domain setup becomes worth it
 - Reminder scheduling with calculated recurrence
 - Appointment and task states
 - Calendar export fallback for Apple/Outlook users

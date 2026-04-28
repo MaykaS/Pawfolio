@@ -58,7 +58,7 @@ Current localStorage prototype data includes:
 - Calendar helper views for future-only upcoming items, visible-month events, and selected-day event details
 - Care helper views for type-specific validation, empty states, weight trends, medication consistency, and follow-up histories
 - In-app notification center for future reminders, Due now/Soon/Upcoming groups, compact alert lead labels, and browser notification permission testing
-- Local notification preferences and integration settings for in-app reminders, future phone push, email reminders, Google Calendar, and cloud sync
+- Local notification preferences and integration settings for in-app reminders, phone push, Google Calendar, cloud sync, and email-on-hold state
 - Google Calendar payload scaffolding for reminders and shared care events, without frontend secrets or OAuth tokens
 - PawPal companion settings, dismissals, lightweight companion memory, care-gap/pattern/planning suggestions, breed/season signals, optional collapsed Climate care context, and one-tap suggestion actions
 - Full local export/import payload for backup and restore, including referenced IndexedDB photo records
@@ -141,7 +141,7 @@ Current limitation: the closed-app sender path is now structurally in place, but
 The app should eventually support:
 
 - Push notifications for mobile
-- Email notifications through a backend sender such as Resend
+- Deferred email notification plumbing through a backend sender such as Resend
 - Google Calendar sync through per-user OAuth
 - Calendar export fallback such as `.ics`
 
@@ -157,7 +157,7 @@ Reminder records should be designed with:
 - Pet association
 - Optional assigned user later
 
-Real push should be handled by Supabase-backed auth/device subscriptions plus PWA Push API and a backend push sender, or by Expo push in the native app phase. Email and Google Calendar sync must happen through server-side code so secrets are not exposed in the browser.
+Real push should be handled by Supabase-backed auth/device subscriptions plus PWA Push API and a backend push sender, or by Expo push in the native app phase. Google Calendar sync must happen through server-side code so secrets are not exposed in the browser. Email remains intentionally deferred until sender-domain setup is worth bringing into the product.
 
 ## Free-First Integration Direction
 
@@ -166,7 +166,7 @@ The current trust/integration path is intentionally free-first:
 - Supabase Auth + snapshot backup remain the account foundation
 - Supabase Cron is the intended frequent scheduler path instead of Vercel Pro cron
 - Google Calendar sync uses per-user OAuth plus server-side stored refresh tokens
-- Email reminders use a lightweight provider path such as Resend
+- Email reminder code paths stay available behind the scenes, but the product keeps them on hold until sender-domain setup becomes worth the complexity
 - The working phone/browser remains the operational copy until normalized multi-table cloud sync is introduced later
 
 This lets Pawfolio become more trustworthy without requiring a paid platform upgrade before the product has earned it.

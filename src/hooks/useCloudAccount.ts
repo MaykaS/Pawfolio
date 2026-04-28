@@ -27,7 +27,7 @@ export type TrustState = {
   restore: "idle" | "restoring" | "restored" | "empty" | "failed";
   push: "idle" | "saving" | "active" | "blocked" | "failed";
   calendar: "disconnected" | "connecting" | "connected" | "sync_error";
-  email: "off" | "active" | "send_error";
+  email: "on_hold";
 };
 
 type UseCloudAccountArgs = {
@@ -402,9 +402,16 @@ export function useCloudAccount({
     signInWithGoogle({ intent: "calendar", scopes: "https://www.googleapis.com/auth/calendar", forceConsent: true })
       .catch((error: Error) => {
         setCloudStatus(calendarAccessDeniedMessage(error.message));
+        setState((current) => ({
+          ...current,
+          integrationSettings: {
+            ...current.integrationSettings,
+            googleCalendar: "issue",
+          },
+        }));
         setCloudAction("idle");
       });
-  }, []);
+  }, [setState]);
 
   const syncCalendarNow = useCallback(() => {
     if (!session) {
@@ -431,6 +438,13 @@ export function useCloudAccount({
       })
       .catch((error: Error) => {
         setCloudStatus(calendarAccessDeniedMessage(error.message));
+        setState((current) => ({
+          ...current,
+          integrationSettings: {
+            ...current.integrationSettings,
+            googleCalendar: "issue",
+          },
+        }));
       })
       .finally(() => setCloudAction("idle"));
   }, [session, setState]);
@@ -478,13 +492,8 @@ export function useCloudAccount({
           : cloudStatus.toLowerCase().includes("calendar") && cloudStatus.toLowerCase().includes("error")
             ? "sync_error"
             : "disconnected",
-    email:
-      state.notificationPreferences.email
-        ? cloudStatus.toLowerCase().includes("email") && cloudStatus.toLowerCase().includes("error")
-          ? "send_error"
-          : "active"
-        : "off",
-  }), [cloudAction, cloudStatus, hasPushSubscription, pushPermission, session, state.cloudSyncMeta.lastUploadedAt, state.googleCalendarSyncState.connected, state.notificationPreferences.email]);
+    email: "on_hold",
+  }), [cloudAction, cloudStatus, hasPushSubscription, pushPermission, session, state.cloudSyncMeta.lastUploadedAt, state.googleCalendarSyncState.connected]);
 
   return {
     session,
@@ -508,7 +517,7 @@ function calendarAccessDeniedMessage(rawError: string) {
     || normalized.includes("developer-approved testers")
     || normalized.includes("has not completed the google verification process")
   ) {
-    return "Google Calendar is still in Google testing mode. Add your Google account as a test user in the Google Cloud OAuth consent screen, then try Connect Google Calendar again.";
+    return "Google Calendar setup is still blocked in Google Cloud. Add your Google account as a test user, enable Google Calendar API, and add the calendar scope in Data Access, then try Connect Google Calendar again.";
   }
   return rawError;
 }

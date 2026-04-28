@@ -33,7 +33,7 @@ Future versions may include:
 
 - Multiple pets per user
 - Shared pet access for multiple caregivers
-- Push notifications and email reminders
+- Push notifications and Google Calendar sync
 - Calendar integrations
 - GPS walk tracking with user permission
 - Medical document storage
@@ -69,9 +69,9 @@ Today, Pawfolio already does these product jobs well:
 - One-tap cloud restore from the latest private Supabase snapshot
 - Phone push subscription save for the current signed-in device
 - Near-term local reminder notifications while the app is open or backgrounded with notification permission granted
-- Integration settings for Google Calendar, email, phone push, and cloud sync, with live trust/account status
+- Integration settings for Google Calendar, phone push, cloud sync, and deferred email, with live trust/account status
 - Google Calendar connection and one-way sync into the user's primary calendar when Google Calendar envs and provider scopes are configured
-- Backend email reminder delivery plumbing for the signed-in account email when Resend envs are configured
+- Deferred email reminder plumbing kept in code, but intentionally on hold in the product until sender-domain setup is worth doing
 - Floating PawPal companion with local rule-based care gaps, patterns, breed/season context, optional collapsed Climate care context, and one-tap actions
 - Full Pawfolio data export/import for localStorage and IndexedDB photo safety
 - Supabase Google sign-in, private cloud snapshot upload, and PWA push subscription setup
@@ -90,12 +90,12 @@ Current data/auth note:
 
 Cloud/push setup files:
 
-- `.env.example` lists the needed frontend, Supabase, VAPID, Google Calendar, and email variables.
+- `.env.example` lists the needed frontend, Supabase, VAPID, Google Calendar, and deferred email variables.
 - `supabase/schema.sql` creates the snapshot, push, integration, calendar-link, and delivery-ledger tables with RLS.
 - `supabase/cron.sql` documents the free-first Supabase Cron path for frequent reminder delivery.
 - `api/google-calendar-connect.ts` stores server-side Google Calendar integration credentials for the signed-in user.
 - `api/google-calendar-sync.ts` performs one-way Pawfolio-to-Google-Calendar sync for reminders and shared care-calendar items.
-- `api/send-due-push.ts` now acts as the scheduled reminder sender for push and email channels, backed by a delivery ledger.
+- `api/send-due-push.ts` now acts as the scheduled reminder sender for push, with deferred email plumbing still preserved behind the same delivery ledger path.
 
 Run locally:
 
@@ -134,7 +134,7 @@ Notes:
 - Data is still local-first and stored in that phone browser/app profile.
 - The local network dev URL is useful for testing, but HTTPS is needed for the proper install/offline PWA experience.
 - Phone subscription setup and near-term local reminder notifications now work in the app.
-- The Profile account area now shows live cloud sync time, phone-push status, and a push diagnostics sheet.
+- The Profile account area now acts more like a trust center, with a compact summary card, action card, and deeper trust details sheet.
 - The Profile account area now explains the difference between the working copy on this phone, the latest cloud backup, and the last restore.
 - Today is now a compact urgent inbox, while PawPal is the broader companion feed.
 - Fully validated closed-app scheduled phone push still needs production scheduling verification, but the app now includes a free-first Supabase Cron path, a delivery ledger, and backend channel senders instead of relying only on local reminders.
