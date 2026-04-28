@@ -1,6 +1,5 @@
 import {
   effectiveReminderTimeZone,
-  missedRoutineTasks,
   normalizeState,
   resolvedScheduleTimeZone,
   tasksForDate,
@@ -19,6 +18,10 @@ export type DeliveryCandidate = {
   body: string;
   url: string;
 };
+
+function isDeliveryCandidate(candidate: DeliveryCandidate | null): candidate is DeliveryCandidate {
+  return candidate !== null;
+}
 
 function withinDeliveryWindow(date: Date, now: Date, lookbackMinutes = 5, lookaheadMinutes = 5) {
   const start = now.getTime() - lookbackMinutes * 60_000;
@@ -92,11 +95,17 @@ function reminderAlertDateForTimeZone(reminder: Reminder, timeZone: string) {
   return alertDate;
 }
 
+function taskMissedNudgeDate(task: Pick<DailyTask, "time">, dateText: string, timeZone: string, graceMinutes: number) {
+  const dueAt = zonedDateTimeToUtc(dateText, task.time, timeZone);
+  dueAt.setMinutes(dueAt.getMinutes() + graceMinutes);
+  return dueAt;
+}
+
 function stateTimeZone(state: PawfolioState) {
   return resolvedScheduleTimeZone(state.cloudSyncMeta);
 }
 
-function dueReminderCandidates(state: PawfolioState, now: Date) {
+function dueReminderCandidates(state: PawfolioState, now: Date): DeliveryCandidate[] {
   const timeZone = stateTimeZone(state);
   return visibleReminders(state)
     .filter((reminder) => reminder.date)
@@ -118,28 +127,41 @@ function dueReminderCandidates(state: PawfolioState, now: Date) {
     }));
 }
 
-function dueMissedTaskCandidates(state: PawfolioState, now: Date) {
+function dueMissedTaskCandidates(state: PawfolioState, now: Date): DeliveryCandidate[] {
   if (!state.routineCoachSettings?.missedRoutineNudges) return [];
   const timeZone = stateTimeZone(state);
   const localNow = wallClockDateInTimeZone(now, timeZone);
   const today = toLocalISO(localNow);
   const todayTasks = tasksForDate(state.tasks, state.taskHistory, today);
-  return missedRoutineTasks(todayTasks as DailyTask[], state.taskHistory, localNow, state.routineCoachSettings.missedRoutineGraceMinutes)
+  const graceMinutes = state.routineCoachSettings.missedRoutineGraceMinutes;
+  const repeatMinutes = 60;
+
+  const candidates: Array<DeliveryCandidate | null> = (todayTasks as DailyTask[])
+    .filter((task) => !task.done)
     .filter((task) => task.time && task.time !== "Anytime")
     .map((task) => {
-      const occurrenceAt = new Date(now.getTime()).toISOString();
+      const firstNudgeAt = taskMissedNudgeDate(task, today, timeZone, graceMinutes);
+      if (now.getTime() < firstNudgeAt.getTime()) return null;
+
+      const elapsedMinutes = Math.floor((now.getTime() - firstNudgeAt.getTime()) / 60_000);
+      const repeatIndex = Math.floor(elapsedMinutes / repeatMinutes);
+      const occurrenceAt = new Date(firstNudgeAt.getTime() + repeatIndex * repeatMinutes * 60_000);
+      if (!withinDeliveryWindow(occurrenceAt, now)) return null;
+
       return {
         channelItemType: "task" as const,
         itemId: task.id,
-        occurrenceAt,
+        occurrenceAt: occurrenceAt.toISOString(),
         title: "Pawfolio check-in",
         body: `Did you forget to mark ${task.title.toLowerCase()}?`,
         url: "/?tab=today",
       };
     });
+
+  return candidates.filter(isDeliveryCandidate);
 }
 
-export function collectDueDeliveryCandidates(rawState: unknown, now = new Date()) {
+export function collectDueDeliveryCandidates(rawState: unknown, now = new Date()): DeliveryCandidate[] {
   const state = normalizeState(rawState as Partial<PawfolioState>);
   return [...dueReminderCandidates(state, now), ...dueMissedTaskCandidates(state, now)];
 }
