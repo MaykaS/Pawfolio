@@ -312,6 +312,19 @@ describe("pawfolio helpers", () => {
       dose: "Add the dose.",
       frequency: "Add how often it is given.",
     });
+    expect(
+      validateCareRecord({
+        type: "Medication",
+        date: "2026-04-22",
+        title: "Heartgard",
+        dose: "1 chew",
+        frequency: "Every month",
+        startDate: "2026-05-01",
+        endDate: "2026-04-01",
+      }),
+    ).toMatchObject({
+      endDate: "End date should be after the start date.",
+    });
     expect(validateCareRecord({ type: "Vaccine", date: "2026-04-22", title: "Rabies" })).toEqual({});
     expect(validateCareRecord({ type: "Weight", date: "2026-04-22", weightValue: "27.8" })).toEqual({});
     expect(careEmptyState("Vaccines").title).toBe("No vaccines yet");
@@ -410,12 +423,20 @@ describe("pawfolio helpers", () => {
       type: "Medication",
       title: "Heartgard Plus",
       date: "2026-05-01",
+      startDate: "2026-05-01",
+      endDate: "2026-10-01",
+      adherenceNotes: "Give with breakfast if possible.",
       note: "with food",
       nextDueDate: "2026-06-01",
     });
 
     expect(state.careEvents).toHaveLength(1);
     expect(visibleReminders(state)[0]).toMatchObject({ title: "Heartgard Plus" });
+    expect(visibleCareRecords(state)[0]).toMatchObject({
+      startDate: "2026-05-01",
+      endDate: "2026-10-01",
+      adherenceNotes: "Give with breakfast if possible.",
+    });
 
     expect(deleteCalendarItemFromState(state, "med").careEvents).toEqual([]);
     state = saveCareRecordToState(normalizeState(undefined), {

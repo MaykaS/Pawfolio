@@ -127,6 +127,7 @@ import { useCloudAccount, type CloudActionState, type TrustState } from "./hooks
 import { useLocalReminderScheduling } from "./hooks/useLocalReminderScheduling";
 import { usePushStatus } from "./hooks/usePushStatus";
 import { ReminderSheet } from "./components/ReminderSheet";
+import { AccountDeviceSection, IntegrationsCard, SettingRow } from "./components/ProfileSettings";
 import { TrustDetailsSheet } from "./components/TrustDetailsSheet";
 import { Field, Sheet } from "./components/Sheet";
 import {
@@ -218,6 +219,8 @@ function countTasks(tasks: DailyTask[], pattern: RegExp) {
 
 function careMeta(record: CareRecord) {
   const parts = [record.type, prettyDate(record.date)];
+  if (record.startDate) parts.push(`started ${prettyLongDate(record.startDate)}`);
+  if (record.endDate) parts.push(`ends ${prettyLongDate(record.endDate)}`);
   if (record.dose) parts.push(record.dose);
   if (record.frequency) parts.push(record.frequency);
   if (record.refillDate) parts.push(`refill ${prettyLongDate(record.refillDate)}`);
@@ -225,6 +228,7 @@ function careMeta(record: CareRecord) {
   if (record.vetName) parts.push(record.vetName);
   if (record.reason) parts.push(record.reason);
   if (record.nextDueDate) parts.push(`next ${prettyLongDate(record.nextDueDate)}`);
+  if (record.adherenceNotes) parts.push(`notes: ${record.adherenceNotes}`);
   if (record.note) parts.push(record.note);
   return parts.join(" - ");
 }
@@ -1998,24 +2002,17 @@ function ProfileScreen({
         </div>
         <p className="personality-text">{profile.personality || "Add little quirks, fears, favorite games, and care notes."}</p>
       </button>
-        <section className="card settings-card">
-          <p className="label no-margin">Integrations</p>
-          <SettingRow
-            label="Google Calendar"
-            value={googleCalendarStatusLabel(trustState.calendar, notificationPreferences.googleCalendar || googleCalendarSyncState.connected, Boolean(session))}
-            checked={notificationPreferences.googleCalendar}
-            onToggle={() => onTogglePreference("googleCalendar")}
-          />
-          <div className="setting-row static">
-            <span>
-              <strong>Email reminders</strong>
-              <small>On hold for now.</small>
-            </span>
-            <span className="badge badge-gray">On hold</span>
-          </div>
-          <SettingRow label="In-app reminders" value="Active now" checked={notificationPreferences.inApp} onToggle={() => onTogglePreference("inApp")} />
-          <p className="settings-note">Google Calendar is live. Email is on hold, and phone push is managed below.</p>
-        </section>
+      <IntegrationsCard
+        googleCalendarValue={googleCalendarStatusLabel(
+          trustState.calendar,
+          notificationPreferences.googleCalendar || googleCalendarSyncState.connected,
+          Boolean(session),
+        )}
+        googleCalendarChecked={notificationPreferences.googleCalendar}
+        onToggleGoogleCalendar={() => onTogglePreference("googleCalendar")}
+        inAppChecked={notificationPreferences.inApp}
+        onToggleInApp={() => onTogglePreference("inApp")}
+      />
       <section className="card settings-card">
         <p className="label no-margin">PawPal</p>
         <SettingRow label="Pattern suggestions" value="Local and private" checked={coachSettings.enabled} onToggle={onToggleCoach} />
@@ -2067,97 +2064,45 @@ function ProfileScreen({
         </div>
         <p className="settings-note">PawPal stays on this device. Location is optional and only used for broad care context.</p>
       </section>
-      <section className="profile-stack-section">
-        <p className="label no-margin">Account & device</p>
-        <div className="cloud-card">
-          <div className="cloud-copy">
-            <div className="cloud-title-row">
-              <h3>Private account</h3>
-              <span className={session ? "badge badge-green" : "badge badge-gray"}>
-                {session ? "Connected" : "Not signed in"}
-              </span>
-            </div>
-            <p>{session?.user.email || (isCloudConfigured ? "Sign in with Google to turn on backup and restore." : missingCloudConfigMessage())}</p>
-          </div>
-          <button className="btn btn-sm btn-secondary" type="button" onClick={session ? onSignOut : onSignIn} disabled={!isCloudConfigured}>
-            {session ? "Sign out" : "Sign in with Google"}
-          </button>
-        </div>
-        <section className="card diagnostics-card trust-summary-card">
-          <div className="diagnostic-row">
-            <span>Private account</span>
-            <strong>{session ? "Connected" : "Signed out"}</strong>
-          </div>
-          <div className="diagnostic-row">
-            <span>This device</span>
-            <strong>Local</strong>
-          </div>
-          <div className="diagnostic-row">
-            <span>Backup</span>
-            <strong>{backupLabel}</strong>
-          </div>
-          <div className="diagnostic-row">
-            <span>Sync</span>
-            <strong>{cloudSyncStatusLabel(Boolean(session), integrationSettings.cloudSync === "enabled")}</strong>
-          </div>
-          <div className="diagnostic-row">
-            <span>Phone push</span>
-            <strong>{phonePushLabel}</strong>
-          </div>
-        </section>
-        <section className="card settings-card cloud-actions-card">
-          <p className="label no-margin">Actions</p>
-          <button className="setting-row" type="button" onClick={onUploadCloud} disabled={!session || cloudAction !== "idle"}>
-            <span>
-              <strong>{cloudAction === "uploading" ? "Uploading local Pawfolio..." : "Upload local Pawfolio"}</strong>
-              <small>{uploadDetail}</small>
-            </span>
-            <ChevronRight size={17} />
-          </button>
-          <button className="setting-row" type="button" onClick={onRestoreCloud} disabled={!session || cloudAction !== "idle"}>
-            <span>
-              <strong>{cloudAction === "restoring" ? "Restoring cloud Pawfolio..." : "Restore cloud Pawfolio"}</strong>
-              <small>{restoreDetail}</small>
-            </span>
-            <ChevronRight size={17} />
-          </button>
-          <button className="setting-row" type="button" onClick={onEnablePush} disabled={!session || !isPushConfigured || cloudAction !== "idle"}>
-            <span>
-              <strong>{cloudAction === "enabling_push" ? "Saving this device..." : hasPushSubscription ? "Refresh phone push" : "Enable phone push"}</strong>
-              <small>{phonePushDetail}</small>
-            </span>
-            <ChevronRight size={17} />
-          </button>
-          <button className="setting-row" type="button" onClick={googleCalendarSyncState.connected ? onSyncCalendar : onConnectCalendar} disabled={!session || cloudAction !== "idle"}>
-            <span>
-              <strong>
-                {cloudAction === "connecting_calendar"
-                  ? "Connecting Google Calendar..."
-                  : cloudAction === "syncing_calendar"
-                    ? "Syncing Google Calendar..."
-                    : googleCalendarSyncState.connected
-                      ? "Sync Google Calendar"
-                      : "Connect Google Calendar"}
-              </strong>
-              <small>{googleCalendarStatusDetail({
-                status: trustState.calendar,
-                enabled: notificationPreferences.googleCalendar || googleCalendarSyncState.connected,
-                signedIn: Boolean(session),
-                lastSyncAt: googleCalendarSyncState.lastSyncAt,
-              })}</small>
-            </span>
-            <ChevronRight size={17} />
-          </button>
-          <button className="setting-row" type="button" onClick={onOpenPushDiagnostics}>
-            <span>
-              <strong>Account details</strong>
-              <small>See backup, photos, push, calendar, and device details.</small>
-            </span>
-            <ChevronRight size={17} />
-          </button>
-        </section>
-        {cloudStatus && <p className="settings-note">{cloudStatus}</p>}
-      </section>
+      <AccountDeviceSection
+        accountText={session?.user.email || (isCloudConfigured ? "Sign in with Google to turn on backup and restore." : missingCloudConfigMessage())}
+        accountButtonLabel={session ? "Sign out" : "Sign in with Google"}
+        accountConnected={Boolean(session)}
+        backupLabel={backupLabel}
+        syncLabel={cloudSyncStatusLabel(Boolean(session), integrationSettings.cloudSync === "enabled")}
+        phonePushLabel={phonePushLabel}
+        uploadLabel={cloudAction === "uploading" ? "Uploading local Pawfolio..." : "Upload local Pawfolio"}
+        uploadDetail={uploadDetail}
+        restoreLabel={cloudAction === "restoring" ? "Restoring cloud Pawfolio..." : "Restore cloud Pawfolio"}
+        restoreDetail={restoreDetail}
+        pushActionLabel={cloudAction === "enabling_push" ? "Saving this device..." : hasPushSubscription ? "Refresh phone push" : "Enable phone push"}
+        pushDetail={phonePushDetail}
+        calendarActionLabel={
+          cloudAction === "connecting_calendar"
+            ? "Connecting Google Calendar..."
+            : cloudAction === "syncing_calendar"
+              ? "Syncing Google Calendar..."
+              : googleCalendarSyncState.connected
+                ? "Sync Google Calendar"
+                : "Connect Google Calendar"
+        }
+        calendarDetail={googleCalendarStatusDetail({
+          status: trustState.calendar,
+          enabled: notificationPreferences.googleCalendar || googleCalendarSyncState.connected,
+          signedIn: Boolean(session),
+          lastSyncAt: googleCalendarSyncState.lastSyncAt,
+        })}
+        cloudStatus={cloudStatus}
+        accountDisabled={!isCloudConfigured}
+        actionDisabled={!session || cloudAction !== "idle"}
+        pushDisabled={!session || !isPushConfigured || cloudAction !== "idle"}
+        onAccountAction={session ? onSignOut : onSignIn}
+        onUpload={onUploadCloud}
+        onRestore={onRestoreCloud}
+        onPush={onEnablePush}
+        onCalendar={googleCalendarSyncState.connected ? onSyncCalendar : onConnectCalendar}
+        onOpenDetails={onOpenPushDiagnostics}
+      />
       <div className="profile-actions">
         <ProfileAction
           icon={<Pencil size={18} />}
@@ -2209,28 +2154,6 @@ function ProfileAction({ icon, label, onClick }: { icon: React.ReactNode; label:
       <span className="profile-action-icon">{icon}</span>
       <span>{label}</span>
       <ChevronRight size={17} />
-    </button>
-  );
-}
-
-function SettingRow({
-  label,
-  value,
-  checked,
-  onToggle,
-}: {
-  label: string;
-  value: string;
-  checked: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button className="setting-row" type="button" onClick={onToggle}>
-      <span>
-        <strong>{label}</strong>
-        <small>{value}</small>
-      </span>
-      <span className={checked ? "toggle-pill on" : "toggle-pill"}>{checked ? "On" : "Off"}</span>
     </button>
   );
 }
@@ -2620,6 +2543,9 @@ function CareSheet({
     type: normalizedExisting?.type || "Weight",
     title: normalizedExisting?.title || "",
     date: normalizedExisting?.date || todayISO(),
+    startDate: normalizedExisting?.startDate || "",
+    endDate: normalizedExisting?.endDate || "",
+    adherenceNotes: normalizedExisting?.adherenceNotes || "",
     nextDueDate: normalizedExisting?.nextDueDate || "",
     note: normalizedExisting?.note || "",
     dose: normalizedExisting?.dose || "",
@@ -2779,6 +2705,23 @@ function CareSheet({
             </Field>
             <Field label="Refill / next dose">
               <input className="input" type="date" value={record.refillDate} onChange={(event) => update("refillDate", event.target.value)} />
+            </Field>
+            <div className="form-two">
+              <Field label="Start date">
+                <input className="input" type="date" value={record.startDate} onChange={(event) => update("startDate", event.target.value)} />
+              </Field>
+              <Field label="End date">
+                <input className="input" type="date" value={record.endDate} onChange={(event) => update("endDate", event.target.value)} />
+                {errors.endDate && <span className="field-error">{errors.endDate}</span>}
+              </Field>
+            </div>
+            <Field label="Missed dose / reaction notes">
+              <textarea
+                className="input"
+                value={record.adherenceNotes}
+                onChange={(event) => update("adherenceNotes", event.target.value)}
+                placeholder="Skipped dose, upset stomach, gave with food, or anything worth remembering."
+              />
             </Field>
           </>
         )}

@@ -41,6 +41,9 @@ export type CareRecord = {
   type: string;
   title: string;
   date: string;
+  startDate?: string;
+  endDate?: string;
+  adherenceNotes?: string;
   note: string;
   nextDueDate?: string;
   notifyLeadMinutes?: number;
@@ -70,6 +73,9 @@ export type CareEvent = {
   title: string;
   date: string;
   time: string;
+  startDate?: string;
+  endDate?: string;
+  adherenceNotes?: string;
   note: string;
   nextDueDate?: string;
   recurrence: ReminderRecurrence;
@@ -525,6 +531,9 @@ export function withCareSchedule(record: CareRecord): CareRecord {
   const scheduled = {
     ...record,
     nextDueDate: record.nextDueDate || "",
+    startDate: record.startDate || "",
+    endDate: record.endDate || "",
+    adherenceNotes: record.adherenceNotes || "",
     notifyLeadMinutes:
       typeof record.notifyLeadMinutes === "number"
         ? record.notifyLeadMinutes
@@ -760,6 +769,9 @@ export function careRecordToEvent(record: CareRecord): CareEvent {
     date: scheduled.date,
     time: "",
     note: scheduled.note,
+    startDate: scheduled.startDate || "",
+    endDate: scheduled.endDate || "",
+    adherenceNotes: scheduled.adherenceNotes || "",
     nextDueDate: scheduled.nextDueDate || "",
     recurrence,
     notifyLeadMinutes:
@@ -791,6 +803,9 @@ export function reminderToCareEvent(reminder: Reminder): CareEvent | undefined {
     date: reminder.date,
     time: reminder.time,
     note: reminder.note,
+    startDate: "",
+    endDate: "",
+    adherenceNotes: "",
     recurrence: reminder.recurrence || "none",
     notifyLeadMinutes:
       typeof reminder.notifyLeadMinutes === "number"
@@ -810,6 +825,9 @@ export function careEventToCareRecord(event: CareEvent): CareRecord {
     title: event.title,
     date: event.date,
     note: event.note,
+    startDate: event.startDate || "",
+    endDate: event.endDate || "",
+    adherenceNotes: event.adherenceNotes || "",
     nextDueDate: event.nextDueDate || "",
     notifyLeadMinutes:
       typeof event.notifyLeadMinutes === "number"
@@ -855,6 +873,9 @@ function mergeCareEvent(events: CareEvent[], event: CareEvent) {
 
   const optionalFields: (keyof CareEvent)[] = [
     "nextDueDate",
+    "startDate",
+    "endDate",
+    "adherenceNotes",
     "dose",
     "doseAmount",
     "doseUnit",
@@ -865,6 +886,7 @@ function mergeCareEvent(events: CareEvent[], event: CareEvent) {
     "clinic",
     "vetName",
     "reason",
+    "timeZone",
     "notifyLeadMinutes",
   ];
 
@@ -1272,6 +1294,9 @@ export function validateCareRecord(record: Partial<CareRecord>) {
     if (!record.title?.trim()) errors.title = "Add the medication name.";
     if (!formatMedicationDose(record).trim()) errors.dose = "Add the dose.";
     if (!formatMedicationFrequency(record).trim()) errors.frequency = "Add how often it is given.";
+    if (record.startDate && record.endDate && record.endDate < record.startDate) {
+      errors.endDate = "End date should be after the start date.";
+    }
   } else if (record.type === "Vaccine") {
     if (!record.title?.trim()) errors.title = "Add the vaccine name.";
   } else if (record.type === "Vet visit") {
