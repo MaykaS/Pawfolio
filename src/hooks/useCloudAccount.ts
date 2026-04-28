@@ -442,9 +442,26 @@ export function useCloudAccount({
       return;
     }
     setCloudAction("syncing_calendar");
-    setCloudStatus("Syncing Pawfolio into Google Calendar...");
-    syncGoogleCalendar(session)
+    setCloudStatus("Uploading the latest Pawfolio, then syncing Google Calendar...");
+    const syncFingerprint = cloudSyncFingerprint(state);
+    uploadLocalPawfolioToAccount(state)
+      .then(async () => {
+        lastUploadedFingerprint.current = syncFingerprint;
+        setState((current) => ({
+          ...current,
+          integrationSettings: {
+            ...current.integrationSettings,
+            cloudSync: "enabled",
+          },
+          cloudSyncMeta: {
+            ...current.cloudSyncMeta,
+            lastUploadedAt: new Date().toISOString(),
+          },
+        }));
+        return syncGoogleCalendar(session);
+      })
       .then((result) => {
+        lastCalendarSyncedFingerprint.current = syncFingerprint;
         setState((current) => ({
           ...current,
           integrationSettings: {
@@ -470,7 +487,7 @@ export function useCloudAccount({
         }));
       })
       .finally(() => setCloudAction("idle"));
-  }, [session, setState]);
+  }, [session, setState, state]);
 
   const trustState = useMemo<TrustState>(() => ({
     backup:

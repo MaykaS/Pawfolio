@@ -1229,6 +1229,11 @@ export function cloudRestoreDetail(lastRestoredAt?: string) {
   return `Last restore ${prettySyncTime(lastRestoredAt)}.`;
 }
 
+export function cloudUploadDetail(lastUploadedAt?: string) {
+  if (!lastUploadedAt) return "This phone has not uploaded a cloud backup yet.";
+  return `Last upload ${prettySyncTime(lastUploadedAt)}.`;
+}
+
 export function getNotificationGroups(
   reminders: Reminder[],
   now = new Date(),

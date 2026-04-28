@@ -49,6 +49,7 @@ import {
   careTypes,
   careEmptyState,
   cloudBackupStatusLabel,
+  cloudUploadDetail,
   cloudRestoreDetail,
   collectPhotoRefs,
   defaultReminderLeadMinutes,
@@ -1993,6 +1994,9 @@ function PushDiagnosticsSheet({
           <span>Reminder time zone</span>
           <strong>{currentTimeZone}</strong>
         </div>
+        <p className="settings-note">
+          Pawfolio uses this device time zone by default for Google Calendar and reminder delivery. You only need to change it here when you want reminders to stay anchored to a different zone while traveling.
+        </p>
         <div className="diagnostic-row">
           <span>Last calendar sync</span>
           <strong>{prettySyncTime(googleCalendarSyncState.lastSyncAt)}</strong>
@@ -2157,6 +2161,7 @@ function ProfileScreen({
     signedIn: Boolean(session),
     lastUploadedAt: cloudSyncMeta.lastUploadedAt,
   });
+  const uploadDetail = cloudUploadDetail(cloudSyncMeta.lastUploadedAt);
   const restoreDetail = cloudRestoreDetail(cloudSyncMeta.lastRestoredAt);
   const enableAutoLocation = () => {
     if (!navigator.geolocation) {
@@ -2327,7 +2332,7 @@ function ProfileScreen({
           <button className="setting-row" type="button" onClick={onUploadCloud} disabled={!session || cloudAction !== "idle"}>
             <span>
               <strong>{cloudAction === "uploading" ? "Uploading local Pawfolio..." : "Upload local Pawfolio"}</strong>
-              <small>Copy this phone's saved data into your private backup.</small>
+              <small>{uploadDetail}</small>
             </span>
             <ChevronRight size={17} />
           </button>
