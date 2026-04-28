@@ -174,7 +174,12 @@ export function useCloudAccount({
       }
 
       if (callback.error) {
-        if (!cancelled) setCloudStatus(`Google sign-in didn't finish: ${callback.error}`);
+        if (!cancelled) {
+          const message = callback.intent === "calendar"
+            ? calendarAccessDeniedMessage(callback.error)
+            : callback.error;
+          setCloudStatus(`Google sign-in didn't finish: ${message}`);
+        }
         window.history.replaceState({}, document.title, cleanupAuthCallbackUrl(window.location.href));
         return;
       }
@@ -194,7 +199,7 @@ export function useCloudAccount({
               await finalizeGoogleCalendarConnection(data.session);
             } catch (calendarError) {
               setCloudAction("idle");
-              setCloudStatus((calendarError as Error).message);
+              setCloudStatus(calendarAccessDeniedMessage((calendarError as Error).message));
             }
           } else {
             setCloudStatus("Signed in. This phone keeps the working copy, and you can back it up or save push now.");
@@ -396,7 +401,7 @@ export function useCloudAccount({
     setCloudStatus("Connecting Google Calendar...");
     signInWithGoogle({ intent: "calendar", scopes: "https://www.googleapis.com/auth/calendar", forceConsent: true })
       .catch((error: Error) => {
-        setCloudStatus(error.message);
+        setCloudStatus(calendarAccessDeniedMessage(error.message));
         setCloudAction("idle");
       });
   }, []);
@@ -425,7 +430,7 @@ export function useCloudAccount({
         setCloudStatus("Google Calendar synced.");
       })
       .catch((error: Error) => {
-        setCloudStatus(error.message);
+        setCloudStatus(calendarAccessDeniedMessage(error.message));
       })
       .finally(() => setCloudAction("idle"));
   }, [session, setState]);
@@ -494,4 +499,16 @@ export function useCloudAccount({
     connectCalendar,
     syncCalendarNow,
   };
+}
+
+function calendarAccessDeniedMessage(rawError: string) {
+  const normalized = rawError.toLowerCase();
+  if (
+    normalized.includes("access_denied")
+    || normalized.includes("developer-approved testers")
+    || normalized.includes("has not completed the google verification process")
+  ) {
+    return "Google Calendar is still in Google testing mode. Add your Google account as a test user in the Google Cloud OAuth consent screen, then try Connect Google Calendar again.";
+  }
+  return rawError;
 }

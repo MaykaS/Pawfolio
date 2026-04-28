@@ -2102,12 +2102,22 @@ function ProfileScreen({
         </div>
         <p className="personality-text">{profile.personality || "Add little quirks, fears, favorite games, and care notes."}</p>
       </button>
-      <section className="card settings-card">
-        <p className="label no-margin">Integrations</p>
-        <SettingRow label="Google Calendar" value={integrationStatusLabel(integrationSettings.googleCalendar)} checked={notificationPreferences.googleCalendar} onToggle={() => onTogglePreference("googleCalendar")} />
-        <SettingRow label="Email reminders" value={trustState.email === "active" ? "Active now" : integrationStatusLabel(integrationSettings.email)} checked={notificationPreferences.email} onToggle={() => onTogglePreference("email")} />
-        <SettingRow label="Phone push" value={phonePushLabel} checked={notificationPreferences.push || hasPushSubscription} onToggle={() => onTogglePreference("push")} />
-        <SettingRow label="In-app reminders" value="Active now" checked={notificationPreferences.inApp} onToggle={() => onTogglePreference("inApp")} />
+        <section className="card settings-card">
+          <p className="label no-margin">Integrations</p>
+          <SettingRow
+            label="Google Calendar"
+            value={googleCalendarStatusLabel(googleCalendarSyncState.connected, notificationPreferences.googleCalendar)}
+            checked={notificationPreferences.googleCalendar}
+            onToggle={() => onTogglePreference("googleCalendar")}
+          />
+          <SettingRow
+            label="Email reminders"
+            value={emailReminderStatusLabel(trustState.email, notificationPreferences.email, Boolean(session))}
+            checked={notificationPreferences.email}
+            onToggle={() => onTogglePreference("email")}
+          />
+          <SettingRow label="Phone push" value={phonePushLabel} checked={notificationPreferences.push || hasPushSubscription} onToggle={() => onTogglePreference("push")} />
+          <SettingRow label="In-app reminders" value="Active now" checked={notificationPreferences.inApp} onToggle={() => onTogglePreference("inApp")} />
         <p className="settings-note">{notificationPreferences.email && session ? `Reminder emails can go to ${session.user.email}.` : phonePushDetail}</p>
       </section>
       <section className="card settings-card">
@@ -2356,11 +2366,24 @@ function SettingRow({
   );
 }
 
-function integrationStatusLabel(status: string) {
-  if (status === "connected" || status === "configured" || status === "enabled") return "Connected";
-  if (status === "planned") return "Planned";
-  if (status === "local_only") return "Local only";
-  return "Not connected";
+function googleCalendarStatusLabel(
+  connected: boolean,
+  enabled: boolean,
+) {
+  if (connected) return "Connected";
+  if (enabled) return "Needs setup";
+  return "Off";
+}
+
+function emailReminderStatusLabel(
+  emailTrustState: TrustState["email"],
+  enabled: boolean,
+  signedIn: boolean,
+) {
+  if (emailTrustState === "send_error") return "Issue";
+  if (enabled && signedIn) return "Ready";
+  if (enabled) return "Needs setup";
+  return "Off";
 }
 
 function isSharedCareTypeLabel(type: string) {
