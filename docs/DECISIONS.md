@@ -228,6 +228,18 @@ Decision: Read-only profile summary surfaces such as Personality notes should be
 
 Reason: On mobile, important profile information should feel directly editable from where it is displayed. Keeping one central edit sheet preserves consistency, validation, and trust while still making the profile feel alive.
 
+## 2026-04-27: Treat The Phone As The Working Copy And Cloud As Backup First
+
+Decision: The Profile account surface should explicitly describe the current phone/browser as the working copy, while cloud backup and restore act as trust-building layers around it.
+
+Reason: During the snapshot phase, Pawfolio is not yet a fully normalized cloud app. Users need a simple mental model that explains where their live data is, what has been backed up, and what restore actually does.
+
+## 2026-04-27: Run A Trust-First Product Hardening Cycle
+
+Decision: The next implementation cycle prioritizes push reliability, restore confidence, account clarity, and formal PM-style journey validation before adding more broad product scope.
+
+Reason: Pawfolio already has enough feature depth that trust and clarity now matter more than raw surface area. Hardening the product first is the fastest path toward an app that feels dependable instead of merely ambitious.
+
 ## 2026-04-22: Use A Dog-Face PWA Icon
 
 Decision: The installed PWA icon should be a cute dog face in Pawfolio colors rather than a generic mark.

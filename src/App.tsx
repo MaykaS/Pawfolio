@@ -48,6 +48,9 @@ import {
   careStatus,
   careTypes,
   careEmptyState,
+  cloudBackupStatusDetail,
+  cloudBackupStatusLabel,
+  cloudRestoreDetail,
   collectPhotoRefs,
   defaultReminderLeadMinutes,
   deleteCalendarItemFromState,
@@ -134,6 +137,7 @@ type CareMode = { mode: "create" } | { mode: "edit"; record: CareRecord };
 type ReminderMode = { mode: "create"; date?: string } | { mode: "edit"; reminder: Reminder };
 type PhotoRecord = { id: string; dataUrl: string; createdAt: string };
 type BackupPayload = { app: "Pawfolio"; version: number; exportedAt: string; state: PawfolioState; photos?: PhotoRecord[] };
+type CloudActionState = "idle" | "uploading" | "restoring" | "enabling_push";
 
 const photoDbName = "pawfolio-photos-v1";
 const photoStoreName = "photos";
@@ -373,6 +377,7 @@ export default function App() {
   const [saveError, setSaveError] = useState("");
   const [session, setSession] = useState<Session | null>(null);
   const [cloudStatus, setCloudStatus] = useState("");
+  const [cloudAction, setCloudAction] = useState<CloudActionState>("idle");
   const [pushDiagnosticsOpen, setPushDiagnosticsOpen] = useState(false);
   const [pushPermission, setPushPermission] = useState<PawfolioNotificationStatus>(notificationPermissionStatus(globalThis.Notification));
   const [hasPushSubscription, setHasPushSubscription] = useState(false);
@@ -413,7 +418,7 @@ export default function App() {
           setCloudStatus(`Google sign-in didn't finish: ${error.message}`);
         } else {
           setSession(data.session);
-          setCloudStatus("Signed in. You can upload local Pawfolio and enable phone push now.");
+          setCloudStatus("Signed in. This phone keeps the working copy, and you can back it up or save push now.");
         }
         window.history.replaceState({}, document.title, cleanupAuthCallbackUrl(window.location.href));
         return;
@@ -430,7 +435,7 @@ export default function App() {
       setSession(nextSession);
       if (nextSession) {
         setTab("profile");
-        setCloudStatus("Signed in. You can upload local Pawfolio and enable phone push now.");
+        setCloudStatus("Signed in. This phone keeps the working copy, and you can back it up or save push now.");
         window.history.replaceState({}, document.title, cleanupAuthCallbackUrl(window.location.href));
       }
     });
@@ -813,6 +818,7 @@ export default function App() {
           coachSettings={state.coachSettings}
           session={session}
           cloudStatus={cloudStatus}
+          cloudAction={cloudAction}
           cloudConfigured={cloudConfigured}
           pushConfigured={pushConfigured}
           pushPermission={pushPermission}
@@ -822,9 +828,11 @@ export default function App() {
           }}
           onSignOut={() => {
             supabase?.auth.signOut();
-            setCloudStatus("Signed out.");
+            setCloudStatus("Signed out. This phone still has its local Pawfolio, but cloud backup and phone push are off until you sign back in.");
           }}
           onUploadCloud={() => {
+            setCloudAction("uploading");
+            setCloudStatus("Uploading this phone's Pawfolio into your private account...");
             const syncFingerprint = cloudSyncFingerprint(state);
             uploadLocalPawfolioToAccount({ ...state, cloudSyncMeta: initialState.cloudSyncMeta })
               .then(() => {
@@ -842,13 +850,16 @@ export default function App() {
                 }));
                 setCloudStatus("Local Pawfolio uploaded to your account.");
               })
-              .catch((error: Error) => setCloudStatus(error.message));
+              .catch((error: Error) => setCloudStatus(error.message))
+              .finally(() => setCloudAction("idle"));
           }}
           onRestoreCloud={() => {
+            setCloudAction("restoring");
+            setCloudStatus("Restoring your latest private Pawfolio backup...");
             downloadCloudPawfolioToLocal()
               .then((snapshot) => {
                 if (!snapshot?.state) {
-                  setCloudStatus("No cloud Pawfolio backup was found yet.");
+                  setCloudStatus("No cloud Pawfolio backup was found yet. This phone is still your working copy.");
                   return;
                 }
                 const restoredState = normalizeState(snapshot.state as Partial<PawfolioState>);
@@ -868,9 +879,12 @@ export default function App() {
                 setState(nextState);
                 setCloudStatus("Cloud Pawfolio restored to this phone.");
               })
-              .catch((error: Error) => setCloudStatus(error.message));
+              .catch((error: Error) => setCloudStatus(error.message))
+              .finally(() => setCloudAction("idle"));
           }}
           onEnablePush={() => {
+            setCloudAction("enabling_push");
+            setCloudStatus("Saving this phone for Pawfolio reminders...");
             getCloudSession()
               .then((activeSession) => {
                 if (!activeSession) {
@@ -899,7 +913,8 @@ export default function App() {
                   setCloudStatus("This phone is saved for Pawfolio push reminders.");
                 });
               })
-              .catch((error: Error) => setCloudStatus(error.message));
+              .catch((error: Error) => setCloudStatus(error.message))
+              .finally(() => setCloudAction("idle"));
           }}
           onOpenPushDiagnostics={() => setPushDiagnosticsOpen(true)}
           onTogglePreference={(key) =>
@@ -2007,7 +2022,7 @@ function NotificationsSheet({
       </section>
 
       <p className="notice-copy">
-        Install Pawfolio on Android, open this sheet, and tap Enable & test to confirm phone notifications. Automatic background reminders still need backend push later.
+        Install Pawfolio on Android, open this sheet, and tap Enable & test to confirm phone notifications. Near-term reminders can alert while Pawfolio stays open or backgrounded; fully reliable closed-app scheduled delivery still depends on backend push hardening.
       </p>
       {testStatus && <p className="notice-copy notice-status">{testStatus}</p>}
 
@@ -2119,8 +2134,16 @@ function PushDiagnosticsSheet({
 
       <section className="card diagnostics-card">
         <div className="diagnostic-row">
+          <span>Working copy</span>
+          <strong>This phone/browser</strong>
+        </div>
+        <div className="diagnostic-row">
           <span>Google account</span>
           <strong>{session ? session.user.email || "Connected" : "Not signed in"}</strong>
+        </div>
+        <div className="diagnostic-row">
+          <span>Cloud backup</span>
+          <strong>{cloudBackupStatusLabel({ signedIn: Boolean(session), lastUploadedAt: cloudSyncMeta.lastUploadedAt })}</strong>
         </div>
         <div className="diagnostic-row">
           <span>Cloud sync</span>
@@ -2137,6 +2160,10 @@ function PushDiagnosticsSheet({
         <div className="diagnostic-row">
           <span>Last cloud upload</span>
           <strong>{prettySyncTime(cloudSyncMeta.lastUploadedAt)}</strong>
+        </div>
+        <div className="diagnostic-row">
+          <span>Last restore</span>
+          <strong>{prettySyncTime(cloudSyncMeta.lastRestoredAt)}</strong>
         </div>
         <div className="diagnostic-row">
           <span>Last phone save</span>
@@ -2165,6 +2192,7 @@ function ProfileScreen({
   coachSettings,
   session,
   cloudStatus,
+  cloudAction,
   cloudConfigured: isCloudConfigured,
   pushConfigured: isPushConfigured,
   pushPermission,
@@ -2192,6 +2220,7 @@ function ProfileScreen({
   coachSettings: CoachSettings;
   session: Session | null;
   cloudStatus: string;
+  cloudAction: CloudActionState;
   cloudConfigured: boolean;
   pushConfigured: boolean;
   pushPermission: PawfolioNotificationStatus;
@@ -2222,6 +2251,15 @@ function ProfileScreen({
     permission: pushPermission,
     hasSubscription: hasPushSubscription,
   });
+  const backupLabel = cloudBackupStatusLabel({
+    signedIn: Boolean(session),
+    lastUploadedAt: cloudSyncMeta.lastUploadedAt,
+  });
+  const backupDetail = cloudBackupStatusDetail({
+    signedIn: Boolean(session),
+    lastUploadedAt: cloudSyncMeta.lastUploadedAt,
+  });
+  const restoreDetail = cloudRestoreDetail(cloudSyncMeta.lastRestoredAt);
   const enableAutoLocation = () => {
     if (!navigator.geolocation) {
       setLocationStatus("Location is not supported in this browser.");
@@ -2362,10 +2400,24 @@ function ProfileScreen({
         )}
         <div className="setting-row static">
           <span>
-            <strong>Cloud sync</strong>
-            <small>Last upload {prettySyncTime(cloudSyncMeta.lastUploadedAt)}</small>
+            <strong>This phone/browser</strong>
+            <small>Your main Pawfolio working copy lives here first.</small>
           </span>
-          <span className={session ? "badge badge-green" : "badge badge-gray"}>{session ? "Active now" : "Off"}</span>
+          <span className="badge badge-amber">Working copy</span>
+        </div>
+        <div className="setting-row static">
+          <span>
+            <strong>Cloud backup</strong>
+            <small>{backupDetail}</small>
+          </span>
+          <span className={backupLabel === "Backed up" ? "badge badge-green" : backupLabel === "Needs first backup" ? "badge badge-amber" : "badge badge-gray"}>{backupLabel}</span>
+        </div>
+        <div className="setting-row static">
+          <span>
+            <strong>Last restore</strong>
+            <small>{restoreDetail}</small>
+          </span>
+          <span className={cloudSyncMeta.lastRestoredAt ? "badge badge-green" : "badge badge-gray"}>{cloudSyncMeta.lastRestoredAt ? "Restored" : "Not yet"}</span>
         </div>
         <div className="setting-row static">
           <span>
@@ -2376,23 +2428,23 @@ function ProfileScreen({
             {phonePushLabel}
           </span>
         </div>
-        <button className="setting-row" type="button" onClick={onUploadCloud} disabled={!session}>
+        <button className="setting-row" type="button" onClick={onUploadCloud} disabled={!session || cloudAction !== "idle"}>
           <span>
-            <strong>Upload local Pawfolio</strong>
+            <strong>{cloudAction === "uploading" ? "Uploading local Pawfolio..." : "Upload local Pawfolio"}</strong>
             <small>Copies this phone's saved data into your private account.</small>
           </span>
           <ChevronRight size={17} />
         </button>
-        <button className="setting-row" type="button" onClick={onRestoreCloud} disabled={!session}>
+        <button className="setting-row" type="button" onClick={onRestoreCloud} disabled={!session || cloudAction !== "idle"}>
           <span>
-            <strong>Restore cloud Pawfolio</strong>
+            <strong>{cloudAction === "restoring" ? "Restoring cloud Pawfolio..." : "Restore cloud Pawfolio"}</strong>
             <small>Pull your latest saved account snapshot back onto this phone.</small>
           </span>
           <ChevronRight size={17} />
         </button>
-        <button className="setting-row" type="button" onClick={onEnablePush} disabled={!session || !isPushConfigured}>
+        <button className="setting-row" type="button" onClick={onEnablePush} disabled={!session || !isPushConfigured || cloudAction !== "idle"}>
           <span>
-            <strong>{hasPushSubscription ? "Refresh phone push" : "Enable phone push"}</strong>
+            <strong>{cloudAction === "enabling_push" ? "Saving this phone..." : hasPushSubscription ? "Refresh phone push" : "Enable phone push"}</strong>
             <small>{isPushConfigured ? "Save this phone for Pawfolio reminders." : "Add VAPID keys first."}</small>
           </span>
           <ChevronRight size={17} />

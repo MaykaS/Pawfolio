@@ -9,6 +9,9 @@ import {
   bottomNavTabs,
   careEmptyState,
   careStatus,
+  cloudBackupStatusDetail,
+  cloudBackupStatusLabel,
+  cloudRestoreDetail,
   deleteCalendarItemFromState,
   deleteCareItemFromState,
   daysTogether,
@@ -200,6 +203,16 @@ describe("pawfolio helpers", () => {
       }),
     ).toContain("not been saved yet");
     expect(prettySyncTime("2026-04-23T14:30:00.000Z")).toMatch(/Apr 23/);
+  });
+
+  it("reports cloud backup and restore status in a user-facing way", () => {
+    expect(cloudBackupStatusLabel({ signedIn: false })).toBe("Local only");
+    expect(cloudBackupStatusDetail({ signedIn: false })).toContain("working copy");
+    expect(cloudBackupStatusLabel({ signedIn: true })).toBe("Needs first backup");
+    expect(cloudBackupStatusLabel({ signedIn: true, lastUploadedAt: "2026-04-23T14:30:00.000Z" })).toBe("Backed up");
+    expect(cloudBackupStatusDetail({ signedIn: true, lastUploadedAt: "2026-04-23T14:30:00.000Z" })).toContain("Latest private backup");
+    expect(cloudRestoreDetail()).toContain("has not restored");
+    expect(cloudRestoreDetail("2026-04-24T09:15:00.000Z")).toContain("Last restore");
   });
 
   it("detects missed routine nudges after local task time and hides them once marked done", () => {

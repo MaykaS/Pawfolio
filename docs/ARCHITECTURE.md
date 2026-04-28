@@ -75,6 +75,14 @@ The app now has live Supabase Google auth, private snapshot upload, signed-in au
 
 The first cloud migration uses `pawfolio_snapshots`: after Google sign-in, `Upload local Pawfolio` copies the current local state JSON into the user's private row. Signed-in state changes are also auto-synced after edits, and the Profile screen can restore the latest snapshot back onto the current phone/browser. This protects existing phone data before later splitting records into fully normalized cloud tables.
 
+Current product mental model:
+
+- the current phone/browser remains the working copy
+- the signed-in cloud row is the private backup layer
+- restore brings the latest backup back onto the working phone/browser
+
+This model keeps the product understandable while cloud sync is still snapshot-based rather than fully normalized.
+
 Likely future entities:
 
 - User
@@ -124,7 +132,7 @@ The app now includes these reminder-delivery layers:
 - Signed-in device subscription storage in `push_subscriptions`
 - Signed-in auto-sync of local reminder data into `pawfolio_snapshots`
 - Near-term local reminder scheduling in the client for reminders due within roughly the next hour while the app is active or backgrounded
-- Profile-level push diagnostics showing account, permission, saved-device, and latest cloud timing state
+- Profile-level push diagnostics showing the working copy, account, permission, saved-device, cloud backup, and latest cloud timing state
 - A backend Vercel cron/API sender scaffold for closed-app push delivery from cloud snapshots
 
 Current limitation: the closed-app push sender path is not yet production-complete. It still depends on a healthy backend service-role key path plus a scheduler that can run more frequently than the current Vercel Hobby daily cron. That means local/foreground reminder delivery is usable now, while true precise closed-app scheduled push remains a follow-on infrastructure milestone.

@@ -1178,6 +1178,11 @@ export type PushStatusInput = {
   hasSubscription: boolean;
 };
 
+export type CloudBackupStatusInput = {
+  signedIn: boolean;
+  lastUploadedAt?: string;
+};
+
 export function pushStatusLabel({ configured, supported, permission, hasSubscription }: PushStatusInput) {
   if (!configured || !supported) return "Unavailable";
   if (permission === "denied") return "Blocked";
@@ -1195,6 +1200,18 @@ export function pushStatusDetail({ configured, supported, permission, hasSubscri
   return "Enable notifications to save this phone for Pawfolio reminders.";
 }
 
+export function cloudBackupStatusLabel({ signedIn, lastUploadedAt }: CloudBackupStatusInput) {
+  if (!signedIn) return "Local only";
+  if (lastUploadedAt) return "Backed up";
+  return "Needs first backup";
+}
+
+export function cloudBackupStatusDetail({ signedIn, lastUploadedAt }: CloudBackupStatusInput) {
+  if (!signedIn) return "This phone keeps the working copy until you connect a private account.";
+  if (lastUploadedAt) return `Latest private backup ${prettySyncTime(lastUploadedAt)}.`;
+  return "This phone is connected, but it has not uploaded a private backup yet.";
+}
+
 export function prettySyncTime(value?: string) {
   if (!value) return "Not yet";
   return new Date(value).toLocaleString("en", {
@@ -1203,6 +1220,11 @@ export function prettySyncTime(value?: string) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+export function cloudRestoreDetail(lastRestoredAt?: string) {
+  if (!lastRestoredAt) return "This phone has not restored from cloud yet.";
+  return `Last restore ${prettySyncTime(lastRestoredAt)}.`;
 }
 
 export function getNotificationGroups(

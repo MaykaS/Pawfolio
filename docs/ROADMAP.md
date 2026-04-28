@@ -112,6 +112,25 @@ Success criteria:
 - Local prototype data can be uploaded into an account
 - The data model can later support multiple pets and shared caregivers
 
+## Current Hardening Cycle
+
+Goal: Make the current product trustworthy before widening it further.
+
+Focus areas:
+
+- Closed-app push reliability
+- Cross-device restore confidence
+- Clear local-vs-cloud-vs-phone messaging in Profile
+- PM-style journey validation across onboarding, routine, care, diary, reminders, account, and installed PWA behavior
+- PawPal usefulness only after the trust layer is steadier
+
+Success criteria:
+
+- Users understand what is saved locally, what is backed up, and what this phone can receive
+- Core reminders feel credible enough for real daily use
+- Restore works on another browser/device without confusion
+- The next implementation backlog comes from observed user-journey friction, not feature drift
+
 ## Phase 4: Mobile App
 
 Goal: Move from web prototype/foundation to Android-first mobile app.

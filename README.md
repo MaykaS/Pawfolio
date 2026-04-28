@@ -42,7 +42,7 @@ Future versions may include:
 
 ## Current Status
 
-Pawfolio is now a working local-first product prototype built with Vite, React, and TypeScript. It already supports a believable daily care workflow, private signed-in backup, and installable PWA testing on Android. The current phase is about increasing trust, polish, and “real app” confidence rather than adding random surface area.
+Pawfolio is now a working local-first product prototype built with Vite, React, and TypeScript. It already supports a believable daily care workflow, private signed-in backup, and installable PWA testing on Android. The current phase is about increasing trust, polish, and real-app confidence rather than adding random surface area.
 
 Today, Pawfolio already does these product jobs well:
 
@@ -82,6 +82,7 @@ Current data/auth note:
 - Signed-in users can upload or auto-sync local state into their own private Supabase snapshot row.
 - Signed-in users can also restore the latest cloud snapshot back onto the phone/browser.
 - Browser-local data still remains the main working layer for the current product experience.
+- The Profile account surface now treats the current phone/browser as the working copy, with cloud backup and restore layered around it.
 - `Upload local Pawfolio` means copying the data already on this phone/browser into the signed-in private account as a backup and trust-building handoff step.
 - Full normalized cloud sync across devices is still a later milestone.
 
@@ -130,12 +131,14 @@ Notes:
 - The local network dev URL is useful for testing, but HTTPS is needed for the proper install/offline PWA experience.
 - Phone subscription setup and near-term local reminder notifications now work in the app.
 - The Profile account area now shows live cloud sync time, phone-push status, and a push diagnostics sheet.
+- The Profile account area now explains the difference between the working copy on this phone, the latest cloud backup, and the last restore.
 - Today is now a compact urgent inbox, while PawPal is the broader companion feed.
 - Fully reliable closed-app scheduled phone push still remains a backend milestone. It needs a healthy server-side sender path plus a scheduler that can run more frequently than the current Hobby-plan daily cron.
 
 See:
 
 - [Product Brief](docs/PRODUCT_BRIEF.md)
+- [PM Audit](docs/PM_AUDIT.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Architecture Notes](docs/ARCHITECTURE.md)
 - [Decision Log](docs/DECISIONS.md)

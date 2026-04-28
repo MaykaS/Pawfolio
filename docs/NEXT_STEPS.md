@@ -1,100 +1,99 @@
 # Next Steps
 
-## Current Prototype Status
+## Current Product Stage
 
-Prototype 0.1 is built as a mobile-style local web app.
+Pawfolio is no longer just a cute local prototype. It now has:
 
-Implemented:
+- a real one-dog daily workflow
+- profile, diary, care, calendar, and companion surfaces with distinct jobs
+- signed-in private backup and restore
+- phone push subscription save and near-term local reminder delivery
+- a clearer split between urgent Today attention and broader PawPal coaching
 
-- Onboarding and dog profile setup
-- Breed suggestions
-- Profile photo upload
-- Stylized avatar studio
-- Today routine with structured editable task times sorted chronologically
-- Daily routine completion tracked by local phone date, so checks reset each day
-- Compact task notes
-- Custom daily tasks
-- Diary entries with clickable detail views and up to 6 photos per memory
-- Care records with type tabs, type-specific fields, and structured medication dose/frequency controls
-- Care form validation, friendly empty states, and care history panels
-- Care next due dates for vaccines, medications, and follow-up care
-- Shared medication, vaccine, and vet visit items across Care and Calendar
-- Calendar reminders with recurrence labels, calculated next occurrences, compact smart alert lead chips, month navigation, future-only upcoming items, and clickable day details
-- Reminder done/skipped history for one-off and recurring reminder occurrences
-- Structured medication recurrence from preset daily, weekly, monthly, yearly, or as-needed choices, with simple legacy text normalization
-- Unified green health styling for vaccine and vet calendar items
-- In-app notification center with Due now, Soon, and Upcoming groups plus service-worker test notifications for installed PWA checks
-- Integration settings for Google Calendar, email reminders, phone push, and cloud sync planning
-- Supabase Google sign-in, private snapshot table schema, local-to-account upload, and signed-in auto-sync to cloud snapshots
-- Cloud restore back onto the current phone/browser from the latest snapshot
-- Phone push subscription save for the current signed-in device
-- Near-term local reminder notifications while the app is active/backgrounded with notification permission granted
-- Live phone-push/account status and diagnostics in Profile
-- Scheduled push sender scaffold for backend/cloud delivery
-- Floating PawPal companion with care gaps, missed routine nudges, breed/season tips, optional collapsed Climate care context, unified Today attention, dismissals, and one-tap actions
-- Profile screen with full state/photo backup export/import and editable personality tags
-- Adaptive photo compression, IndexedDB photo storage, diary galleries, and safer local saves
-- Cute dog-face PWA app icon
-- localStorage persistence
+The next job is not feature accumulation. It is trust, validation, and product hardening.
 
-## Immediate Next Improvements
+## Priority Order
 
-1. Finish the trust layer:
-   - Replace/repair the backend service-role key path used by the server sender
-   - Verify the `api/send-due-push.ts` flow against real signed-in user data
-   - Move beyond Hobby-plan daily scheduling so precise reminder timing is possible
-2. Validate cloud confidence:
-   - Test sign-in, upload/auto-sync, and restore on a second device/browser
-   - Improve restore empty, success, and failure messaging if anything feels uncertain
-3. Keep polishing the account surface:
-   - Better backup health language
-   - Clearer “this phone / cloud / push” state summaries
-   - Continue using product-language status instead of technical labels
-4. Deepen PawPal usefulness:
-   - Let more suggestions prefill care or reminder forms
-   - Add more breed profiles and seasonal care signals
-   - Add a monthly PawPal recap for care/routine patterns
-5. Add more structured care depth:
-   - Medication start/end dates and missed-dose notes
-   - Vaccine manufacturer/lot fields
-   - Vet visit attachments or invoices
-6. Split the private cloud snapshot into normalized cloud tables.
-7. Connect Google Calendar OAuth and real event sync.
-8. Add backend email reminders, likely through Vercel functions and Resend.
-9. Decide when PawPal should move from local rules to optional LLM help.
+### 1. Finish the trust layer
 
-## Prototype Content To Keep Improving
+This is the highest-value work because it determines whether Pawfolio feels dependable in daily care use.
 
-The user should continue entering their own dog information instead of relying on fake data.
-The product should continue feeling warm and companion-like without losing clarity or trust in care-critical flows.
+- Repair and validate the backend sender path used by `api/send-due-push.ts`
+- Move beyond coarse daily scheduling so closed-app reminders can become truly credible
+- Verify due-now, lead-time, and missed-care reminder behavior with the app closed
+- Keep refining the account surface so the user understands:
+  - what lives on this phone
+  - what is backed up privately
+  - what this phone is saved for
+  - what push status really means
 
-## Decisions To Make Soon
+### 2. Validate cloud restore confidence
 
-- Whether the first LLM feature should be natural-language entry parsing, PawPal recaps, or a dedicated Ask Pawfolio chat
-- Exact timing for the normalized cloud-sync milestone beyond snapshot backup
-- Whether GitHub repository should be public or private
-- Whether cloud sync should stay single-owner first or include shared caregiver access in the first database design
+- Test sign-in, upload/auto-sync, and restore on a second browser/device
+- Improve restore messaging for:
+  - no backup yet
+  - restore in progress
+  - restore success
+  - restore failure
+- Confirm what restore currently includes and call out any photo or device-specific limitations honestly
 
-## Still Partial / Not Yet Complete
+### 3. Run repeated PM-style product QA
 
-These are important, but are not yet fully complete in the current build:
+- Re-test the core journeys end to end:
+  - onboarding and profile setup
+  - routine use across days
+  - care creation and shared calendar sync
+  - diary with photos
+  - reminders and completion
+  - sign-in, upload, restore
+  - phone push setup
+  - installed PWA open/reopen behavior
+- Turn observed friction into the next implementation queue instead of reacting to isolated issues
 
-- Closed-app scheduled push notifications with reliable backend delivery
-- Full normalized multi-device cloud sync
-- Shared caregiver access
+### 4. Deepen PawPal after trust work is steadier
+
+- Strengthen pattern memory and suggestion outcomes
+- Add sharper one-tap prefills into care and reminder flows
+- Add monthly recap / recent pattern summary
+- Keep PawPal as a companion feed, not a second alert list
+- Prepare structured memory for later optional LLM help without depending on LLMs yet
+
+### 5. Make care feel more serious over time
+
+- Medication start/end dates and missed-dose notes
+- Vaccine manufacturer / lot fields
+- Vet attachments or visit documents
+- Stronger follow-up states and clearer history views
+
+### 6. Refactor before the app grows further
+
+- Split the oversized app shell into clearer screens, hooks, and helper boundaries
+- Isolate cloud/push/account logic from the main app surface
+- Reduce regression risk before large integration work such as full calendar sync or normalized cloud tables
+
+## Later Product Layers
+
+After trust, validation, and app-structure work are stronger:
+
+1. Google Calendar real sync
+2. Normalized cloud tables beyond the snapshot backup layer
+3. Backend email reminders
+4. Optional LLM-powered PawPal summaries, recaps, or natural-language help
+
+## What Is Still Partial
+
+- Fully reliable closed-app scheduled phone push
+- Cross-device cloud confidence validated in the real world
+- Normalized multi-device cloud sync
 - Google Calendar real sync
 - Email reminder sending
+- Shared caregiver access
 - Multiple pets
-- GPS walk tracking
-- DNA/genetic report imports
-- Native Android build
 
-## First Prototype Success Checklist
+## Product Rule Going Forward
 
-- The app feels cute and companion-like.
-- The care information feels organized and trustworthy.
-- A user can understand the daily workflow quickly.
-- The diary feels like a real place to keep pet memories.
-- The user can enter their own dog information and see it saved locally.
-- The user can test the prototype on their phone.
-- The future roadmap is visible but does not overwhelm version one.
+Pawfolio should keep getting:
+
+- more dependable before more complex
+- more legible before more clever
+- more companion-like without becoming noisy
