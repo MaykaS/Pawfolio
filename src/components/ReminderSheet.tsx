@@ -68,7 +68,7 @@ export function ReminderSheet({
     recurrence: existing?.recurrence || ("none" as ReminderRecurrence),
     notifyLeadMinutes: existing?.notifyLeadMinutes ?? defaultReminderLeadMinutes(existing?.type || "Vet"),
   });
-  const [timeZoneOpen, setTimeZoneOpen] = useState(false);
+  const [timeZoneSheetOpen, setTimeZoneSheetOpen] = useState(false);
   const [timeZoneMode, setTimeZoneMode] = useState<"device" | "custom">(existing?.timeZone ? "custom" : "device");
   const [timeZoneDraft, setTimeZoneDraft] = useState(existing?.timeZone || deviceTimeZone);
   const [timeZoneError, setTimeZoneError] = useState("");
@@ -94,7 +94,7 @@ export function ReminderSheet({
           event.preventDefault();
           if (timeZoneMode === "custom" && !isValidTimeZone(timeZoneDraft)) {
             setTimeZoneError("Use a valid IANA time zone like America/New_York.");
-            setTimeZoneOpen(true);
+            setTimeZoneSheetOpen(true);
             return;
           }
           onSave({
@@ -129,9 +129,25 @@ export function ReminderSheet({
               ))}
             </select>
           </Field>
-          <Field label="Time">
-            <input className="input" type="time" value={reminder.time} onChange={(event) => update("time", event.target.value)} />
-          </Field>
+          <div className="time-zone-stack">
+            <Field label="Time">
+              <input className="input" type="time" value={reminder.time} onChange={(event) => update("time", event.target.value)} />
+            </Field>
+            <button
+              className="setting-row reminder-timezone-row compact"
+              type="button"
+              onClick={() => setTimeZoneSheetOpen(true)}
+            >
+              <span>
+                <strong>Time zone</strong>
+                <small>{timeZoneMode === "device" ? "Uses this device by default." : "Custom for this reminder."}</small>
+              </span>
+              <span className="reminder-timezone-value">
+                {effectiveTimeZone}
+                <ChevronRight size={16} />
+              </span>
+            </button>
+          </div>
         </div>
         <Field label="Repeat">
           <select
@@ -152,44 +168,17 @@ export function ReminderSheet({
         <Field label="Date">
           <input className="input" type="date" value={reminder.date} onChange={(event) => update("date", event.target.value)} />
         </Field>
-        <button
-          className={timeZoneOpen ? "setting-row reminder-timezone-row open" : "setting-row reminder-timezone-row"}
-          type="button"
-          onClick={() => setTimeZoneOpen((current) => !current)}
-        >
-          <span>
-            <strong>Time zone</strong>
-            <small>{timeZoneMode === "device" ? "Uses this device by default." : "Custom for this reminder."}</small>
-          </span>
-          <span className="reminder-timezone-value">
-            {effectiveTimeZone}
-            <ChevronRight size={16} />
-          </span>
-        </button>
-        {timeZoneOpen && (
+        <Field label="Note">
+          <textarea className="input" value={reminder.note} onChange={(event) => update("note", event.target.value)} />
+        </Field>
+        <button className="btn btn-primary">Save reminder</button>
+      </form>
+      {timeZoneSheetOpen && (
+        <Sheet title="Time zone" onClose={() => setTimeZoneSheetOpen(false)}>
           <section className="card reminder-timezone-panel">
-            <label className="field timezone-field">
-              <span>Time zone</span>
-              <input
-                className="input"
-                list="reminder-timezones"
-                value={timeZoneDraft}
-                onChange={(event) => {
-                  setTimeZoneMode("custom");
-                  setTimeZoneDraft(event.target.value);
-                  setTimeZoneError("");
-                }}
-                placeholder={deviceTimeZone}
-              />
-              <datalist id="reminder-timezones">
-                {timeZoneOptions.map((timeZone) => (
-                  <option key={timeZone} value={timeZone} />
-                ))}
-              </datalist>
-            </label>
-            <div className="timezone-actions">
+            <div className="time-zone-mode-row">
               <button
-                className="btn btn-sm btn-secondary"
+                className={timeZoneMode === "device" ? "choice-chip active" : "choice-chip"}
                 type="button"
                 onClick={() => {
                   setTimeZoneMode("device");
@@ -200,30 +189,52 @@ export function ReminderSheet({
                 Use this device
               </button>
               <button
-                className="btn btn-sm btn-ghost"
+                className={timeZoneMode === "custom" ? "choice-chip active" : "choice-chip"}
                 type="button"
-                onClick={() => {
-                  if (!isValidTimeZone(timeZoneDraft)) {
-                    setTimeZoneError("Use a valid IANA time zone like America/New_York.");
-                    return;
-                  }
-                  setTimeZoneMode("custom");
-                  setTimeZoneError("");
-                }}
+                onClick={() => setTimeZoneMode("custom")}
               >
-                Use custom
+                Custom
               </button>
             </div>
+            {timeZoneMode === "custom" && (
+              <label className="field timezone-field">
+                <span>Time zone</span>
+                <input
+                  className="input"
+                  list="reminder-timezones"
+                  value={timeZoneDraft}
+                  onChange={(event) => {
+                    setTimeZoneDraft(event.target.value);
+                    setTimeZoneError("");
+                  }}
+                  placeholder={deviceTimeZone}
+                />
+                <datalist id="reminder-timezones">
+                  {timeZoneOptions.map((timeZone) => (
+                    <option key={timeZone} value={timeZone} />
+                  ))}
+                </datalist>
+              </label>
+            )}
             <p className={timeZoneError ? "field-error" : "settings-note"}>
-              {timeZoneError || "Pawfolio uses your device time zone automatically unless you override this reminder."}
+              {timeZoneError || "New reminders use this device automatically unless you override them."}
             </p>
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={() => {
+                if (timeZoneMode === "custom" && !isValidTimeZone(timeZoneDraft)) {
+                  setTimeZoneError("Use a valid IANA time zone like America/New_York.");
+                  return;
+                }
+                setTimeZoneSheetOpen(false);
+              }}
+            >
+              Done
+            </button>
           </section>
-        )}
-        <Field label="Note">
-          <textarea className="input" value={reminder.note} onChange={(event) => update("note", event.target.value)} />
-        </Field>
-        <button className="btn btn-primary">Save reminder</button>
-      </form>
+        </Sheet>
+      )}
     </Sheet>
   );
 }

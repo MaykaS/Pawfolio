@@ -1721,6 +1721,11 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   margin-bottom: 10px;
 }
 
+.reminder-timezone-row.compact {
+  margin-bottom: 0;
+  min-height: 52px;
+}
+
 .reminder-timezone-value {
   align-items: center;
   color: var(--text);
@@ -1733,8 +1738,18 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 .reminder-timezone-panel {
   display: grid;
   gap: 10px;
-  margin-bottom: 14px;
   padding: 12px;
+}
+
+.time-zone-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.time-zone-mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .diagnostic-row {
