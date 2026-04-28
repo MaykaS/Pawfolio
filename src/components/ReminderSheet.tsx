@@ -57,6 +57,11 @@ function timeZoneAbbreviation(timeZone: string) {
   }
 }
 
+function timeZoneLabel(timeZone: string) {
+  const city = timeZone.split("/").pop()?.replace(/_/g, " ") || timeZone;
+  return `${timeZoneAbbreviation(timeZone)} • ${city}`;
+}
+
 export function ReminderSheet({
   mode,
   deviceTimeZone,
@@ -144,20 +149,20 @@ export function ReminderSheet({
           </Field>
           <div className="time-block">
             <Field label="Time">
-              <div className="time-inline-row">
-                <input className="input time-input" type="time" value={reminder.time} onChange={(event) => update("time", event.target.value)} />
-                <button
-                  className="time-zone-mini"
-                  type="button"
-                  onClick={() => setTimeZoneSheetOpen(true)}
-                  aria-label={`Change time zone, currently ${effectiveTimeZone}`}
-                >
-                  <span className="time-zone-mini-label">{timeZoneMode === "device" ? "Auto" : "Custom"}</span>
-                  <span className="time-zone-mini-value">{effectiveTimeZoneAbbreviation}</span>
-                  <ChevronRight size={14} />
-                </button>
-              </div>
+              <input className="input time-input" type="time" value={reminder.time} onChange={(event) => update("time", event.target.value)} />
             </Field>
+            <button
+              className="time-zone-link"
+              type="button"
+              onClick={() => setTimeZoneSheetOpen(true)}
+              aria-label={`Change time zone, currently ${effectiveTimeZone}`}
+            >
+              <span>Time zone</span>
+              <span className="time-zone-link-value">
+                {effectiveTimeZoneAbbreviation}
+                <ChevronRight size={14} />
+              </span>
+            </button>
           </div>
         </div>
         <Field label="Repeat">
@@ -208,24 +213,22 @@ export function ReminderSheet({
               </button>
             </div>
             {timeZoneMode === "custom" && (
-              <label className="field timezone-field">
-                <span>Time zone</span>
-                <input
-                  className="input"
-                  list="reminder-timezones"
-                  value={timeZoneDraft}
-                  onChange={(event) => {
-                    setTimeZoneDraft(event.target.value);
-                    setTimeZoneError("");
-                  }}
-                  placeholder={deviceTimeZone}
-                />
-                <datalist id="reminder-timezones">
-                  {timeZoneOptions.map((timeZone) => (
-                    <option key={timeZone} value={timeZone} />
-                  ))}
-                </datalist>
-              </label>
+              <div className="time-zone-list" role="listbox" aria-label="Time zones">
+                {timeZoneOptions.map((timeZone) => (
+                  <button
+                    key={timeZone}
+                    className={timeZoneDraft === timeZone ? "time-zone-option active" : "time-zone-option"}
+                    type="button"
+                    onClick={() => {
+                      setTimeZoneDraft(timeZone);
+                      setTimeZoneError("");
+                    }}
+                  >
+                    <span className="time-zone-option-title">{timeZoneAbbreviation(timeZone)}</span>
+                    <span className="time-zone-option-detail">{timeZoneLabel(timeZone)}</span>
+                  </button>
+                ))}
+              </div>
             )}
             <p className={timeZoneError ? "field-error" : "settings-note"}>
               {timeZoneError || "New reminders use this device automatically unless you override them."}
