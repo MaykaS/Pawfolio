@@ -21,7 +21,6 @@ import {
   X,
 } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   cloudConfigured,
@@ -78,17 +77,13 @@ import {
   notificationBody,
   notificationLeadLabel,
   notificationPermissionStatus,
-  prettySyncTime,
   pushStatusDetail,
   pushStatusLabel,
   reminderLeadOptions,
   prettyDate,
   recurrenceLabel,
-  reminderRecurrenceOptions,
-  reminderTypes,
   reminderCompletionStatus,
   regionFromCoordinates,
-  resolvedScheduleTimeZone,
   routineCoachInsights,
   safeSetLocalStorage,
   saveCareRecordToState,
@@ -126,12 +121,20 @@ import {
   type PawfolioState,
   type Reminder,
   type ReminderCompletionStatus,
-  type ReminderRecurrence,
   type Tab,
 } from "./pawfolio";
 import { useCloudAccount, type CloudActionState, type TrustState } from "./hooks/useCloudAccount";
 import { useLocalReminderScheduling } from "./hooks/useLocalReminderScheduling";
 import { usePushStatus } from "./hooks/usePushStatus";
+import { ReminderSheet } from "./components/ReminderSheet";
+import { TrustDetailsSheet } from "./components/TrustDetailsSheet";
+import { Field, Sheet } from "./components/Sheet";
+import {
+  cloudSyncStatusLabel,
+  googleCalendarStatusDetail,
+  googleCalendarStatusLabel,
+  permissionLabel,
+} from "./trust";
 
 type TaskMode = { mode: "create" } | { mode: "edit"; task: DailyTask };
 type MemoryMode = { mode: "create" } | { mode: "edit"; entry: DiaryEntry };
@@ -233,32 +236,6 @@ function prettyLongDate(date: string) {
     day: "numeric",
     year: "numeric",
   });
-}
-
-function availableTimeZones(current?: string) {
-  const supported = typeof Intl.supportedValuesOf === "function"
-    ? Intl.supportedValuesOf("timeZone")
-    : [
-        "UTC",
-        "America/New_York",
-        "America/Chicago",
-        "America/Denver",
-        "America/Los_Angeles",
-        "Europe/London",
-        "Europe/Paris",
-        "Asia/Tokyo",
-        "Australia/Sydney",
-      ];
-  return current && !supported.includes(current) ? [current, ...supported] : supported;
-}
-
-function isValidTimeZone(timeZone: string) {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function PhotoImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
@@ -761,11 +738,15 @@ export default function App() {
       {reminderMode && (
         <ReminderSheet
           mode={reminderMode}
+          deviceTimeZone={state.cloudSyncMeta.deviceTimeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"}
           onClose={() => setReminderMode(null)}
           onSave={(reminder) => {
             setState((current) => saveReminderToState(current, reminder));
             setReminderMode(null);
           }}
+          renderLeadChips={(value, onChange) => (
+            <ReminderLeadChips value={value} onChange={onChange} />
+          )}
         />
       )}
 
@@ -784,7 +765,7 @@ export default function App() {
       )}
 
       {pushDiagnosticsOpen && (
-        <PushDiagnosticsSheet
+        <TrustDetailsSheet
           session={session}
           cloudConfigured={cloudConfigured}
           pushConfigured={pushConfigured}
@@ -795,15 +776,6 @@ export default function App() {
           trustState={trustState}
           cloudStatus={cloudStatus}
           integrationSettings={state.integrationSettings}
-          onUpdateCalendarTimeZone={(timeZone) =>
-            setState((current) => ({
-              ...current,
-              cloudSyncMeta: {
-                ...current.cloudSyncMeta,
-                calendarTimeZone: timeZone || current.cloudSyncMeta.deviceTimeZone || "UTC",
-              },
-            }))
-          }
           onClose={() => setPushDiagnosticsOpen(false)}
         />
       )}
@@ -1882,200 +1854,6 @@ function NotificationGroup({
   );
 }
 
-function permissionLabel(permission: string) {
-  if (permission === "granted") return "Allowed";
-  if (permission === "denied") return "Blocked";
-  if (permission === "default") return "Not decided yet";
-  return "Not supported here";
-}
-
-function PushDiagnosticsSheet({
-  session,
-  cloudConfigured: isCloudConfigured,
-  pushConfigured: isPushConfigured,
-  pushPermission,
-  hasPushSubscription,
-  cloudSyncMeta,
-  googleCalendarSyncState,
-  trustState,
-  cloudStatus,
-  integrationSettings,
-  onUpdateCalendarTimeZone,
-  onClose,
-}: {
-  session: Session | null;
-  cloudConfigured: boolean;
-  pushConfigured: boolean;
-  pushPermission: PawfolioNotificationStatus;
-  hasPushSubscription: boolean;
-  cloudSyncMeta: CloudSyncMeta;
-  googleCalendarSyncState: PawfolioState["googleCalendarSyncState"];
-  trustState: TrustState;
-  cloudStatus: string;
-  integrationSettings: PawfolioState["integrationSettings"];
-  onUpdateCalendarTimeZone: (timeZone: string) => void;
-  onClose: () => void;
-}) {
-  const pushStatus = pushStatusLabel({
-    configured: isPushConfigured,
-    supported: canUseBrowserNotifications(globalThis.Notification),
-    permission: pushPermission,
-    hasSubscription: hasPushSubscription,
-  });
-  const currentTimeZone = resolvedScheduleTimeZone(cloudSyncMeta);
-  const [timeZoneDraft, setTimeZoneDraft] = useState(currentTimeZone);
-  const [timeZoneMessage, setTimeZoneMessage] = useState("");
-  const timeZoneOptions = useMemo(() => availableTimeZones(currentTimeZone), [currentTimeZone]);
-
-  useEffect(() => {
-    setTimeZoneDraft(currentTimeZone);
-  }, [currentTimeZone]);
-
-  return (
-    <Sheet title="Trust details" onClose={onClose}>
-      <section className="notice-card">
-        <div>
-          <p className="label no-margin">Status</p>
-          <h3>{pushStatus}</h3>
-        </div>
-        <span className={pushStatus === "Active now" ? "badge badge-green" : pushStatus === "Blocked" ? "badge badge-red" : "badge badge-gray"}>
-          {pushStatus}
-        </span>
-      </section>
-      <p className="notice-copy">{pushStatusDetail({
-        configured: isPushConfigured,
-        supported: canUseBrowserNotifications(globalThis.Notification),
-        permission: pushPermission,
-        hasSubscription: hasPushSubscription,
-      })}</p>
-
-      <section className="card diagnostics-card">
-        <div className="diagnostic-row">
-          <span>Working copy</span>
-          <strong>This phone/browser</strong>
-        </div>
-        <div className="diagnostic-row">
-          <span>Google account</span>
-          <strong>{session ? session.user.email || "Connected" : "Not signed in"}</strong>
-        </div>
-        <div className="diagnostic-row">
-          <span>Cloud backup</span>
-          <strong>{cloudBackupStatusLabel({ signedIn: Boolean(session), lastUploadedAt: cloudSyncMeta.lastUploadedAt })}</strong>
-        </div>
-        <div className="diagnostic-row">
-          <span>Cloud sync</span>
-          <strong>{!session ? "Off" : integrationSettings.cloudSync === "enabled" ? "Auto" : isCloudConfigured ? "Off" : "Missing env"}</strong>
-        </div>
-        <div className="diagnostic-row">
-          <span>Notification permission</span>
-          <strong>{permissionLabel(pushPermission)}</strong>
-        </div>
-        <div className="diagnostic-row">
-          <span>This phone</span>
-          <strong>{hasPushSubscription ? "Saved for push" : "Not saved yet"}</strong>
-        </div>
-        <div className="diagnostic-row">
-          <span>Last cloud upload</span>
-          <strong>{prettySyncTime(cloudSyncMeta.lastUploadedAt)}</strong>
-        </div>
-        <div className="diagnostic-row">
-          <span>Last restore</span>
-          <strong>{prettySyncTime(cloudSyncMeta.lastRestoredAt)}</strong>
-        </div>
-        <div className="diagnostic-row">
-          <span>Last phone save</span>
-          <strong>{prettySyncTime(cloudSyncMeta.lastPushRegisteredAt)}</strong>
-        </div>
-        <div className="diagnostic-row">
-          <span>Google Calendar</span>
-          <strong>{googleCalendarStatusLabel(trustState.calendar, notificationPreferencesEnabled(session, integrationSettings.googleCalendar, googleCalendarSyncState.connected), Boolean(session))}</strong>
-        </div>
-        <div className="diagnostic-row">
-          <span>Reminder time zone</span>
-          <strong>{currentTimeZone}</strong>
-        </div>
-        <p className="settings-note">
-          Pawfolio uses this device time zone by default for Google Calendar and reminder delivery. You only need to change it here when you want reminders to stay anchored to a different zone while traveling.
-        </p>
-        <div className="diagnostic-row">
-          <span>Last calendar sync</span>
-          <strong>{prettySyncTime(googleCalendarSyncState.lastSyncAt)}</strong>
-        </div>
-        <div className="diagnostic-row">
-          <span>Email reminders</span>
-          <strong>On hold</strong>
-        </div>
-        {cloudStatus && (
-          <div className="diagnostic-row">
-            <span>Latest message</span>
-            <strong>{cloudStatus}</strong>
-          </div>
-        )}
-      </section>
-
-      <section className="card timezone-settings-card">
-        <div className="section-heading">
-          <div>
-            <p className="label no-margin">Reminder time zone</p>
-            <h2>Use your device by default, or set one for travel.</h2>
-          </div>
-        </div>
-        <label className="field timezone-field">
-          <span>Time zone</span>
-          <input
-            className="input"
-            list="pawfolio-timezones"
-            value={timeZoneDraft}
-            onChange={(event) => {
-              setTimeZoneDraft(event.target.value);
-              setTimeZoneMessage("");
-            }}
-            placeholder="America/New_York"
-          />
-          <datalist id="pawfolio-timezones">
-            {timeZoneOptions.map((timeZone) => (
-              <option key={timeZone} value={timeZone} />
-            ))}
-          </datalist>
-        </label>
-        <div className="timezone-actions">
-          <button
-            className="btn btn-sm btn-secondary"
-            type="button"
-            onClick={() => {
-              if (!isValidTimeZone(timeZoneDraft)) {
-                setTimeZoneMessage("Use a valid IANA time zone like America/New_York.");
-                return;
-              }
-              onUpdateCalendarTimeZone(timeZoneDraft);
-              setTimeZoneMessage("Reminder time zone saved. Future cloud sync and Google Calendar updates will use it.");
-            }}
-          >
-            Save time zone
-          </button>
-          <button
-            className="btn btn-sm btn-ghost"
-            type="button"
-            onClick={() => {
-              const deviceTimeZone = cloudSyncMeta.deviceTimeZone || currentTimeZone;
-              setTimeZoneDraft(deviceTimeZone);
-              onUpdateCalendarTimeZone(deviceTimeZone);
-              setTimeZoneMessage("Using this device time zone again.");
-            }}
-          >
-            Use this device
-          </button>
-        </div>
-        <p className="settings-note">{timeZoneMessage || "This affects Google Calendar sync and backend reminder delivery."}</p>
-      </section>
-
-      <p className="notice-copy">
-        This view keeps the deeper trust details out of the main Profile screen. Closed-app scheduled delivery is still being hardened on the backend scheduler side.
-      </p>
-    </Sheet>
-  );
-}
-
 function ProfileScreen({
   profile,
   diaryCount,
@@ -2455,54 +2233,6 @@ function SettingRow({
       <span className={checked ? "toggle-pill on" : "toggle-pill"}>{checked ? "On" : "Off"}</span>
     </button>
   );
-}
-
-function googleCalendarStatusLabel(
-  status: TrustState["calendar"],
-  enabled: boolean,
-  signedIn: boolean,
-) {
-  if (status === "sync_error") return "Issue";
-  if (status === "connected") return "Connected";
-  if (enabled && signedIn) return "Needs setup";
-  return "Off";
-}
-
-function googleCalendarStatusDetail({
-  status,
-  enabled,
-  signedIn,
-  lastSyncAt,
-}: {
-  status: TrustState["calendar"];
-  enabled: boolean;
-  signedIn: boolean;
-  lastSyncAt?: string;
-}) {
-  if (!signedIn) return "Sign in to connect your primary Google Calendar.";
-  if (status === "sync_error") return "Calendar setup hit an issue. Check the trust details message for the exact fix.";
-  if (status === "connected") {
-    return lastSyncAt
-      ? `Last synced ${prettySyncTime(lastSyncAt)}.`
-      : "Connected and ready for your first sync.";
-  }
-  if (enabled) return "Connect your primary Google Calendar for one-way reminder sync.";
-  return "Off";
-}
-
-function cloudSyncStatusLabel(signedIn: boolean, enabled: boolean) {
-  if (!signedIn) return "Off";
-  return enabled ? "Auto" : "Off";
-}
-
-function notificationPreferencesEnabled(
-  session: Session | null,
-  calendarSetting: PawfolioState["integrationSettings"]["googleCalendar"],
-  connected: boolean,
-) {
-  if (connected) return true;
-  if (!session) return false;
-  return calendarSetting === "needs_setup";
 }
 
 function isSharedCareTypeLabel(type: string) {
@@ -3092,141 +2822,6 @@ function CareSheet({
         <button className="btn btn-primary" disabled={!canSave}>Save care record</button>
       </form>
     </Sheet>
-  );
-}
-
-function ReminderSheet({
-  mode,
-  onClose,
-  onSave,
-}: {
-  mode: ReminderMode;
-  onClose: () => void;
-  onSave: (reminder: Reminder) => void;
-}) {
-  const existing = mode.mode === "edit" ? mode.reminder : undefined;
-  const [reminder, setReminder] = useState({
-    title: existing?.title || "",
-    type: existing?.type || "Vet",
-    date: existing?.date || (mode.mode === "create" ? mode.date : undefined) || todayISO(),
-    time: existing?.time || "",
-    note: existing?.note || "",
-    recurrence: existing?.recurrence || ("none" as ReminderRecurrence),
-    notifyLeadMinutes: existing?.notifyLeadMinutes ?? defaultReminderLeadMinutes(existing?.type || "Vet"),
-  });
-
-  const update = (key: keyof typeof reminder, value: string) => {
-    setReminder((current) => ({ ...current, [key]: value }));
-  };
-
-  return (
-    <Sheet title={mode.mode === "edit" ? "Edit reminder" : "Add reminder"} onClose={onClose}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSave({ id: existing?.id || uid("reminder"), ...reminder });
-        }}
-      >
-        <Field label="Title">
-          <input className="input" value={reminder.title} onChange={(event) => update("title", event.target.value)} required />
-        </Field>
-        <div className="form-two">
-          <Field label="Type">
-            <select
-              className="input"
-              value={reminder.type}
-              onChange={(event) =>
-                setReminder((current) => ({
-                  ...current,
-                  type: event.target.value,
-                  notifyLeadMinutes:
-                    mode.mode === "create" ? defaultReminderLeadMinutes(event.target.value) : current.notifyLeadMinutes,
-                }))
-              }
-            >
-              {reminderTypes.map((type) => (
-                <option key={type}>{type}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Time">
-            <input className="input" type="time" value={reminder.time} onChange={(event) => update("time", event.target.value)} />
-          </Field>
-        </div>
-        <Field label="Repeat">
-          <select
-            className="input"
-            value={reminder.recurrence}
-            onChange={(event) => update("recurrence", event.target.value as ReminderRecurrence)}
-          >
-            {reminderRecurrenceOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Notify">
-          <ReminderLeadChips
-            value={reminder.notifyLeadMinutes}
-            onChange={(value) => setReminder((current) => ({ ...current, notifyLeadMinutes: value }))}
-          />
-        </Field>
-        <Field label="Date">
-          <input className="input" type="date" value={reminder.date} onChange={(event) => update("date", event.target.value)} />
-        </Field>
-        <Field label="Note">
-          <textarea className="input" value={reminder.note} onChange={(event) => update("note", event.target.value)} />
-        </Field>
-        <button className="btn btn-primary">Save reminder</button>
-      </form>
-    </Sheet>
-  );
-}
-
-function Sheet({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
-
-  const closeFromBackdrop = (event: MouseEvent<HTMLDivElement>) => {
-    if (event.target === event.currentTarget) onClose();
-  };
-
-  return (
-    <div className="overlay" onMouseDown={closeFromBackdrop}>
-      <section className="sheet" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="sheet-handle" />
-        <div className="sheet-head">
-          <h2 className="sheet-title">{title}</h2>
-          <button className="tiny-btn" type="button" onClick={onClose} aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
-        {children}
-      </section>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="field">
-      <span className="input-label">{label}</span>
-      {children}
-    </label>
   );
 }
 

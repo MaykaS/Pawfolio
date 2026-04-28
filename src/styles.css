@@ -1713,6 +1713,30 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   gap: 10px;
 }
 
+.reminder-timezone-row {
+  margin-bottom: 14px;
+}
+
+.reminder-timezone-row.open {
+  margin-bottom: 10px;
+}
+
+.reminder-timezone-value {
+  align-items: center;
+  color: var(--text);
+  display: inline-flex;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.reminder-timezone-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px;
+}
+
 .diagnostic-row {
   align-items: center;
   display: flex;

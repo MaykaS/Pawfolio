@@ -1,4 +1,5 @@
 import {
+  effectiveReminderTimeZone,
   missedRoutineTasks,
   normalizeState,
   resolvedScheduleTimeZone,
@@ -100,7 +101,7 @@ function dueReminderCandidates(state: PawfolioState, now: Date) {
   return visibleReminders(state)
     .filter((reminder) => reminder.date)
     .map((reminder) => {
-      const alertAt = reminderAlertDateForTimeZone(reminder, timeZone);
+      const alertAt = reminderAlertDateForTimeZone(reminder, effectiveReminderTimeZone(reminder, timeZone));
       return {
         reminder,
         alertAt,

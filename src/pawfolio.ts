@@ -56,6 +56,7 @@ export type CareRecord = {
   reason?: string;
   weightValue?: string;
   weightUnit?: string;
+  timeZone?: string;
 };
 
 export type SharedCareType = "Medication" | "Vaccine" | "Vet visit";
@@ -83,6 +84,7 @@ export type CareEvent = {
   clinic?: string;
   vetName?: string;
   reason?: string;
+  timeZone?: string;
 };
 
 export type Reminder = {
@@ -94,6 +96,7 @@ export type Reminder = {
   note: string;
   recurrence: ReminderRecurrence;
   notifyLeadMinutes?: number;
+  timeZone?: string;
 };
 
 export type PawfolioNotificationStatus = "unsupported" | "default" | "granted" | "denied";
@@ -476,6 +479,7 @@ export function withReminderNotification(
       typeof recurrenceReminder.notifyLeadMinutes === "number"
         ? recurrenceReminder.notifyLeadMinutes
         : defaultReminderLeadMinutes(recurrenceReminder.type),
+    timeZone: recurrenceReminder.timeZone,
   };
 }
 
@@ -539,6 +543,7 @@ export function withCareSchedule(record: CareRecord): CareRecord {
     reason: record.reason || "",
     weightValue: record.weightValue || "",
     weightUnit: record.weightUnit || "",
+    timeZone: record.timeZone,
   };
   return record.type === "Medication" ? normalizeMedicationFrequency(normalizeMedicationDose(scheduled)) : scheduled;
 }
@@ -562,6 +567,7 @@ export function withCareEventSchedule(event: Omit<CareEvent, "recurrence"> & { r
     clinic: event.clinic || "",
     vetName: event.vetName || "",
     reason: event.reason || "",
+    timeZone: event.timeZone,
   };
   return event.type === "Medication" ? normalizeMedicationFrequency(normalizeMedicationDose(scheduled)) : scheduled;
 }
@@ -770,6 +776,7 @@ export function careRecordToEvent(record: CareRecord): CareEvent {
     clinic: scheduled.clinic || "",
     vetName: scheduled.vetName || "",
     reason: scheduled.reason || "",
+    timeZone: scheduled.timeZone,
   };
 }
 
@@ -787,11 +794,12 @@ export function reminderToCareEvent(reminder: Reminder): CareEvent | undefined {
     recurrence: reminder.recurrence || "none",
     notifyLeadMinutes:
       typeof reminder.notifyLeadMinutes === "number"
-        ? reminder.notifyLeadMinutes
-        : defaultReminderLeadMinutes(reminder.type),
+          ? reminder.notifyLeadMinutes
+          : defaultReminderLeadMinutes(reminder.type),
     frequencyType,
     frequencyInterval: frequencyType ? 1 : undefined,
     frequency: type === "Medication" && reminder.recurrence !== "none" ? formatMedicationFrequency({ frequencyType, frequencyInterval: 1 }) : "",
+    timeZone: reminder.timeZone,
   };
 }
 
@@ -817,6 +825,7 @@ export function careEventToCareRecord(event: CareEvent): CareRecord {
     clinic: event.clinic || "",
     vetName: event.vetName || "",
     reason: event.reason || "",
+    timeZone: event.timeZone,
   };
 }
 
@@ -833,6 +842,7 @@ export function careEventToReminder(event: CareEvent): Reminder {
       typeof event.notifyLeadMinutes === "number"
         ? event.notifyLeadMinutes
         : defaultReminderLeadMinutes(careTypeToReminderType(event.type)),
+    timeZone: event.timeZone,
   };
 }
 
@@ -1331,21 +1341,31 @@ export function buildGoogleCalendarEvent(
   petName = "Pawfolio",
   timeZone = "UTC",
 ) {
+  const effectiveTimeZone = reminder.timeZone || timeZone;
   return {
     summary: `${petName}: ${reminder.title}`,
     description: [reminder.type, reminder.note].filter(Boolean).join(" - "),
     start: reminder.time
-      ? { dateTime: `${reminder.date}T${reminder.time}:00`, timeZone }
+      ? { dateTime: `${reminder.date}T${reminder.time}:00`, timeZone: effectiveTimeZone }
       : { date: reminder.date },
     end: reminder.time
-      ? { dateTime: `${reminder.date}T${reminder.time}:00`, timeZone }
+      ? { dateTime: `${reminder.date}T${reminder.time}:00`, timeZone: effectiveTimeZone }
       : { date: reminder.date },
     recurrence: reminder.recurrence === "none" ? [] : [`RRULE:FREQ=${reminder.recurrence.toUpperCase()}`],
   };
 }
 
 export function resolvedScheduleTimeZone(meta?: CloudSyncMeta) {
-  return meta?.calendarTimeZone || meta?.deviceTimeZone || "UTC";
+  return meta?.deviceTimeZone || meta?.calendarTimeZone || "UTC";
+}
+
+export function effectiveReminderTimeZone(
+  reminder: Pick<Reminder, "timeZone">,
+  fallback?: CloudSyncMeta | string,
+) {
+  if (reminder.timeZone) return reminder.timeZone;
+  if (typeof fallback === "string") return fallback || "UTC";
+  return resolvedScheduleTimeZone(fallback);
 }
 
 export function routineCoachInsights(tasks: DailyTask[], taskHistory: TaskHistory, reminders: Reminder[], records: CareRecord[]) {

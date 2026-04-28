@@ -12,10 +12,12 @@ import {
   cloudBackupStatusDetail,
   cloudBackupStatusLabel,
   cloudRestoreDetail,
+  cloudUploadDetail,
   deleteCalendarItemFromState,
   deleteCareItemFromState,
   daysTogether,
   estimateDataUrlBytes,
+  effectiveReminderTimeZone,
   eventCategory,
   eventCategoryColor,
   eventsForDate,
@@ -213,6 +215,8 @@ describe("pawfolio helpers", () => {
     expect(cloudBackupStatusDetail({ signedIn: true, lastUploadedAt: "2026-04-23T14:30:00.000Z" })).toContain("Latest private backup");
     expect(cloudRestoreDetail()).toContain("has not restored");
     expect(cloudRestoreDetail("2026-04-24T09:15:00.000Z")).toContain("Last restore");
+    expect(cloudUploadDetail()).toContain("has not uploaded");
+    expect(cloudUploadDetail("2026-04-24T09:15:00.000Z")).toContain("Last upload");
   });
 
   it("detects missed routine nudges after local task time and hides them once marked done", () => {
@@ -382,10 +386,12 @@ describe("pawfolio helpers", () => {
       time: "09:30",
       note: "",
       recurrence: "none",
+      timeZone: "America/New_York",
     });
 
     expect(visibleCareRecords(state).some((record) => record.type === "Vaccine" && record.title === "Lyme 2")).toBe(true);
     expect(visibleReminders(state).some((reminder) => reminder.type === "Vaccine" && reminder.title === "Lyme 2")).toBe(true);
+    expect(visibleReminders(state).find((reminder) => reminder.id === "vaccine-calendar")?.timeZone).toBe("America/New_York");
   });
 
   it("edits and deletes shared items from either side without duplicates", () => {
@@ -610,6 +616,26 @@ describe("pawfolio helpers", () => {
       start: { dateTime: "2026-01-01T08:00:00", timeZone: "America/New_York" },
       end: { dateTime: "2026-01-01T08:00:00", timeZone: "America/New_York" },
       recurrence: ["RRULE:FREQ=MONTHLY"],
+    });
+  });
+
+  it("prefers a reminder time zone override before the device default", () => {
+    const reminder: Reminder = {
+      id: "flight-med",
+      title: "Flight meds",
+      type: "Medication",
+      date: "2026-06-01",
+      time: "11:45",
+      note: "",
+      recurrence: "none",
+      timeZone: "Europe/London",
+    };
+
+    expect(effectiveReminderTimeZone(reminder, { deviceTimeZone: "America/New_York" })).toBe("Europe/London");
+    expect(effectiveReminderTimeZone({ ...reminder, timeZone: undefined }, { deviceTimeZone: "America/New_York" })).toBe("America/New_York");
+    expect(buildGoogleCalendarEvent(reminder, "Mochi", "America/New_York").start).toMatchObject({
+      dateTime: "2026-06-01T11:45:00",
+      timeZone: "Europe/London",
     });
   });
 

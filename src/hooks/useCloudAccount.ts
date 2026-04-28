@@ -41,9 +41,19 @@ type UseCloudAccountArgs = {
 };
 
 function cloudSyncFingerprint(state: PawfolioState) {
-  const { cloudSyncMeta: _cloudSyncMeta, googleCalendarSyncState, ...rest } = state;
+  const {
+    cloudSyncMeta: {
+      lastUploadedAt: _lastUploadedAt,
+      lastRestoredAt: _lastRestoredAt,
+      lastPushRegisteredAt: _lastPushRegisteredAt,
+      ...syncMeta
+    },
+    googleCalendarSyncState,
+    ...rest
+  } = state;
   return JSON.stringify({
     ...rest,
+    cloudSyncMeta: syncMeta,
     googleCalendarSyncState: {
       ...googleCalendarSyncState,
       lastSyncAt: undefined,
@@ -104,6 +114,9 @@ export function useCloudAccount({
   const [session, setSession] = useState<Session | null>(null);
   const [cloudStatus, setCloudStatus] = useState("");
   const [cloudAction, setCloudAction] = useState<CloudActionState>("idle");
+  const [backupState, setBackupState] = useState<TrustState["backup"]>("idle");
+  const [restoreState, setRestoreState] = useState<TrustState["restore"]>("idle");
+  const [calendarState, setCalendarState] = useState<TrustState["calendar"]>("disconnected");
   const cloudSyncTimer = useRef<number | null>(null);
   const lastUploadedFingerprint = useRef("");
   const lastCalendarSyncedFingerprint = useRef("");
@@ -135,6 +148,7 @@ export function useCloudAccount({
           connected: true,
         },
       }));
+      setCalendarState("connected");
       setCloudStatus("Google Calendar is connected. Pawfolio can sync reminders into your primary calendar.");
       setCloudAction("idle");
     },
@@ -144,6 +158,7 @@ export function useCloudAccount({
   const applyCloudRestore = useCallback(async () => {
     const snapshot = await downloadCloudPawfolioToLocal();
     if (!snapshot?.state) {
+      setRestoreState("empty");
       setCloudStatus("No cloud Pawfolio backup was found for this account yet. You can create a new Pawfolio here or try another signed-in account.");
       return false;
     }
@@ -163,6 +178,7 @@ export function useCloudAccount({
     });
     lastUploadedFingerprint.current = cloudSyncFingerprint(nextState);
     setState(nextState);
+    setRestoreState("restored");
     setCloudStatus("Cloud Pawfolio restored to this device.");
     return true;
   }, [setState]);
@@ -183,14 +199,12 @@ export function useCloudAccount({
     if (deviceTimeZone) {
       setState((current) => (
         current.cloudSyncMeta.deviceTimeZone === deviceTimeZone
-          && current.cloudSyncMeta.calendarTimeZone
           ? current
           : {
               ...current,
               cloudSyncMeta: {
                 ...current.cloudSyncMeta,
                 deviceTimeZone,
-                calendarTimeZone: current.cloudSyncMeta.calendarTimeZone || deviceTimeZone,
               },
             }
       ));
@@ -228,13 +242,16 @@ export function useCloudAccount({
               await finalizeGoogleCalendarConnection(data.session);
             } catch (calendarError) {
               setCloudAction("idle");
+              setCalendarState("sync_error");
               setCloudStatus(calendarAccessDeniedMessage((calendarError as Error).message));
             }
           } else if (callback.intent === "restore") {
             try {
               setCloudAction("restoring");
+              setRestoreState("restoring");
               await applyCloudRestore();
             } catch (restoreError) {
+              setRestoreState("failed");
               setCloudStatus((restoreError as Error).message);
             } finally {
               setCloudAction("idle");
@@ -280,6 +297,7 @@ export function useCloudAccount({
       uploadLocalPawfolioToAccount(state)
         .then(() => {
           lastUploadedFingerprint.current = syncFingerprint;
+          setBackupState("uploaded");
           setState((current) => ({
             ...current,
             integrationSettings: {
@@ -299,6 +317,7 @@ export function useCloudAccount({
           ) {
             void syncGoogleCalendar(session).then((result) => {
               lastCalendarSyncedFingerprint.current = syncFingerprint;
+              setCalendarState("connected");
               setState((current) => ({
                 ...current,
                 integrationSettings: {
@@ -311,10 +330,14 @@ export function useCloudAccount({
                   lastSyncAt: result.lastSyncAt || new Date().toISOString(),
                 },
               }));
-            }).catch(() => undefined);
+            }).catch(() => {
+              setCalendarState("sync_error");
+            });
           }
         })
-        .catch(() => undefined);
+        .catch(() => {
+          setBackupState("failed");
+        });
     }, 1200);
 
     return () => {
@@ -329,16 +352,21 @@ export function useCloudAccount({
   const signOut = useCallback(() => {
     supabase?.auth.signOut();
     persistCalendarTokens(null);
+    setBackupState("idle");
+    setRestoreState("idle");
+    setCalendarState("disconnected");
     setCloudStatus("Signed out. This phone still has its local Pawfolio, but cloud backup and phone push are off until you sign back in.");
   }, []);
 
   const uploadCloud = useCallback(() => {
     setCloudAction("uploading");
+    setBackupState("uploading");
     setCloudStatus("Uploading this phone's Pawfolio into your private account...");
     const syncFingerprint = cloudSyncFingerprint(state);
     uploadLocalPawfolioToAccount(state)
       .then(async () => {
         lastUploadedFingerprint.current = syncFingerprint;
+        setBackupState("uploaded");
         setState((current) => ({
           ...current,
           integrationSettings: {
@@ -354,6 +382,7 @@ export function useCloudAccount({
         if (session && state.notificationPreferences.googleCalendar && state.googleCalendarSyncState.connected) {
           const result = await syncGoogleCalendar(session);
           lastCalendarSyncedFingerprint.current = syncFingerprint;
+          setCalendarState("connected");
           setState((current) => ({
             ...current,
             googleCalendarSyncState: {
@@ -366,22 +395,32 @@ export function useCloudAccount({
 
         setCloudStatus("Local Pawfolio uploaded to your account.");
       })
-      .catch((error: Error) => setCloudStatus(error.message))
+      .catch((error: Error) => {
+        setBackupState("failed");
+        setCloudStatus(error.message);
+      })
       .finally(() => setCloudAction("idle"));
   }, [session, setState, state]);
 
   const restoreCloud = useCallback(() => {
     setCloudAction("restoring");
+    setRestoreState("restoring");
     if (!session) {
       setCloudStatus("Sign in with Google to restore your cloud Pawfolio.");
       signInWithGoogle({ intent: "restore" })
-        .catch((error: Error) => setCloudStatus(error.message))
+        .catch((error: Error) => {
+          setRestoreState("failed");
+          setCloudStatus(error.message);
+        })
         .finally(() => setCloudAction("idle"));
       return;
     }
     setCloudStatus("Restoring your latest private Pawfolio backup...");
     applyCloudRestore()
-      .catch((error: Error) => setCloudStatus(error.message))
+      .catch((error: Error) => {
+        setRestoreState("failed");
+        setCloudStatus(error.message);
+      })
       .finally(() => setCloudAction("idle"));
   }, [applyCloudRestore, session]);
 
@@ -421,9 +460,11 @@ export function useCloudAccount({
 
   const connectCalendar = useCallback(() => {
     setCloudAction("connecting_calendar");
+    setCalendarState("connecting");
     setCloudStatus("Connecting Google Calendar...");
     signInWithGoogle({ intent: "calendar", scopes: "https://www.googleapis.com/auth/calendar", forceConsent: true })
       .catch((error: Error) => {
+        setCalendarState("sync_error");
         setCloudStatus(calendarAccessDeniedMessage(error.message));
         setState((current) => ({
           ...current,
@@ -442,11 +483,13 @@ export function useCloudAccount({
       return;
     }
     setCloudAction("syncing_calendar");
+    setCalendarState("connecting");
     setCloudStatus("Uploading the latest Pawfolio, then syncing Google Calendar...");
     const syncFingerprint = cloudSyncFingerprint(state);
     uploadLocalPawfolioToAccount(state)
       .then(async () => {
         lastUploadedFingerprint.current = syncFingerprint;
+        setBackupState("uploaded");
         setState((current) => ({
           ...current,
           integrationSettings: {
@@ -462,6 +505,7 @@ export function useCloudAccount({
       })
       .then((result) => {
         lastCalendarSyncedFingerprint.current = syncFingerprint;
+        setCalendarState("connected");
         setState((current) => ({
           ...current,
           integrationSettings: {
@@ -477,6 +521,7 @@ export function useCloudAccount({
         setCloudStatus("Google Calendar synced.");
       })
       .catch((error: Error) => {
+        setCalendarState("sync_error");
         setCloudStatus(calendarAccessDeniedMessage(error.message));
         setState((current) => ({
           ...current,
@@ -495,25 +540,13 @@ export function useCloudAccount({
         ? "uploading"
         : !session
           ? "idle"
-          : cloudStatus.includes("backup was found yet")
-            ? "empty"
-            : cloudStatus.includes("uploaded")
-              ? "uploaded"
-              : cloudStatus.includes("upload") && !cloudStatus.includes("uploaded")
-                ? "failed"
-                : state.cloudSyncMeta.lastUploadedAt
-                  ? "uploaded"
-                  : "idle",
+          : backupState === "idle" && state.cloudSyncMeta.lastUploadedAt
+            ? "uploaded"
+            : backupState,
     restore:
       cloudAction === "restoring"
         ? "restoring"
-        : cloudStatus.includes("No cloud Pawfolio backup")
-          ? "empty"
-          : cloudStatus.includes("restored")
-            ? "restored"
-            : cloudStatus.includes("Restoring") || cloudStatus.includes("restore")
-              ? "failed"
-              : "idle",
+        : restoreState,
     push:
       cloudAction === "enabling_push"
         ? "saving"
@@ -529,11 +562,20 @@ export function useCloudAccount({
         ? "connecting"
         : state.googleCalendarSyncState.connected
           ? "connected"
-          : cloudStatus.toLowerCase().includes("calendar") && cloudStatus.toLowerCase().includes("error")
-            ? "sync_error"
-            : "disconnected",
+          : calendarState,
     email: "on_hold",
-  }), [cloudAction, cloudStatus, hasPushSubscription, pushPermission, session, state.cloudSyncMeta.lastUploadedAt, state.googleCalendarSyncState.connected]);
+  }), [
+    backupState,
+    calendarState,
+    cloudAction,
+    cloudStatus,
+    hasPushSubscription,
+    pushPermission,
+    restoreState,
+    session,
+    state.cloudSyncMeta.lastUploadedAt,
+    state.googleCalendarSyncState.connected,
+  ]);
 
   return {
     session,
