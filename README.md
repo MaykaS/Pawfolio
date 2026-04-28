@@ -42,13 +42,14 @@ Future versions may include:
 
 ## Current Status
 
-Prototype 0.1 is a local-first Vite, React, and TypeScript mobile-style web app.
+Pawfolio is now a working local-first product prototype built with Vite, React, and TypeScript. It already supports a believable daily care workflow, private signed-in backup, and installable PWA testing on Android. The current phase is about increasing trust, polish, and “real app” confidence rather than adding random surface area.
 
-Current prototype behavior:
+Today, Pawfolio already does these product jobs well:
 
 - User-created dog profile
 - Profile photo upload
 - Stylized dog avatar builder
+- Profile summary surfaces with central sheet-based editing
 - Daily task checklist with structured saved times, sorted chronologically
 - Daily routine completion tracked by the phone's local calendar date so the checklist resets day to day
 - Compact task notes that open only when needed
@@ -69,7 +70,7 @@ Current prototype behavior:
 - Phone push subscription save for the current signed-in device
 - Near-term local reminder notifications while the app is open or backgrounded with notification permission granted
 - Integration settings for Google Calendar, email, phone push, and cloud sync, with live push/account status
-- Floating PawPal companion with local rule-based care gaps, missed routine nudges, breed/season tips, optional collapsed Climate care context, unified Today attention, dismissible suggestions, and one-tap actions
+- Floating PawPal companion with local rule-based care gaps, patterns, breed/season context, optional collapsed Climate care context, and one-tap actions
 - Full Pawfolio data export/import for localStorage and IndexedDB photo safety
 - Supabase Google sign-in, private cloud snapshot upload, and PWA push subscription setup
 - Cuter dog-face PWA app icon for home-screen installs
@@ -80,8 +81,8 @@ Current data/auth note:
 - Pawfolio now supports Google sign-in through Supabase when the project is configured.
 - Signed-in users can upload or auto-sync local state into their own private Supabase snapshot row.
 - Signed-in users can also restore the latest cloud snapshot back onto the phone/browser.
-- Browser-local data still remains the source of truth for the current prototype UX.
-- `Upload local Pawfolio` means copying the data already on this phone/browser into the signed-in private account as a backup and cloud handoff step.
+- Browser-local data still remains the main working layer for the current product experience.
+- `Upload local Pawfolio` means copying the data already on this phone/browser into the signed-in private account as a backup and trust-building handoff step.
 - Full normalized cloud sync across devices is still a later milestone.
 
 Cloud/push setup files:
@@ -129,6 +130,7 @@ Notes:
 - The local network dev URL is useful for testing, but HTTPS is needed for the proper install/offline PWA experience.
 - Phone subscription setup and near-term local reminder notifications now work in the app.
 - The Profile account area now shows live cloud sync time, phone-push status, and a push diagnostics sheet.
+- Today is now a compact urgent inbox, while PawPal is the broader companion feed.
 - Fully reliable closed-app scheduled phone push still remains a backend milestone. It needs a healthy server-side sender path plus a scheduler that can run more frequently than the current Hobby-plan daily cron.
 
 See:

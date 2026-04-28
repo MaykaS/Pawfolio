@@ -1528,6 +1528,32 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   line-height: 1.5;
 }
 
+.profile-summary-card {
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.profile-summary-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.profile-summary-edit {
+  align-items: center;
+  background: var(--primary-pale);
+  border-radius: 999px;
+  color: var(--primary);
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
 .profile-avatar,
 .profile-photo {
   background: var(--primary-light);

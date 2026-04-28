@@ -222,6 +222,12 @@ Decision: The Profile surface should show live phone-push state such as `Active 
 
 Reason: The app now has working sign-in, device subscription save, and near-term local reminder delivery. User-facing status should reflect what is actually active on the current phone while still being honest that full closed-app backend delivery is still being hardened.
 
+## 2026-04-27: Let Profile Summary Cards Open The Central Edit Sheet
+
+Decision: Read-only profile summary surfaces such as Personality notes should be tappable and open the existing profile edit sheet, rather than staying static or introducing separate inline editors.
+
+Reason: On mobile, important profile information should feel directly editable from where it is displayed. Keeping one central edit sheet preserves consistency, validation, and trust while still making the profile feel alive.
+
 ## 2026-04-22: Use A Dog-Face PWA Icon
 
 Decision: The installed PWA icon should be a cute dog face in Pawfolio colors rather than a generic mark.
@@ -239,6 +245,12 @@ Reason: This gives Pawfolio an agentic feel without sending pet-care data to a m
 Decision: The local coach experience should live in PawPal, while Today shows only the highest-priority shared attention items.
 
 Reason: The companion/AI layer should feel like its own friendly helper instead of another alert card. Shared dismissals keep Done/dismiss behavior consistent across PawPal and Today.
+
+## 2026-04-27: Split Today And PawPal Into Different Product Jobs
+
+Decision: Today should act as a short urgent operational inbox, while PawPal should act as the broader agentic companion feed.
+
+Reason: When both surfaces show the same items, the product feels repetitive instead of helpful. Separating urgency from coaching makes the app easier to trust and gives PawPal room to become genuinely intelligent over time.
 
 ## 2026-04-22: Keep PawPal Floating Instead Of Crowding Navigation
 

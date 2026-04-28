@@ -2207,6 +2207,7 @@ function ProfileScreen({
   onUpdateCoachSettings: (settings: Partial<CoachSettings>) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [editFocus, setEditFocus] = useState<"personality" | null>(null);
   const [climateOpen, setClimateOpen] = useState(false);
   const [locationStatus, setLocationStatus] = useState("");
   const phonePushLabel = pushStatusLabel({
@@ -2261,10 +2262,23 @@ function ProfileScreen({
         <StatCard icon={<PawPrint size={16} />} label="Walks logged" value={String(walkCount)} />
         <StatCard icon={<Heart size={16} />} label="Days together" value={daysTogether(profile.birthday)} />
       </div>
-      <section className="card">
-        <p className="label no-margin">Personality notes</p>
+      <button
+        className="card profile-summary-card"
+        type="button"
+        onClick={() => {
+          setEditFocus("personality");
+          setEditing(true);
+        }}
+        aria-label="Edit personality notes"
+      >
+        <div className="profile-summary-head">
+          <p className="label no-margin">Personality notes</p>
+          <span className="profile-summary-edit">
+            <Pencil size={14} />
+          </span>
+        </div>
         <p className="personality-text">{profile.personality || "Add little quirks, fears, favorite games, and care notes."}</p>
-      </section>
+      </button>
       <section className="card settings-card">
         <p className="label no-margin">Integrations</p>
         <SettingRow label="Google Calendar" value={integrationStatusLabel(integrationSettings.googleCalendar)} checked={notificationPreferences.googleCalendar} onToggle={() => onTogglePreference("googleCalendar")} />
@@ -2393,7 +2407,14 @@ function ProfileScreen({
         {cloudStatus && <p className="settings-note">{cloudStatus}</p>}
       </section>
       <div className="profile-actions">
-        <ProfileAction icon={<Pencil size={18} />} label="Edit profile" onClick={() => setEditing(true)} />
+        <ProfileAction
+          icon={<Pencil size={18} />}
+          label="Edit profile"
+          onClick={() => {
+            setEditFocus(null);
+            setEditing(true);
+          }}
+        />
         <ProfileAction icon={<Bell size={18} />} label="Notifications" onClick={onOpenNotifications} />
         <ProfileAction icon={<Download size={18} />} label="Export Pawfolio data" onClick={onExportData} />
         <label className="profile-action card-sm import-action">
@@ -2414,9 +2435,14 @@ function ProfileScreen({
       {editing && (
         <ProfileEditSheet
           profile={profile}
-          onClose={() => setEditing(false)}
+          initialFocus={editFocus}
+          onClose={() => {
+            setEditFocus(null);
+            setEditing(false);
+          }}
           onSave={(updated) => {
             onSave(updated);
+            setEditFocus(null);
             setEditing(false);
           }}
         />
@@ -2493,14 +2519,21 @@ function ReminderLeadChips({
 
 function ProfileEditSheet({
   profile,
+  initialFocus,
   onClose,
   onSave,
 }: {
   profile: DogProfile;
+  initialFocus?: "personality" | null;
   onClose: () => void;
   onSave: (profile: DogProfile) => void;
 }) {
   const [draft, setDraft] = useState(profile);
+  const personalityRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    if (initialFocus === "personality") personalityRef.current?.focus();
+  }, [initialFocus]);
 
   const updatePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -2557,7 +2590,13 @@ function ProfileEditSheet({
         </Field>
       </div>
       <Field label="Personality">
-        <textarea className="input" value={draft.personality} onChange={(event) => setDraft((current) => ({ ...current, personality: event.target.value }))} />
+        <textarea
+          ref={personalityRef}
+          className="input"
+          value={draft.personality}
+          onChange={(event) => setDraft((current) => ({ ...current, personality: event.target.value }))}
+          placeholder="What makes your dog feel like your dog?"
+        />
       </Field>
       <Field label="Personality tags">
         <input

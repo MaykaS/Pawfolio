@@ -46,6 +46,7 @@ The first version should look like one user and one dog, with browser-local pers
 Current localStorage prototype data includes:
 
 - Dog profile with name, breed, birthday, weight, personality, editable tags, photo, and avatar settings
+- Profile summary cards that can open a central edit sheet, rather than spreading editing across many inline surfaces
 - Daily tasks with title, canonical `HH:MM` saved time, optional note, chronological sorting, and local-date completion history
 - Diary entries with title, body, date, legacy single-photo support, and up to 6 IndexedDB-backed photos
 - Care records with type, title, record date, type-specific fields, optional next due date, and note
@@ -59,7 +60,7 @@ Current localStorage prototype data includes:
 - In-app notification center for future reminders, Due now/Soon/Upcoming groups, compact alert lead labels, and browser notification permission testing
 - Local notification preferences and integration settings for in-app reminders, future phone push, email reminders, Google Calendar, and cloud sync
 - Google Calendar payload scaffolding for reminders and shared care events, without frontend secrets or OAuth tokens
-- PawPal companion settings, dismissals, care-gap/routine suggestions, same-day missed routine nudges, breed/season signals, optional collapsed Climate care context, unified Today attention, and one-tap suggestion actions
+- PawPal companion settings, dismissals, lightweight companion memory, care-gap/pattern/planning suggestions, breed/season signals, optional collapsed Climate care context, and one-tap suggestion actions
 - Full local export/import payload for backup and restore, including referenced IndexedDB photo records
 
 Older localStorage records are normalized on load so prototype changes do not break existing local data.
@@ -149,6 +150,15 @@ Reminder records should be designed with:
 
 Real push should be handled by Supabase-backed auth/device subscriptions plus PWA Push API and a backend push sender, or by Expo push in the native app phase. Email and Google Calendar sync must happen through server-side code so secrets are not exposed in the browser.
 
+## Profile Editing Pattern
+
+The current product rule for profile UX is:
+
+- summary surfaces can open editing
+- actual editing still happens in one central profile sheet
+
+This keeps the profile feeling direct and tappable on mobile, without fragmenting validation, save behavior, or mental model across several inline editors.
+
 ## Agentic Direction
 
 The first agentic feature is PawPal.
@@ -157,10 +167,11 @@ Current version:
 
 - Runs locally with simple rules
 - Reviews routine completion, medication detail quality, upcoming reminders, care gaps, diary/care backup needs, breed, season, and optional broad care region
-- Opens from a floating PawPal companion button above the five-tab bottom nav and also feeds urgent items into Today needs attention
+- Opens from a floating PawPal companion button above the five-tab bottom nav
+- Uses Today as the urgent operational inbox, while PawPal acts as the broader companion feed
 - Detects same-day missed routine tasks after their scheduled time, using local date/time and a grace period
 - Supports dismissible suggestions and one-tap actions such as adding a tick check task, opening a care record, opening reminder creation, or exporting a backup
-- Uses shared dismissals so a done/dismissed suggestion disappears from PawPal and Today
+- Keeps lightweight memory of recent signals and suggestion outcomes so the companion layer can build on behavior over time
 - Is controlled by opt-in settings for PawPal, seasonal tips, and optional location/manual region context
 
 Later version:

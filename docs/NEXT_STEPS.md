@@ -39,34 +39,34 @@ Implemented:
 
 ## Immediate Next Improvements
 
-1. Finish the closed-app push delivery path:
+1. Finish the trust layer:
    - Replace/repair the backend service-role key path used by the server sender
    - Verify the `api/send-due-push.ts` flow against real signed-in user data
    - Move beyond Hobby-plan daily scheduling so precise reminder timing is possible
-2. Continue installed PWA testing from Android Chrome:
-   - Launches in standalone mode
-   - Shows the new dog-face home-screen icon
-   - Saves localStorage and IndexedDB photo data
-   - Reopens with saved dog data
-   - Loads the app shell after the first visit
-   - Delivers near-term local reminder notifications consistently
-   - Restores the latest cloud snapshot correctly on a second device/browser
-3. Polish PawPal suggestion actions:
+2. Validate cloud confidence:
+   - Test sign-in, upload/auto-sync, and restore on a second device/browser
+   - Improve restore empty, success, and failure messaging if anything feels uncertain
+3. Keep polishing the account surface:
+   - Better backup health language
+   - Clearer “this phone / cloud / push” state summaries
+   - Continue using product-language status instead of technical labels
+4. Deepen PawPal usefulness:
    - Let more suggestions prefill care or reminder forms
    - Add more breed profiles and seasonal care signals
    - Add a monthly PawPal recap for care/routine patterns
-4. Add more structured care details:
+5. Add more structured care depth:
    - Medication start/end dates and missed-dose notes
    - Vaccine manufacturer/lot fields
    - Vet visit attachments or invoices
-5. Split the private cloud snapshot into normalized cloud tables.
-6. Connect Google Calendar OAuth and real event sync.
-7. Add backend email reminders, likely through Vercel functions and Resend.
-8. Decide when PawPal should move from local rules to optional LLM help.
+6. Split the private cloud snapshot into normalized cloud tables.
+7. Connect Google Calendar OAuth and real event sync.
+8. Add backend email reminders, likely through Vercel functions and Resend.
+9. Decide when PawPal should move from local rules to optional LLM help.
 
 ## Prototype Content To Keep Improving
 
 The user should continue entering their own dog information instead of relying on fake data.
+The product should continue feeling warm and companion-like without losing clarity or trust in care-critical flows.
 
 ## Decisions To Make Soon
 
