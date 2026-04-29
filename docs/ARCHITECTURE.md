@@ -33,6 +33,16 @@ Pawfolio currently uses a simple, explicit state model:
 
 This is intentionally not yet a fully normalized multi-device sync architecture.
 
+## Profile Summary Model
+
+The top Profile row is intentionally lightweight:
+
+- Memories
+- Wellness
+- Days together
+
+The Wellness card is a 7-day care/routine balance signal, not a medical score. It looks only at tracked routine history plus current care/reminder pressure, and it falls back conservatively while the app is still learning a newer routine.
+
 ## Current Data Shape
 
 Primary product entities:

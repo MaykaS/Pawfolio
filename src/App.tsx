@@ -63,7 +63,6 @@ import {
   getNotificationGroups,
   getUpcomingReminder,
   getUpcomingReminders,
-  formatWalkRhythm,
   initialState,
   isStoredPhotoRef,
   limitDiaryPhotos,
@@ -102,7 +101,7 @@ import {
   visibleCareRecords,
   visibleReminders,
   validateCareRecord,
-  walkRhythm,
+  wellnessSummary,
   weightTrendPlot,
   weightTrendSeries,
   type CareRecord,
@@ -119,6 +118,7 @@ import {
   type Reminder,
   type ReminderCompletionStatus,
   type Tab,
+  type WellnessSummary,
 } from "./pawfolio";
 import { useCloudAccount, type CloudActionState, type TrustState } from "./hooks/useCloudAccount";
 import { useLocalReminderScheduling } from "./hooks/useLocalReminderScheduling";
@@ -566,7 +566,7 @@ export default function App() {
         <ProfileScreen
           profile={state.profile}
           diaryCount={state.diary.length}
-          walkRhythmValue={walkRhythm(state.tasks, state.taskHistory, 14)}
+          wellness={wellnessSummary(state)}
           onSave={(profile) => setState((current) => ({ ...current, profile }))}
           onOpenNotifications={() => setNotificationsOpen(true)}
           onExportData={exportPawfolioData}
@@ -1936,7 +1936,7 @@ function NotificationGroup({
 function ProfileScreen({
   profile,
   diaryCount,
-  walkRhythmValue,
+  wellness,
   onSave,
   onOpenNotifications,
   onExportData,
@@ -1969,7 +1969,7 @@ function ProfileScreen({
 }: {
   profile: DogProfile;
   diaryCount: number;
-  walkRhythmValue: number;
+  wellness: WellnessSummary;
   onSave: (profile: DogProfile) => void;
   onOpenNotifications: () => void;
   onExportData: () => void;
@@ -2062,12 +2062,13 @@ function ProfileScreen({
         </div>
       </section>
       <div className="stats-grid">
-        <StatCard icon={<NotebookPen size={16} />} label="Diary entries" value={String(diaryCount)} />
+        <StatCard icon={<NotebookPen size={16} />} label="Memories" value={String(diaryCount)} />
         <StatCard
-          icon={<PawPrint size={16} />}
-          label="Walk rhythm"
-          value={formatWalkRhythm(walkRhythmValue)}
-          detail="Avg on tracked walk days"
+          icon={<HeartPulse size={16} />}
+          label="Wellness"
+          value={wellness.label}
+          detail={wellness.detail}
+          tone={wellness.tone}
         />
         <StatCard icon={<Heart size={16} />} label="Days together" value={daysTogether(profile.birthday)} />
       </div>
@@ -2699,14 +2700,16 @@ function StatCard({
   label,
   value,
   detail,
+  tone,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   detail?: string;
+  tone?: WellnessSummary["tone"];
 }) {
   return (
-    <article className="card-sm stat-card">
+    <article className={`card-sm stat-card${tone ? ` stat-card-${tone}` : ""}`}>
       <div className="stat-icon">{icon}</div>
       <strong>{value}</strong>
       <span>{label}</span>

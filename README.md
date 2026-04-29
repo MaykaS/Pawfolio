@@ -42,6 +42,7 @@ The current app state is strong:
 - timed Google Calendar reminders sync as normal 30-minute calendar events
 - per-reminder time zone handling now exists, with device-default behavior and manual override when needed
 - the Profile area now behaves more like a trust center than a random settings pile
+- the top Profile snapshot now balances memories, wellness, and days together instead of showing a raw walk metric
 - restore now reports a clearer success/empty/failure result instead of hiding behind timestamps alone
 
 Email reminders are intentionally on hold in the product. The backend plumbing remains in code, but the app does not pretend email is a ready user-facing path while sender-domain setup is out of scope.

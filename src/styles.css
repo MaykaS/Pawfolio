@@ -1257,6 +1257,33 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   line-height: 1.2;
 }
 
+.stat-card-green .stat-icon {
+  background: var(--green-light);
+  color: var(--green);
+}
+
+.stat-card-green strong {
+  color: var(--green);
+}
+
+.stat-card-amber .stat-icon {
+  background: var(--amber-light);
+  color: oklch(54% 0.1 76);
+}
+
+.stat-card-amber strong {
+  color: oklch(38% 0.035 55);
+}
+
+.stat-card-coral .stat-icon {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.stat-card-coral strong {
+  color: var(--primary);
+}
+
 .event-item {
   display: flex;
   gap: 12px;

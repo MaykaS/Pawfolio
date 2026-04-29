@@ -22,7 +22,6 @@ import {
   eventCategoryColor,
   eventsForDate,
   eventsForMonth,
-  formatWalkRhythm,
   getCareMoments,
   getSeasonForDate,
   getUpcomingReminder,
@@ -62,7 +61,7 @@ import {
   validateCareRecord,
   visibleCareRecords,
   visibleReminders,
-  walkRhythm,
+  wellnessSummary,
   weightTrend,
   weightTrendPlot,
   weightTrendSeries,
@@ -194,37 +193,125 @@ describe("pawfolio helpers", () => {
     expect(tasksForDate(tasks, history, "2026-04-23")[0].done).toBe(false);
   });
 
-  it("computes walk rhythm from recent walk completions", () => {
-    const tasks: DailyTask[] = [
-      { id: "morning-walk", title: "Morning walk", time: "08:00", done: false, note: "" },
-      { id: "evening-walk", title: "Evening walk", time: "19:30", done: false, note: "" },
-      { id: "breakfast", title: "Breakfast", time: "07:00", done: false, note: "" },
-    ];
-    const history = {
-      "2026-04-22": { "morning-walk": true, "evening-walk": true },
-      "2026-04-21": { "morning-walk": true },
-      "2026-04-20": { "evening-walk": true },
+  it("falls back to a steady wellness state when routine history is still thin", () => {
+    const state: PawfolioState = {
+      ...normalizeState(initialState),
+      tasks: [{ id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" }],
+      taskHistory: {},
+      care: [],
+      careEvents: [],
+      reminders: [],
+      reminderHistory: {},
     };
 
-    expect(walkRhythm(tasks, {}, 14, new Date("2026-04-22T12:00:00"))).toBe(0);
-    expect(walkRhythm(tasks, history, 14, new Date("2026-04-22T12:00:00"))).toBe(1.3);
-    expect(formatWalkRhythm(walkRhythm(tasks, history, 14, new Date("2026-04-22T12:00:00")))).toBe("1.3/day");
-    expect(walkRhythm(tasks, history, 2, new Date("2026-04-22T12:00:00"))).toBe(1.5);
+    expect(wellnessSummary(state, new Date("2026-04-22T12:00:00"))).toEqual({
+      label: "Steady",
+      tone: "amber",
+      detail: "Still learning your routine",
+    });
   });
 
-  it("uses recent walk history instead of older unrelated task history", () => {
-    const tasks: DailyTask[] = [
-      { id: "morning-walk", title: "Morning walk", time: "08:00", done: false, note: "" },
-      { id: "breakfast", title: "Breakfast", time: "07:00", done: false, note: "" },
-    ];
-    const history = {
-      "2026-04-01": { breakfast: true },
-      "2026-04-21": { "morning-walk": true, breakfast: true },
-      "2026-04-22": { "morning-walk": true },
+  it("reports great wellness when recent tracked routine is strong and nothing is overdue", () => {
+    const state: PawfolioState = {
+      ...normalizeState(initialState),
+      tasks: [
+        { id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" },
+        { id: "meal", title: "Breakfast", time: "07:00", done: false, note: "" },
+      ],
+      taskHistory: {
+        "2026-04-20": { walk: true, meal: true },
+        "2026-04-21": { walk: true, meal: true },
+        "2026-04-22": { walk: true, meal: true },
+      },
+      care: [],
+      careEvents: [],
+      reminders: [],
+      reminderHistory: {},
     };
 
-    expect(walkRhythm(tasks, history, 14, new Date("2026-04-22T12:00:00"))).toBe(1);
-    expect(formatWalkRhythm(walkRhythm(tasks, history, 14, new Date("2026-04-22T12:00:00")))).toBe("1/day");
+    expect(wellnessSummary(state, new Date("2026-04-22T12:00:00"))).toEqual({
+      label: "Great",
+      tone: "green",
+      detail: "7-day care balance",
+    });
+  });
+
+  it("reports steady wellness for mixed routine with only softer upcoming care pressure", () => {
+    const state: PawfolioState = {
+      ...normalizeState(initialState),
+      tasks: [
+        { id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" },
+        { id: "meal", title: "Breakfast", time: "07:00", done: false, note: "" },
+      ],
+      taskHistory: {
+        "2026-04-18": { walk: true, meal: true },
+        "2026-04-19": { walk: true, meal: false },
+        "2026-04-20": { walk: false, meal: true },
+      },
+      care: [
+        { id: "vaccine", type: "Vaccine", title: "Rabies", date: "2026-04-20", note: "", nextDueDate: "2026-05-10" },
+      ],
+      careEvents: [],
+      reminders: [],
+      reminderHistory: {},
+    };
+
+    expect(wellnessSummary(state, new Date("2026-04-22T12:00:00"))).toEqual({
+      label: "Steady",
+      tone: "amber",
+      detail: "Based on recent routine + care",
+    });
+  });
+
+  it("reports needs-care wellness when overdue care exists", () => {
+    const state: PawfolioState = {
+      ...normalizeState(initialState),
+      tasks: [
+        { id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" },
+        { id: "meal", title: "Breakfast", time: "07:00", done: false, note: "" },
+      ],
+      taskHistory: {
+        "2026-04-20": { walk: true, meal: true },
+        "2026-04-21": { walk: true, meal: true },
+        "2026-04-22": { walk: true, meal: true },
+      },
+      care: [
+        { id: "vet", type: "Vet visit", title: "Annual checkup", date: "2026-04-01", note: "", nextDueDate: "2026-04-10" },
+      ],
+      careEvents: [],
+      reminders: [],
+      reminderHistory: {},
+    };
+
+    expect(wellnessSummary(state, new Date("2026-04-22T12:00:00"))).toEqual({
+      label: "Needs care",
+      tone: "coral",
+      detail: "Overdue care needs attention",
+    });
+  });
+
+  it("evaluates newer users only on the tracked days they actually have", () => {
+    const state: PawfolioState = {
+      ...normalizeState(initialState),
+      tasks: [
+        { id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" },
+        { id: "meal", title: "Breakfast", time: "07:00", done: false, note: "" },
+      ],
+      taskHistory: {
+        "2026-04-10": { walk: true, meal: true },
+        "2026-04-22": { walk: true, meal: true },
+      },
+      care: [],
+      careEvents: [],
+      reminders: [],
+      reminderHistory: {},
+    };
+
+    expect(wellnessSummary(state, new Date("2026-04-22T12:00:00"))).toEqual({
+      label: "Great",
+      tone: "green",
+      detail: "7-day care balance",
+    });
   });
 
   it("reports phone push status in a user-facing way", () => {

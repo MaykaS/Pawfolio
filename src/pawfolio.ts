@@ -67,6 +67,13 @@ export type ReminderRecurrence = "none" | "daily" | "weekly" | "monthly" | "year
 export type MedicationDoseUnit = "tablet" | "chew" | "capsule" | "mL" | "drops" | "scoop" | "other";
 export type MedicationFrequencyType = "daily" | "weekly" | "monthly" | "yearly" | "as_needed";
 export type MedicationPlanStatus = "Active" | "Upcoming" | "Ended" | "Needs review";
+export type WellnessLabel = "Great" | "Steady" | "Needs care";
+export type WellnessTone = "green" | "amber" | "coral";
+export type WellnessSummary = {
+  label: WellnessLabel;
+  tone: WellnessTone;
+  detail: string;
+};
 
 export type CareEvent = {
   id: string;
@@ -365,39 +372,77 @@ export function daysTogether(birthday: string, now = new Date()) {
   return new Intl.NumberFormat("en").format(days);
 }
 
-function isWalkTask(task: Pick<DailyTask, "title">) {
-  return /walk/i.test(task.title);
-}
-
-export function walkRhythm(tasks: DailyTask[], taskHistory: TaskHistory, windowDays = 14, now = new Date()) {
-  const walkTaskIds = new Set(tasks.filter(isWalkTask).map((task) => task.id));
-  if (walkTaskIds.size === 0 || windowDays <= 0) return 0;
-
-  const historyDates = Object.keys(taskHistory).sort();
-  if (historyDates.length === 0) return 0;
-  const walkHistoryDates = historyDates.filter((date) =>
-    Object.keys(taskHistory[date] || {}).some((taskId) => walkTaskIds.has(taskId)),
-  );
-  if (walkHistoryDates.length === 0) return 0;
-
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const firstTracked = new Date(`${walkHistoryDates[0]}T00:00`);
-  const trackedDays = Math.max(1, Math.floor((today.getTime() - firstTracked.getTime()) / 86_400_000) + 1);
-  const effectiveWindowDays = Math.min(windowDays, trackedDays);
-
-  let completed = 0;
-  for (let offset = 0; offset < effectiveWindowDays; offset += 1) {
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
-    const iso = toLocalISO(date);
-    const day = taskHistory[iso] || {};
-    completed += [...walkTaskIds].filter((taskId) => Boolean(day[taskId])).length;
+export function wellnessSummary(
+  state: Pick<
+    PawfolioState,
+    "tasks" | "taskHistory" | "care" | "careEvents" | "reminders" | "reminderHistory" | "routineCoachSettings"
+  >,
+  now = new Date(),
+): WellnessSummary {
+  const trackedDates = Object.keys(state.taskHistory).sort().slice(-7);
+  if (trackedDates.length < 2 || state.tasks.length === 0) {
+    return {
+      label: "Steady",
+      tone: "amber",
+      detail: "Still learning your routine",
+    };
   }
 
-  return Math.round((completed / effectiveWindowDays) * 10) / 10;
-}
+  const completionRates = trackedDates.map((date) => {
+    const tasks = tasksForDate(state.tasks, state.taskHistory, date);
+    if (tasks.length === 0) return 1;
+    const completed = tasks.filter((task) => task.done).length;
+    return completed / tasks.length;
+  });
+  const averageCompletion =
+    completionRates.reduce((sum, rate) => sum + rate, 0) / Math.max(1, completionRates.length);
 
-export function formatWalkRhythm(value: number) {
-  return `${Number.isInteger(value) ? value : value.toFixed(1)}/day`;
+  const careRecords = visibleCareRecords(state);
+  const overdueCareCount = careRecords.filter((record) => careStatus(record, now) === "Overdue").length;
+  const dueSoonCareCount = careRecords.filter((record) => careStatus(record, now) === "Due soon").length;
+
+  const reminderGroups = getNotificationGroups(visibleReminders(state), now, state.reminderHistory);
+  const dueNowReminderCount = reminderGroups.dueNow.length;
+  const dueSoonReminderCount = reminderGroups.soon.length;
+  const missedTaskCount = missedRoutineTasks(
+    state.tasks,
+    state.taskHistory,
+    now,
+    state.routineCoachSettings.missedRoutineGraceMinutes,
+  ).length;
+
+  const urgentPileup = overdueCareCount + dueNowReminderCount + missedTaskCount;
+  const softPileup = dueSoonCareCount + dueSoonReminderCount;
+
+  if (overdueCareCount > 0) {
+    return {
+      label: "Needs care",
+      tone: "coral",
+      detail: "Overdue care needs attention",
+    };
+  }
+
+  if (averageCompletion < 0.45 || urgentPileup >= 3) {
+    return {
+      label: "Needs care",
+      tone: "coral",
+      detail: urgentPileup >= 3 ? "A few things need attention" : "Routine slipped a bit lately",
+    };
+  }
+
+  if (averageCompletion >= 0.8 && urgentPileup === 0 && softPileup <= 2) {
+    return {
+      label: "Great",
+      tone: "green",
+      detail: "7-day care balance",
+    };
+  }
+
+  return {
+    label: "Steady",
+    tone: "amber",
+    detail: "Based on recent routine + care",
+  };
 }
 
 function inferredTaskTime(task: Pick<DailyTask, "id" | "title">) {
