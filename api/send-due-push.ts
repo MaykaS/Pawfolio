@@ -9,6 +9,13 @@ type StoredSubscription = {
   subscription: { endpoint: string; keys: { p256dh: string; auth: string } };
 };
 
+type SnapshotRow = {
+  user_id: string;
+  state: { notificationPreferences?: { push?: boolean; email?: boolean } } & Record<string, unknown>;
+  push_enabled?: boolean;
+  email_enabled?: boolean;
+};
+
 async function alreadyDelivered(
   userId: string,
   channel: "push" | "email",
@@ -134,15 +141,12 @@ export default async function handler(request: VercelRequest, response: VercelRe
   );
 
   const supabase = supabaseAdmin();
-  const { data: snapshots, error: snapshotError } = await supabase
-    .from("pawfolio_snapshots")
-    .select("user_id,state")
-    .order("updated_at", { ascending: false });
+  const { data: snapshots, error: snapshotError } = await loadNotificationSnapshots();
   if (snapshotError) return sendJson(response, 500, { error: snapshotError.message });
 
   let sent = 0;
   let emailed = 0;
-  for (const snapshot of snapshots || []) {
+  for (const snapshot of (snapshots || []) as SnapshotRow[]) {
     const preferences = snapshot.state?.notificationPreferences || {};
     if (!preferences.push && !preferences.email) continue;
 
@@ -186,4 +190,43 @@ export default async function handler(request: VercelRequest, response: VercelRe
   }
 
   return sendJson(response, 200, { ok: true, sent, emailed });
+
+  async function loadNotificationSnapshots() {
+    const optimized = await supabase
+      .from("pawfolio_snapshots")
+      .select("user_id,state,push_enabled,email_enabled")
+      .or("push_enabled.eq.true,email_enabled.eq.true")
+      .order("updated_at", { ascending: false });
+
+    if (!optimized.error) {
+      return {
+        data: (optimized.data || []).map((snapshot) => ({
+          ...snapshot,
+          state: snapshot.state || {},
+        })),
+        error: null,
+      };
+    }
+
+    if (!usesLegacySnapshotSchema(optimized.error.message)) {
+      return { data: null, error: optimized.error };
+    }
+
+    const legacy = await supabase
+      .from("pawfolio_snapshots")
+      .select("user_id,state")
+      .order("updated_at", { ascending: false });
+
+    return {
+      data: (legacy.data || []).map((snapshot) => ({
+        ...snapshot,
+        state: snapshot.state || {},
+      })),
+      error: legacy.error,
+    };
+  }
+}
+
+function usesLegacySnapshotSchema(message = "") {
+  return message.includes("push_enabled") || message.includes("email_enabled");
 }

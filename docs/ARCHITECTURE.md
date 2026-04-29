@@ -59,6 +59,7 @@ Supabase stores:
 
 - latest Pawfolio state JSON
 - photo records
+- snapshot-level notification channel flags for cron filtering
 - push subscriptions
 - integration accounts
 - calendar event links
@@ -77,6 +78,8 @@ Pawfolio now has layered reminder delivery:
 - delivery ledger for idempotency
 
 That layered design is intentional. The saved device can alert locally, and scheduled reminders can also come through the cloud delivery path without pretending one mechanism does everything.
+
+The cron path now also mirrors push/email eligibility onto snapshot metadata so scheduled sends do not have to inspect every stored snapshot before they even know whether delivery is possible.
 
 ## Calendar Model
 

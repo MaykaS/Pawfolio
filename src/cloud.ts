@@ -86,13 +86,23 @@ export async function uploadLocalPawfolioToAccount(state: PawfolioState) {
   if (!user) throw new Error("Sign in before uploading Pawfolio.");
 
   const photos = await collectSnapshotPhotoRecords(state);
-  const { error } = await supabase.from("pawfolio_snapshots").upsert({
+  const payload = {
     user_id: user.id,
     state,
     photos,
     local_storage_key: storageKey,
     updated_at: new Date().toISOString(),
+  };
+  const { error } = await supabase.from("pawfolio_snapshots").upsert({
+    ...payload,
+    push_enabled: Boolean(state.notificationPreferences?.push),
+    email_enabled: Boolean(state.notificationPreferences?.email),
   });
+  if (error && usesLegacySnapshotSchema(error.message)) {
+    const fallback = await supabase.from("pawfolio_snapshots").upsert(payload);
+    if (fallback.error) throw fallback.error;
+    return;
+  }
   if (error) throw error;
 }
 
@@ -197,4 +207,8 @@ export async function subscribeDeviceToPush(session: Session) {
     onConflict: "endpoint",
   });
   if (error) throw new Error(error.message || "Could not save this phone for push notifications.");
+}
+
+function usesLegacySnapshotSchema(message = "") {
+  return message.includes("push_enabled") || message.includes("email_enabled");
 }

@@ -105,6 +105,8 @@ Key setup areas:
 - Google OAuth client id and secret for Calendar integration
 - optional deferred email envs, kept out of the active product path
 
+If you update the notification delivery schema, rerun `supabase/schema.sql` so snapshot channel flags and indexes stay aligned with production cron behavior.
+
 ## Repository Guide
 
 - [Product Brief](docs/PRODUCT_BRIEF.md)
