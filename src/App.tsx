@@ -2063,7 +2063,12 @@ function ProfileScreen({
       </section>
       <div className="stats-grid">
         <StatCard icon={<NotebookPen size={16} />} label="Diary entries" value={String(diaryCount)} />
-        <StatCard icon={<PawPrint size={16} />} label="Walk rhythm" value={formatWalkRhythm(walkRhythmValue)} />
+        <StatCard
+          icon={<PawPrint size={16} />}
+          label="Walk rhythm"
+          value={formatWalkRhythm(walkRhythmValue)}
+          detail="Avg on tracked walk days"
+        />
         <StatCard icon={<Heart size={16} />} label="Days together" value={daysTogether(profile.birthday)} />
       </div>
       <button
@@ -2689,12 +2694,23 @@ function DogAvatar({ avatar, small = false }: { avatar: DogAvatar; small?: boole
   );
 }
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function StatCard({
+  icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  detail?: string;
+}) {
   return (
     <article className="card-sm stat-card">
       <div className="stat-icon">{icon}</div>
       <strong>{value}</strong>
       <span>{label}</span>
+      {detail ? <small>{detail}</small> : null}
     </article>
   );
 }

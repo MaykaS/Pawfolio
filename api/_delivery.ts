@@ -134,18 +134,12 @@ function dueMissedTaskCandidates(state: PawfolioState, now: Date): DeliveryCandi
   const today = toLocalISO(localNow);
   const todayTasks = tasksForDate(state.tasks, state.taskHistory, today);
   const graceMinutes = state.routineCoachSettings.missedRoutineGraceMinutes;
-  const repeatMinutes = 60;
 
   const candidates: Array<DeliveryCandidate | null> = (todayTasks as DailyTask[])
     .filter((task) => !task.done)
     .filter((task) => task.time && task.time !== "Anytime")
     .map((task) => {
-      const firstNudgeAt = taskMissedNudgeDate(task, today, timeZone, graceMinutes);
-      if (now.getTime() < firstNudgeAt.getTime()) return null;
-
-      const elapsedMinutes = Math.floor((now.getTime() - firstNudgeAt.getTime()) / 60_000);
-      const repeatIndex = Math.floor(elapsedMinutes / repeatMinutes);
-      const occurrenceAt = new Date(firstNudgeAt.getTime() + repeatIndex * repeatMinutes * 60_000);
+      const occurrenceAt = taskMissedNudgeDate(task, today, timeZone, graceMinutes);
       if (!withinDeliveryWindow(occurrenceAt, now)) return null;
 
       return {

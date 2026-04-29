@@ -248,7 +248,7 @@ export const initialState: PawfolioState = {
   routineCoachSettings: {
     enabled: true,
     missedRoutineNudges: true,
-    missedRoutineGraceMinutes: 30,
+    missedRoutineGraceMinutes: 60,
   },
   coachSettings: {
     enabled: true,

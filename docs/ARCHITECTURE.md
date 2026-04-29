@@ -81,6 +81,8 @@ That layered design is intentional. The saved device can alert locally, and sche
 
 The cron path now also mirrors push/email eligibility onto snapshot metadata so scheduled sends do not have to inspect every stored snapshot before they even know whether delivery is possible.
 
+Missed routine-task nudges are intentionally conservative: a task can generate one reminder exactly one hour after its scheduled time, and it does not keep repeating after that occurrence.
+
 ## Calendar Model
 
 Google Calendar is currently one-way:

@@ -265,11 +265,11 @@ describe("pawfolio helpers", () => {
       { id: "dinner", title: "Dinner", time: "18:00", done: false, note: "" },
     ];
 
-    expect(missedRoutineTasks(tasks, {}, new Date(2026, 3, 22, 8, 20), 30)).toEqual([]);
-    expect(missedRoutineTasks(tasks, {}, new Date(2026, 3, 22, 8, 31), 30).map((task) => task.id)).toEqual(["walk"]);
+    expect(missedRoutineTasks(tasks, {}, new Date(2026, 3, 22, 8, 59), 60)).toEqual([]);
+    expect(missedRoutineTasks(tasks, {}, new Date(2026, 3, 22, 9, 0), 60).map((task) => task.id)).toEqual(["walk"]);
 
     const history = setTaskDoneForDate({}, "2026-04-22", "walk", true);
-    expect(missedRoutineTasks(tasks, history, new Date(2026, 3, 22, 8, 31), 30)).toEqual([]);
+    expect(missedRoutineTasks(tasks, history, new Date(2026, 3, 22, 9, 0), 60)).toEqual([]);
     expect(tasksForDate(tasks, history, "2026-04-23").map((task) => task.done)).toEqual([false, false]);
   });
 
@@ -291,7 +291,7 @@ describe("pawfolio helpers", () => {
     expect(normalized.integrationSettings.googleCalendar).toBe("off");
     expect(normalized.routineCoachSettings.enabled).toBe(true);
     expect(normalized.routineCoachSettings.missedRoutineNudges).toBe(true);
-    expect(normalized.routineCoachSettings.missedRoutineGraceMinutes).toBe(30);
+    expect(normalized.routineCoachSettings.missedRoutineGraceMinutes).toBe(60);
     expect(normalized.careEvents[0].notifyLeadMinutes).toBe(0);
   });
 
@@ -947,15 +947,15 @@ describe("pawfolio helpers", () => {
       reminders: [{ id: "future", title: "Vet", type: "Vet", date: "2026-06-01", time: "09:00", note: "", recurrence: "none" }],
     });
 
-    const suggestions = buildPawPalFeed(state, new Date(2026, 3, 22, 8, 45));
+    const suggestions = buildPawPalFeed(state, new Date(2026, 3, 22, 9, 5));
     expect(suggestions.map((suggestion) => suggestion.id)).not.toContain("today-missed-task-2026-04-22-morning-walk");
-    expect(buildTodayAttentionItems(state, new Date(2026, 3, 22, 8, 45)).map((item) => item.id)).toContain("today-missed-task-2026-04-22-morning-walk");
+    expect(buildTodayAttentionItems(state, new Date(2026, 3, 22, 9, 5)).map((item) => item.id)).toContain("today-missed-task-2026-04-22-morning-walk");
 
     const done = {
       ...state,
       taskHistory: setTaskDoneForDate(state.taskHistory, "2026-04-22", "morning-walk", true),
     };
-    expect(buildTodayAttentionItems(done, new Date(2026, 3, 22, 8, 45)).map((suggestion) => suggestion.id)).not.toContain("today-missed-task-2026-04-22-morning-walk");
+    expect(buildTodayAttentionItems(done, new Date(2026, 3, 22, 9, 5)).map((suggestion) => suggestion.id)).not.toContain("today-missed-task-2026-04-22-morning-walk");
   });
 
   it("keeps PawPal as a floating screen instead of a crowded bottom nav item", () => {
@@ -1077,7 +1077,7 @@ describe("pawfolio helpers", () => {
     };
 
     expect(buildPawPalFeed(dismissed, new Date("2026-04-22T12:00:00")).map((item) => item.id)).not.toContain("pawpal-vaccine-next-lyme-1");
-    expect(buildTodayAttentionItems(later, new Date(2026, 3, 22, 20, 15)).map((item) => item.id)).toContain("today-missed-task-2026-04-22-evening-walk");
+    expect(buildTodayAttentionItems(later, new Date(2026, 3, 22, 20, 35)).map((item) => item.id)).toContain("today-missed-task-2026-04-22-evening-walk");
   });
 
   it("estimates data URL size and catches localStorage save failures", () => {

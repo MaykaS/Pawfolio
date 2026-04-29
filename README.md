@@ -54,6 +54,7 @@ Email reminders are intentionally on hold in the product. The backend plumbing r
 - Google Calendar is the active outbound integration.
 - Email stays deferred until it is worth the operational complexity.
 - Scheduled notifications are layered: this saved phone can alert locally, and some scheduled reminders are also delivered from the cloud backup path.
+- Missed routine-task nudges are intentionally conservative: one hour late, once only for that task occurrence.
 
 ## Tech Stack
 

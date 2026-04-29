@@ -1250,6 +1250,13 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   font-weight: 800;
 }
 
+.stat-card small {
+  color: #8f7668;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .event-item {
   display: flex;
   gap: 12px;
