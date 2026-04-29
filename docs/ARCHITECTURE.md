@@ -76,7 +76,7 @@ Pawfolio now has layered reminder delivery:
 - backend scheduled reminder sender
 - delivery ledger for idempotency
 
-That layered design is intentional. It lets the product stay useful even while the backend reminder path continues to harden.
+That layered design is intentional. The saved device can alert locally, and scheduled reminders can also come through the cloud delivery path without pretending one mechanism does everything.
 
 ## Calendar Model
 
@@ -85,6 +85,8 @@ Google Calendar is currently one-way:
 - Pawfolio -> Google Calendar
 
 The product does not attempt bidirectional calendar editing yet.
+
+Timed reminder sync now creates normal 30-minute calendar events by default, while all-day reminders stay all-day.
 
 Per-reminder scheduling now resolves time zone in this order:
 
@@ -102,6 +104,12 @@ Recent cleanup moved trust/account logic out of the main app shell and into focu
 - reminder scheduling logic
 - trust display helpers
 - extracted reminder and trust-detail sheets
+
+Recent trust cleanup also made restore outcomes more explicit:
+
+- restored successfully
+- no backup found
+- restore failed
 
 This is the right direction. The main app shell is still larger than ideal, but the trust surface now reads much more like a deliberately owned subsystem.
 

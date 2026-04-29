@@ -113,3 +113,15 @@ Reason: Trust information must be scannable on mobile.
 Decision: Time zone is modeled per reminder, with the device time zone as the default.
 
 Reason: Users expect time zone to belong to the event they are scheduling, not to a bulky global trust setting.
+
+## 2026-04-28: Make Timed Calendar Reminders Real Events
+
+Decision: Timed Google Calendar reminders should sync as normal 30-minute events by default instead of zero-length markers.
+
+Reason: Calendar reminders need to behave like real blocks in Google Calendar, not ambiguous point-in-time placeholders.
+
+## 2026-04-28: Make Restore Results Explicit
+
+Decision: Restore should surface a clear restored / empty / failed result instead of relying mostly on timestamps and generic status text.
+
+Reason: Backup trust is weaker when users have to infer success instead of seeing what actually came back onto the device.

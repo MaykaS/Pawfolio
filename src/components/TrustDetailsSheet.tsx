@@ -11,12 +11,13 @@ import {
   type PawfolioNotificationStatus,
   type PawfolioState,
 } from "../pawfolio";
-import type { TrustState } from "../hooks/useCloudAccount";
+import type { RestoreSummary, TrustState } from "../hooks/useCloudAccount";
 import {
   googleCalendarStatusDetail,
   googleCalendarStatusLabel,
   notificationPreferencesEnabled,
   permissionLabel,
+  restoreSummaryLabel,
   trustDetailsMessage,
 } from "../trust";
 import { Sheet } from "./Sheet";
@@ -31,6 +32,7 @@ export function TrustDetailsSheet({
   googleCalendarSyncState,
   trustState,
   cloudStatus,
+  restoreSummary,
   integrationSettings,
   onClose,
 }: {
@@ -43,6 +45,7 @@ export function TrustDetailsSheet({
   googleCalendarSyncState: PawfolioState["googleCalendarSyncState"];
   trustState: TrustState;
   cloudStatus: string;
+  restoreSummary: RestoreSummary | null;
   integrationSettings: PawfolioState["integrationSettings"];
   onClose: () => void;
 }) {
@@ -109,6 +112,12 @@ export function TrustDetailsSheet({
           <span>Last phone save</span>
           <strong>{prettySyncTime(cloudSyncMeta.lastPushRegisteredAt)}</strong>
         </div>
+        {restoreSummary?.outcome === "restored" && (
+          <div className="diagnostic-row">
+            <span>Restore result</span>
+            <strong>{restoreSummaryLabel(restoreSummary)}</strong>
+          </div>
+        )}
         <div className="diagnostic-row">
           <span>Google Calendar</span>
           <strong>{googleCalendarStatusLabel(trustState.calendar, notificationPreferencesEnabled(session, integrationSettings.googleCalendar, googleCalendarSyncState.connected), Boolean(session))}</strong>
@@ -143,6 +152,8 @@ export function TrustDetailsSheet({
           cloudSyncMeta,
           calendarConnected: googleCalendarSyncState.connected,
           cloudStatus,
+          restoreState: trustState.restore,
+          restoreSummary,
         })}
       </p>
     </Sheet>

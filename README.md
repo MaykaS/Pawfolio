@@ -39,8 +39,10 @@ The current app state is strong:
 - photos are included in backup/restore
 - restore is available directly from onboarding
 - Google Calendar can connect and sync from the signed-in account
+- timed Google Calendar reminders sync as normal 30-minute calendar events
 - per-reminder time zone handling now exists, with device-default behavior and manual override when needed
 - the Profile area now behaves more like a trust center than a random settings pile
+- restore now reports a clearer success/empty/failure result instead of hiding behind timestamps alone
 
 Email reminders are intentionally on hold in the product. The backend plumbing remains in code, but the app does not pretend email is a ready user-facing path while sender-domain setup is out of scope.
 
@@ -51,6 +53,7 @@ Email reminders are intentionally on hold in the product. The backend plumbing r
 - Restore pulls the latest backup back onto the current device.
 - Google Calendar is the active outbound integration.
 - Email stays deferred until it is worth the operational complexity.
+- Scheduled notifications are layered: this saved phone can alert locally, and some scheduled reminders are also delivered from the cloud backup path.
 
 ## Tech Stack
 

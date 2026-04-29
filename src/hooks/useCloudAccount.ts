@@ -31,6 +31,15 @@ export type TrustState = {
   email: "on_hold";
 };
 
+export type RestoreSummary = {
+  outcome: "restored" | "empty" | "failed";
+  profile: boolean;
+  reminders: number;
+  care: number;
+  diary: number;
+  photos: number;
+};
+
 type UseCloudAccountArgs = {
   state: PawfolioState;
   setState: Dispatch<SetStateAction<PawfolioState>>;
@@ -116,6 +125,8 @@ export function useCloudAccount({
   const [cloudAction, setCloudAction] = useState<CloudActionState>("idle");
   const [backupState, setBackupState] = useState<TrustState["backup"]>("idle");
   const [restoreState, setRestoreState] = useState<TrustState["restore"]>("idle");
+  const [restoreSummary, setRestoreSummary] = useState<RestoreSummary | null>(null);
+  const [pushState, setPushState] = useState<TrustState["push"]>("idle");
   const [calendarState, setCalendarState] = useState<TrustState["calendar"]>("disconnected");
   const cloudSyncTimer = useRef<number | null>(null);
   const lastUploadedFingerprint = useRef("");
@@ -159,6 +170,14 @@ export function useCloudAccount({
     const snapshot = await downloadCloudPawfolioToLocal();
     if (!snapshot?.state) {
       setRestoreState("empty");
+      setRestoreSummary({
+        outcome: "empty",
+        profile: false,
+        reminders: 0,
+        care: 0,
+        diary: 0,
+        photos: 0,
+      });
       setCloudStatus("No cloud backup was found for this account yet. You can start fresh here or try another signed-in account.");
       return false;
     }
@@ -178,8 +197,17 @@ export function useCloudAccount({
     });
     lastUploadedFingerprint.current = cloudSyncFingerprint(nextState);
     setState(nextState);
+    const summary = {
+      outcome: "restored" as const,
+      profile: Boolean(nextState.profile),
+      reminders: nextState.reminders.length,
+      care: nextState.care.length + nextState.careEvents.length,
+      diary: nextState.diary.length,
+      photos: snapshot.photos?.length || 0,
+    };
     setRestoreState("restored");
-    setCloudStatus("Restored from cloud to this device.");
+    setRestoreSummary(summary);
+    setCloudStatus(restoreSummaryMessage(summary));
     return true;
   }, [setState]);
 
@@ -252,6 +280,14 @@ export function useCloudAccount({
               await applyCloudRestore();
             } catch (restoreError) {
               setRestoreState("failed");
+              setRestoreSummary({
+                outcome: "failed",
+                profile: false,
+                reminders: 0,
+                care: 0,
+                diary: 0,
+                photos: 0,
+              });
               setCloudStatus((restoreError as Error).message);
             } finally {
               setCloudAction("idle");
@@ -354,6 +390,7 @@ export function useCloudAccount({
     persistCalendarTokens(null);
     setBackupState("idle");
     setRestoreState("idle");
+    setPushState("idle");
     setCalendarState("disconnected");
     setCloudStatus("Signed out. This device still has its Pawfolio, but backup and push are off until you sign back in.");
   }, []);
@@ -419,6 +456,14 @@ export function useCloudAccount({
     applyCloudRestore()
       .catch((error: Error) => {
         setRestoreState("failed");
+        setRestoreSummary({
+          outcome: "failed",
+          profile: false,
+          reminders: 0,
+          care: 0,
+          diary: 0,
+          photos: 0,
+        });
         setCloudStatus(error.message);
       })
       .finally(() => setCloudAction("idle"));
@@ -436,6 +481,7 @@ export function useCloudAccount({
         setSession(activeSession);
         return subscribeDeviceToPush(activeSession).then(async () => {
           await refreshPushStatus();
+          setPushState("active");
           setState((current) => ({
             ...current,
             notificationPreferences: {
@@ -454,7 +500,10 @@ export function useCloudAccount({
           setCloudStatus("This device is saved for Pawfolio reminders.");
         });
       })
-      .catch((error: Error) => setCloudStatus(error.message))
+      .catch((error: Error) => {
+        setPushState("failed");
+        setCloudStatus(error.message);
+      })
       .finally(() => setCloudAction("idle"));
   }, [refreshPushStatus, setState]);
 
@@ -554,7 +603,7 @@ export function useCloudAccount({
           ? "blocked"
           : hasPushSubscription
             ? "active"
-            : cloudStatus.toLowerCase().includes("push") && cloudStatus.toLowerCase().includes("error")
+            : pushState === "failed"
               ? "failed"
               : "idle",
     calendar:
@@ -568,8 +617,8 @@ export function useCloudAccount({
     backupState,
     calendarState,
     cloudAction,
-    cloudStatus,
     hasPushSubscription,
+    pushState,
     pushPermission,
     restoreState,
     session,
@@ -582,6 +631,7 @@ export function useCloudAccount({
     cloudStatus,
     cloudAction,
     trustState,
+    restoreSummary,
     signIn,
     signOut,
     uploadCloud,
@@ -590,6 +640,27 @@ export function useCloudAccount({
     connectCalendar,
     syncCalendarNow,
   };
+}
+
+function restoreSummaryMessage(summary: RestoreSummary) {
+  const restored: string[] = [];
+  if (summary.profile) restored.push("profile");
+  if (summary.reminders) restored.push(formatRestoreCount(summary.reminders, "reminder"));
+  if (summary.care) restored.push(formatRestoreCount(summary.care, "care record"));
+  if (summary.diary) restored.push(formatRestoreCount(summary.diary, "diary entry"));
+  if (summary.photos) restored.push(formatRestoreCount(summary.photos, "photo"));
+  if (restored.length === 0) return "Restored your Pawfolio to this device.";
+  return `Restored ${joinHumanList(restored)} to this device.`;
+}
+
+function formatRestoreCount(count: number, singular: string) {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
+}
+
+function joinHumanList(items: string[]) {
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 }
 
 function calendarAccessDeniedMessage(rawError: string) {

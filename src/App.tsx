@@ -49,7 +49,6 @@ import {
   careEmptyState,
   cloudBackupStatusLabel,
   cloudUploadDetail,
-  cloudRestoreDetail,
   collectPhotoRefs,
   deleteCalendarItemFromState,
   deleteCareItemFromState,
@@ -133,7 +132,9 @@ import {
   cloudSyncStatusLabel,
   googleCalendarStatusDetail,
   googleCalendarStatusLabel,
+  notificationsSheetMessage,
   permissionLabel,
+  restoreStatusDetail,
 } from "./trust";
 
 type TaskMode = { mode: "create" } | { mode: "edit"; task: DailyTask };
@@ -331,6 +332,7 @@ export default function App() {
     cloudStatus,
     cloudAction,
     trustState,
+    restoreSummary,
     signIn,
     signOut,
     uploadCloud,
@@ -578,6 +580,7 @@ export default function App() {
           cloudStatus={cloudStatus}
           cloudAction={cloudAction}
           trustState={trustState}
+          restoreSummary={restoreSummary}
           cloudConfigured={cloudConfigured}
           pushConfigured={pushConfigured}
           pushPermission={pushPermission}
@@ -765,6 +768,7 @@ export default function App() {
           googleCalendarSyncState={state.googleCalendarSyncState}
           trustState={trustState}
           cloudStatus={cloudStatus}
+          restoreSummary={restoreSummary}
           integrationSettings={state.integrationSettings}
           onClose={() => setPushDiagnosticsOpen(false)}
         />
@@ -1869,9 +1873,7 @@ function NotificationsSheet({
         )}
       </section>
 
-      <p className="notice-copy">
-        Install Pawfolio on Android, open this sheet, and tap Enable & test to confirm phone notifications. Near-term reminders can alert while Pawfolio stays open or backgrounded; fully reliable closed-app scheduled delivery still depends on backend push hardening.
-      </p>
+      <p className="notice-copy">{notificationsSheetMessage()}</p>
       {testStatus && <p className="notice-copy notice-status">{testStatus}</p>}
 
       <div className="label-row">
@@ -1948,6 +1950,7 @@ function ProfileScreen({
   cloudStatus,
   cloudAction,
   trustState,
+  restoreSummary,
   cloudConfigured: isCloudConfigured,
   pushConfigured: isPushConfigured,
   pushPermission,
@@ -1980,6 +1983,7 @@ function ProfileScreen({
   cloudStatus: string;
   cloudAction: CloudActionState;
   trustState: TrustState;
+  restoreSummary: ReturnType<typeof useCloudAccount>["restoreSummary"];
   cloudConfigured: boolean;
   pushConfigured: boolean;
   pushPermission: PawfolioNotificationStatus;
@@ -2017,7 +2021,11 @@ function ProfileScreen({
     lastUploadedAt: cloudSyncMeta.lastUploadedAt,
   });
   const uploadDetail = cloudUploadDetail(cloudSyncMeta.lastUploadedAt);
-  const restoreDetail = cloudRestoreDetail(cloudSyncMeta.lastRestoredAt);
+  const restoreDetail = restoreStatusDetail({
+    status: trustState.restore,
+    lastRestoredAt: cloudSyncMeta.lastRestoredAt,
+    summary: restoreSummary,
+  });
   const enableAutoLocation = () => {
     if (!navigator.geolocation) {
       setLocationStatus("Location is not supported in this browser.");

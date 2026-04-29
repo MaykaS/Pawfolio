@@ -143,21 +143,24 @@ export default async function handler(request: VercelRequest, response: VercelRe
   let sent = 0;
   let emailed = 0;
   for (const snapshot of snapshots || []) {
+    const preferences = snapshot.state?.notificationPreferences || {};
+    if (!preferences.push && !preferences.email) continue;
+
     const candidates = collectDueDeliveryCandidates(snapshot.state || {});
     if (candidates.length === 0) continue;
 
-    const { data: subscriptions } = await supabase
-      .from("push_subscriptions")
-      .select("id,endpoint,subscription")
-      .eq("user_id", snapshot.user_id);
-
-    const preferences = snapshot.state?.notificationPreferences || {};
+    const subscriptions = preferences.push
+      ? await supabase
+          .from("push_subscriptions")
+          .select("id,endpoint,subscription")
+          .eq("user_id", snapshot.user_id)
+      : { data: [] };
 
     for (const candidate of candidates) {
       if (preferences.push) {
         const skipPush = await alreadyDelivered(snapshot.user_id, "push", candidate);
         if (!skipPush) {
-          const sentCount = await sendPushCandidate(snapshot.user_id, (subscriptions || []) as StoredSubscription[], candidate);
+          const sentCount = await sendPushCandidate(snapshot.user_id, (subscriptions.data || []) as StoredSubscription[], candidate);
           if (sentCount > 0) {
             sent += sentCount;
             await recordDelivery(snapshot.user_id, "push", candidate, "sent");

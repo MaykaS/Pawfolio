@@ -1,59 +1,59 @@
 import { describe, expect, it } from "vitest";
 import {
-  cloudSyncStatusLabel,
-  googleCalendarStatusDetail,
-  googleCalendarStatusLabel,
-  notificationPreferencesEnabled,
-  permissionLabel,
+  notificationsSheetMessage,
+  restoreStatusDetail,
+  restoreSummaryLabel,
   trustDetailsMessage,
 } from "./trust";
+import type { RestoreSummary } from "./hooks/useCloudAccount";
 
-describe("trust helpers", () => {
-  it("maps calendar status labels and details consistently", () => {
-    expect(googleCalendarStatusLabel("disconnected", false, false)).toBe("Off");
-    expect(googleCalendarStatusLabel("disconnected", true, true)).toBe("Needs setup");
-    expect(googleCalendarStatusLabel("connected", true, true)).toBe("Connected");
-    expect(googleCalendarStatusLabel("sync_error", true, true)).toBe("Issue");
-    expect(
-      googleCalendarStatusDetail({
-        status: "connected",
-        enabled: true,
-        signedIn: true,
-        lastSyncAt: "2026-04-24T09:15:00.000Z",
-      }),
-    ).toContain("Last synced");
+const restoredSummary: RestoreSummary = {
+  outcome: "restored",
+  profile: true,
+  reminders: 3,
+  care: 2,
+  diary: 1,
+  photos: 4,
+};
+
+describe("trust copy helpers", () => {
+  it("keeps the notifications sheet copy aligned with the shipped behavior", () => {
+    expect(notificationsSheetMessage()).toContain("saved device");
+    expect(notificationsSheetMessage()).toContain("cloud backup path");
+    expect(notificationsSheetMessage()).not.toContain("backend push hardening");
   });
 
-  it("keeps trust summary labels short and deterministic", () => {
-    expect(cloudSyncStatusLabel(false, false)).toBe("Off");
-    expect(cloudSyncStatusLabel(true, true)).toBe("Auto");
-    expect(permissionLabel("granted")).toBe("Allowed");
-    expect(permissionLabel("denied")).toBe("Blocked");
-    expect(notificationPreferencesEnabled(null, "needs_setup", false)).toBe(false);
-    expect(notificationPreferencesEnabled({} as never, "needs_setup", false)).toBe(true);
+  it("explains restore outcomes clearly", () => {
+    expect(restoreSummaryLabel(restoredSummary)).toContain("3 reminders");
+    expect(
+      restoreStatusDetail({
+        status: "restored",
+        lastRestoredAt: "2026-04-28T13:45:00.000Z",
+        summary: restoredSummary,
+      }),
+    ).toContain("Last restore");
+    expect(restoreStatusDetail({ status: "empty" })).toContain("No cloud backup");
+    expect(restoreStatusDetail({ status: "failed" })).toContain("did not finish");
   });
 
-  it("chooses the right trust details footer copy", () => {
+  it("prefers explicit restore messaging in account details", () => {
     expect(
       trustDetailsMessage({
-        cloudSyncMeta: {},
-        calendarConnected: false,
-        cloudStatus: "",
-      }),
-    ).toContain("Account");
-    expect(
-      trustDetailsMessage({
-        cloudSyncMeta: { lastUploadedAt: "2026-04-24T09:15:00.000Z" },
+        cloudSyncMeta: { lastUploadedAt: "2026-04-28T13:45:00.000Z" },
         calendarConnected: true,
         cloudStatus: "",
+        restoreState: "restored",
+        restoreSummary: restoredSummary,
       }),
-    ).toContain("device time zone");
+    ).toContain("Restored profile");
+
     expect(
       trustDetailsMessage({
         cloudSyncMeta: {},
         calendarConnected: false,
-        cloudStatus: "Restored from cloud to this device.",
+        cloudStatus: "",
+        restoreState: "empty",
       }),
-    ).toBe("Restored from cloud to this device.");
+    ).toContain("No cloud backup");
   });
 });
