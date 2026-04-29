@@ -16,7 +16,7 @@ Today Pawfolio is a working product, not just a concept demo. It supports:
 - one-way Google Calendar sync
 - local-first working state with signed-in private backup and restore
 - installable Android PWA usage
-- PawPal, a local companion layer for lightweight care guidance
+- PawPal, a local companion layer for thread-based care follow-through
 
 ## Product Position
 
@@ -44,6 +44,7 @@ The current app state is strong:
 - the Profile area now behaves more like a trust center than a random settings pile
 - the top Profile snapshot now balances memories, wellness, and days together instead of showing a raw walk metric
 - restore now reports a clearer success/empty/failure result instead of hiding behind timestamps alone
+- Today and PawPal now have distinct jobs: Today handles same-day urgency, while PawPal tracks calmer follow-through threads over time
 
 Email reminders are intentionally on hold in the product. The backend plumbing remains in code, but the app does not pretend email is a ready user-facing path while sender-domain setup is out of scope.
 

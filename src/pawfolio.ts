@@ -168,6 +168,42 @@ export type PawPalMemory = {
   suggestionOutcomes: Record<string, "done" | "dismissed">;
   knownCareGaps: string[];
   preferredWalkTime?: string;
+  threads: Record<string, PawPalThreadState>;
+};
+
+export type PawPalThreadType =
+  | "incomplete_medication"
+  | "vaccine_missing_next_date"
+  | "no_upcoming_reminders"
+  | "repeated_missed_walks"
+  | "stale_backup";
+
+export type PawPalThreadStatus = "open" | "snoozed" | "resolved";
+
+export type PawPalThreadState = {
+  id: string;
+  type: PawPalThreadType;
+  status: PawPalThreadStatus;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  nextCheckAt?: string;
+  resolvedAt?: string;
+  lastAction?: PawPalThreadStatus;
+};
+
+export type PawPalDigest = {
+  title: string;
+  body: string;
+  tone: "good" | "steady" | "watch";
+};
+
+export type PawPalThread = PawPalThreadState & {
+  title: string;
+  body: string;
+  reason: string;
+  actionLabel: string;
+  action: CoachSuggestionAction;
+  priority: number;
 };
 
 export type CoachSuggestionAction =
@@ -176,6 +212,7 @@ export type CoachSuggestionAction =
   | { type: "open_care"; recordId?: string }
   | { type: "open_reminder" }
   | { type: "open_calendar" }
+  | { type: "open_profile" }
   | { type: "export_data" };
 
 export type CoachSuggestion = {
@@ -268,6 +305,7 @@ export const initialState: PawfolioState = {
     lastSuggestionAt: {},
     suggestionOutcomes: {},
     knownCareGaps: [],
+    threads: {},
   },
   coachDismissals: [],
 };
@@ -1069,6 +1107,15 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
       ...(base.pawPalMemory || {}),
       recentSignals: [...new Set((base.pawPalMemory?.recentSignals || []).slice(-12))],
       knownCareGaps: [...new Set(base.pawPalMemory?.knownCareGaps || [])],
+      threads: Object.fromEntries(
+        Object.entries(base.pawPalMemory?.threads || {}).map(([id, thread]) => [
+          id,
+          {
+            ...thread,
+            id: thread?.id || id,
+          },
+        ]),
+      ),
     },
     coachDismissals: base.coachDismissals || [],
   };
@@ -1679,202 +1726,242 @@ function reminderTodayAttention(reminders: Reminder[], reminderHistory: Reminder
   return [...groups.dueNow, ...groups.soon].filter((reminder) => reminder.date === today);
 }
 
-function updatePawPalMemory(state: PawfolioState, suggestionId: string, outcome: "done" | "dismissed") {
-  const suggestion = buildPawPalFeed(state).find((item) => item.id === suggestionId)
-    || buildTodayAttentionItems(state).find((item) => item.id === suggestionId);
-  if (!suggestion) return state;
-
-  const memory = state.pawPalMemory || initialState.pawPalMemory;
-  return {
-    ...state,
-    pawPalMemory: {
-      ...memory,
-      recentSignals: [...new Set([suggestion.id, ...memory.recentSignals])].slice(0, 12),
-      lastSuggestionAt: {
-        ...memory.lastSuggestionAt,
-        [suggestion.id]: new Date().toISOString(),
-      },
-      suggestionOutcomes: {
-        ...memory.suggestionOutcomes,
-        [suggestion.id]: outcome,
-      },
-      knownCareGaps:
-        suggestion.type === "care_gap"
-          ? [...new Set([suggestion.title, ...memory.knownCareGaps])].slice(0, 12)
-          : memory.knownCareGaps,
-    },
-  };
+function daysSince(value?: string, now = new Date()) {
+  if (!value) return Number.POSITIVE_INFINITY;
+  const at = new Date(value);
+  return Math.floor((now.getTime() - at.getTime()) / 86_400_000);
 }
 
-export function buildPawPalFeed(state: PawfolioState, now = new Date()) {
+function pawPalThreadRecheckDays(type: PawPalThreadType) {
+  if (type === "incomplete_medication") return 2;
+  if (type === "vaccine_missing_next_date") return 7;
+  if (type === "no_upcoming_reminders") return 7;
+  if (type === "repeated_missed_walks") return 3;
+  return 5;
+}
+
+type PawPalThreadCandidate = Omit<PawPalThread, "status" | "firstSeenAt" | "lastSeenAt" | "nextCheckAt" | "resolvedAt" | "lastAction">;
+
+function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
   const settings = state.coachSettings || initialState.coachSettings;
-  if (!settings.enabled) return [];
+  if (!settings.enabled) return [] as PawPalThreadCandidate[];
 
   const records = visibleCareRecords(state);
   const reminders = visibleReminders(state);
-  const dismissals = new Set(state.coachDismissals || []);
-  const suggestions: CoachSuggestion[] = [];
+  const candidates: PawPalThreadCandidate[] = [];
 
-  const urgentCare = records.find((record) => careStatus(record, now) !== "OK");
-  if (urgentCare && !dismissals.has(`pawpal-care-status-${urgentCare.id}`)) {
-    suggestions.push({
-      id: `pawpal-care-status-${urgentCare.id}`,
-      type: "care_gap",
-      surface: "both",
-      priority: careStatus(urgentCare, now) === "Overdue" ? 100 : 90,
-      title: `${urgentCare.title} needs attention`,
-      body: `${urgentCare.type} is marked ${careStatus(urgentCare, now).toLowerCase()}. Review the record or add the next step.`,
-      reason: "I noticed a care record that is due now or already overdue.",
-      actionLabel: "Review care",
-      action: { type: "open_care", recordId: urgentCare.id },
-      dismissible: true,
-    });
-  }
-
-  const incompleteMedication = records.find((record) => record.type === "Medication" && (!record.dose || !record.frequency));
-  if (incompleteMedication && !dismissals.has(`pawpal-med-details-${incompleteMedication.id}`)) {
-    suggestions.push({
-      id: `pawpal-med-details-${incompleteMedication.id}`,
-      type: "care_gap",
-      surface: "pawpal",
+  const incompleteMedication = records.find(
+    (record) =>
+      record.type === "Medication"
+      && (!formatMedicationDose(record).trim() || !formatMedicationFrequency(record).trim()),
+  );
+  if (incompleteMedication) {
+    candidates.push({
+      id: `pawpal-thread-medication-${incompleteMedication.id}`,
+      type: "incomplete_medication",
       priority: 88,
       title: "Medication details are missing",
       body: `${incompleteMedication.title} will be safer to track with dose and frequency filled in.`,
-      reason: "I noticed this medication is missing structured details, so reminders stay weaker than they should be.",
+      reason: "This medication is still missing structured details PawPal can follow through on.",
       actionLabel: "Review med",
       action: { type: "open_care", recordId: incompleteMedication.id },
-      dismissible: true,
     });
   }
 
   const vaccineWithoutNext = records.find((record) => record.type === "Vaccine" && !record.nextDueDate);
-  if (vaccineWithoutNext && !dismissals.has(`pawpal-vaccine-next-${vaccineWithoutNext.id}`)) {
-    suggestions.push({
-      id: `pawpal-vaccine-next-${vaccineWithoutNext.id}`,
-      type: "care_gap",
-      surface: "pawpal",
+  if (vaccineWithoutNext) {
+    candidates.push({
+      id: `pawpal-thread-vaccine-${vaccineWithoutNext.id}`,
+      type: "vaccine_missing_next_date",
       priority: 82,
       title: "Add the next vaccine date",
-      body: `${vaccineWithoutNext.title} does not have a next due date yet. Add it if your vet gave you one.`,
-      reason: "I noticed this vaccine is logged, but its future follow-up is still unknown.",
+      body: `${vaccineWithoutNext.title} still does not have a next due date.`,
+      reason: "The vaccine is logged, but its follow-up timing is still open.",
       actionLabel: "Review vaccine",
       action: { type: "open_care", recordId: vaccineWithoutNext.id },
-      dismissible: true,
     });
   }
 
   const upcoming = getUpcomingReminders(reminders, now, state.reminderHistory);
-  if (upcoming.length === 0 && !dismissals.has("pawpal-no-upcoming-reminders")) {
-    suggestions.push({
-      id: "pawpal-no-upcoming-reminders",
-      type: "planning",
-      surface: "pawpal",
+  if (upcoming.length === 0) {
+    candidates.push({
+      id: "pawpal-thread-upcoming-reminders",
+      type: "no_upcoming_reminders",
       priority: 70,
       title: "No upcoming reminders",
-      body: "A medication, vaccine, vet, grooming, or food reminder can keep the week calmer.",
-      reason: "I looked ahead and the calendar is empty after today.",
+      body: "The calendar looks quiet after today. A reminder or two could keep the week calmer.",
+      reason: "PawPal looked ahead and did not find any future reminders to carry the routine forward.",
       actionLabel: "Add reminder",
       action: { type: "open_reminder" },
-      dismissible: true,
-    });
-  }
-
-  const nextReminder = upcoming.find((reminder) => reminder.date !== todayISO(now));
-  if (nextReminder && !dismissals.has(`pawpal-look-ahead-${nextReminder.id}-${nextReminder.date}`)) {
-    suggestions.push({
-      id: `pawpal-look-ahead-${nextReminder.id}-${nextReminder.date}`,
-      type: "planning",
-      surface: "pawpal",
-      priority: 58,
-      title: `Looking ahead: ${nextReminder.title}`,
-      body: `${nextReminder.type} is coming up ${prettyDate(nextReminder.date)}${nextReminder.time ? ` at ${formatTaskTime(nextReminder.time)}` : ""}.`,
-      reason: "I looked ahead to the next upcoming reminder on your calendar.",
-      actionLabel: "Open calendar",
-      action: { type: "open_calendar" },
-      dismissible: true,
     });
   }
 
   const dates = Object.keys(state.taskHistory || {}).sort().slice(-7);
   const walkTasks = state.tasks.filter((task) => /walk/i.test(task.title));
   const missedWalkDays = dates.filter((date) => walkTasks.some((task) => !state.taskHistory[date]?.[task.id])).length;
-  if (walkTasks.length && dates.length >= 3 && missedWalkDays >= 2 && !dismissals.has("pawpal-routine-missed-walks")) {
-    suggestions.push({
-      id: "pawpal-routine-missed-walks",
-      type: "pattern",
-      surface: "pawpal",
+  if (walkTasks.length && dates.length >= 3 && missedWalkDays >= 2) {
+    candidates.push({
+      id: "pawpal-thread-missed-walks",
+      type: "repeated_missed_walks",
       priority: 76,
       title: "Walks are slipping lately",
-      body: "Evening or busy-day walks have been missed a few times. A time tweak might make the routine easier.",
-      reason: "I noticed missed walk checkmarks across several recent days.",
-      actionLabel: "Review calendar",
-      action: { type: "open_calendar" },
-      dismissible: true,
+      body: "A few recent walk check-ins were missed. A timing tweak or simpler plan might help.",
+      reason: "This is showing up as a pattern across several tracked days, not just a one-off miss.",
+      actionLabel: "Review today",
+      action: { type: "open_today" },
     });
   }
 
-  if (settings.seasonalTips) {
-    const season = getSeasonForDate(now, settings.careRegion);
-    breedCareSignals(state.profile).forEach((signal) => {
-      if ((signal.id.includes("heat") && !["spring", "summer", "hot season"].includes(season)) || signal.id.includes("shedding") && !["spring", "fall"].includes(season)) return;
-      suggestions.push({
-        id: `breed-${signal.id}`,
-        type: "seasonal",
-        surface: "pawpal",
-        priority: 52,
-        title: signal.title,
-        body: signal.body,
-        reason: "I matched your dog's breed and the current season.",
-        actionLabel: signal.id.includes("shedding") ? "Add brush task" : "Add reminder",
-        action: signal.id.includes("shedding")
-          ? { type: "add_task", title: "Brush coat", time: "18:30" }
-          : { type: "open_reminder" },
-        dismissible: true,
-      });
-    });
-
-    if (settings.locationMode !== "off") {
-      regionalCareSignals(settings.careRegion, season).forEach((signal) => {
-        suggestions.push({
-          id: `region-${signal.id}`,
-          type: "seasonal",
-          surface: "pawpal",
-          priority: signal.id.includes("tick") ? 64 : 50,
-          title: signal.title,
-          body: signal.body,
-          reason: "I matched your broad climate region and the current season.",
-          actionLabel: signal.id.includes("tick") ? "Add tick check" : "Add task",
-          action: {
-            type: "add_task",
-            title: signal.id.includes("tick") ? "Tick check" : signal.id.includes("paw") ? "Paw check" : "Water check",
-            time: signal.id.includes("tick") ? "20:00" : "18:00",
-          },
-          dismissible: true,
-        });
-      });
-    }
-  }
-
-  if ((state.diary.length > 0 || records.length > 0) && !dismissals.has("backup-local-data")) {
-    suggestions.push({
-      id: "backup-local-data",
-      type: "backup",
-      surface: "pawpal",
+  const hasMeaningfulLocalData = state.diary.length > 0 || records.length > 0;
+  if (hasMeaningfulLocalData && daysSince(state.cloudSyncMeta.lastUploadedAt, now) >= 5) {
+    candidates.push({
+      id: "pawpal-thread-stale-backup",
+      type: "stale_backup",
       priority: 45,
-      title: "Back up Pawfolio",
-      body: "You have local photos or care data saved. Export a backup so this device is not the only copy.",
-      reason: "I noticed meaningful care or diary data that would be painful to lose.",
-      actionLabel: "Export backup",
-      action: { type: "export_data" },
-      dismissible: true,
+      title: "Backup is getting stale",
+      body: state.cloudSyncMeta.lastUploadedAt
+        ? `The last private backup was ${prettySyncTime(state.cloudSyncMeta.lastUploadedAt)}.`
+        : "This phone has meaningful Pawfolio data but no private backup yet.",
+      reason: "PawPal is treating backup freshness as a longer-running trust thread, not a same-day alert.",
+      actionLabel: "Open profile",
+      action: { type: "open_profile" },
     });
   }
 
-  return rankCoachSuggestions(suggestions).filter((suggestion) => !dismissals.has(suggestion.id));
+  return candidates;
+}
+
+function nextPawPalCheckAt(type: PawPalThreadType, now = new Date()) {
+  const next = new Date(now);
+  next.setDate(next.getDate() + pawPalThreadRecheckDays(type));
+  return next.toISOString();
+}
+
+function existingPawPalThreadState(state: PawfolioState, threadId: string) {
+  return state.pawPalMemory?.threads?.[threadId];
+}
+
+export function buildPawPalThreads(state: PawfolioState, now = new Date()) {
+  const candidates = buildPawPalThreadCandidates(state, now);
+  return candidates
+    .flatMap((candidate) => {
+      const existing = existingPawPalThreadState(state, candidate.id);
+      if (
+        (existing?.status === "snoozed" || existing?.status === "resolved")
+        && existing.nextCheckAt
+        && new Date(existing.nextCheckAt).getTime() > now.getTime()
+      ) {
+        return [];
+      }
+
+      return [{
+        ...candidate,
+        status: "open" as const,
+        firstSeenAt: existing?.firstSeenAt || now.toISOString(),
+        lastSeenAt: now.toISOString(),
+        lastAction: existing?.lastAction,
+      }];
+    })
+    .sort((a, b) => b.priority - a.priority || a.title.localeCompare(b.title));
+}
+
+export function buildPawPalDigest(state: PawfolioState, now = new Date()): PawPalDigest {
+  const threads = buildPawPalThreads(state, now);
+  if (threads.length === 0) {
+    return {
+      title: "Everything looks steady today",
+      body: "No longer-running care threads need a follow-up right now.",
+      tone: "good",
+    };
+  }
+  if (threads.length === 1) {
+    return {
+      title: "One care thread is still open",
+      body: threads[0].title,
+      tone: "watch",
+    };
+  }
+  return {
+    title: "A couple of things may need attention soon",
+    body: `${threads.length} open PawPal threads are still worth a follow-up.`,
+    tone: "steady",
+  };
+}
+
+export function buildPawPalFeed(state: PawfolioState, now = new Date()) {
+  return buildPawPalThreads(state, now);
 }
 
 export function buildCoachSuggestions(state: PawfolioState, now = new Date()) {
-  return buildPawPalFeed(state, now);
+  return buildTodayAttentionItems(state, now);
+}
+
+function updatePawPalMemory(
+  state: PawfolioState,
+  threadId: string,
+  nextThread: PawPalThreadState,
+  outcome?: "done" | "dismissed",
+) {
+  const memory = state.pawPalMemory || initialState.pawPalMemory;
+  return {
+    ...state,
+    pawPalMemory: {
+      ...memory,
+      recentSignals: [...new Set([threadId, ...memory.recentSignals])].slice(0, 12),
+      lastSuggestionAt: {
+        ...memory.lastSuggestionAt,
+        [threadId]: new Date().toISOString(),
+      },
+      suggestionOutcomes: outcome
+        ? {
+            ...memory.suggestionOutcomes,
+            [threadId]: outcome,
+          }
+        : memory.suggestionOutcomes,
+      threads: {
+        ...(memory.threads || {}),
+        [threadId]: nextThread,
+      },
+    },
+  };
+}
+
+export function resolvePawPalThread(state: PawfolioState, threadId: string, now = new Date()) {
+  const candidate = buildPawPalThreadCandidates(state, now).find((item) => item.id === threadId);
+  const existing = existingPawPalThreadState(state, threadId);
+  if (!candidate && !existing) return state;
+  const type = candidate?.type || existing!.type;
+  return updatePawPalMemory(
+    state,
+    threadId,
+    {
+      id: threadId,
+      type,
+      status: "resolved",
+      firstSeenAt: existing?.firstSeenAt || now.toISOString(),
+      lastSeenAt: now.toISOString(),
+      nextCheckAt: nextPawPalCheckAt(type, now),
+      resolvedAt: now.toISOString(),
+      lastAction: "resolved",
+    },
+    "done",
+  );
+}
+
+export function snoozePawPalThread(state: PawfolioState, threadId: string, now = new Date()) {
+  const candidate = buildPawPalThreadCandidates(state, now).find((item) => item.id === threadId);
+  const existing = existingPawPalThreadState(state, threadId);
+  if (!candidate && !existing) return state;
+  const type = candidate?.type || existing!.type;
+  return updatePawPalMemory(state, threadId, {
+    id: threadId,
+    type,
+    status: "snoozed",
+    firstSeenAt: existing?.firstSeenAt || now.toISOString(),
+    lastSeenAt: now.toISOString(),
+    nextCheckAt: nextPawPalCheckAt(type, now),
+    lastAction: "snoozed",
+  }, "dismissed");
 }
 
 export function buildTodayAttentionItems(state: PawfolioState, now = new Date()) {
@@ -1971,14 +2058,13 @@ export function applyCoachSuggestion(state: PawfolioState, suggestionId: string,
       };
     }
   }
-  return dismissCoachSuggestion(updatePawPalMemory(next, suggestion.id, "done"), suggestion.id);
+  return dismissCoachSuggestion(next, suggestion.id);
 }
 
 export function dismissCoachSuggestion(state: PawfolioState, suggestionId: string) {
-  const next = updatePawPalMemory(state, suggestionId, "dismissed");
   return {
-    ...next,
-    coachDismissals: [...new Set([...(next.coachDismissals || []), suggestionId].filter(Boolean))],
+    ...state,
+    coachDismissals: [...new Set([...(state.coachDismissals || []), suggestionId].filter(Boolean))],
   };
 }
 

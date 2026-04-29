@@ -105,9 +105,9 @@ That constraint keeps the experience legible while the product matures.
 
 ### PawPal
 
-- local rule-based companion feed
-- care-gap and pattern suggestions
-- lightweight contextual nudges
+- local rule-based companion layer
+- follow-through threads for unresolved care and planning gaps
+- a separate daily digest that stays distinct from same-day Today urgency
 
 ## What Is Working Well Now
 

@@ -4,6 +4,7 @@ import {
   applyCoachSuggestion,
   breedCareSignals,
   buildPawPalFeed,
+  buildPawPalDigest,
   buildTodayAttentionItems,
   buildGoogleCalendarEvent,
   bottomNavTabs,
@@ -50,6 +51,8 @@ import {
   safeSetLocalStorage,
   saveCareRecordToState,
   saveReminderToState,
+  snoozePawPalThread,
+  resolvePawPalThread,
   setReminderCompletionForDate,
   setTaskDoneForDate,
   sortDiaryEntries,
@@ -90,7 +93,6 @@ import {
   reminderAlertDate,
   regionFromCoordinates,
   regionalCareSignals,
-  rankCoachSuggestions,
   sortTasksByTime,
   taskTimeFromParts,
   taskTimeParts,
@@ -998,7 +1000,7 @@ describe("pawfolio helpers", () => {
     expect(insights.some((insight) => insight.includes("Walks have been missed"))).toBe(true);
   });
 
-  it("builds local coach suggestions for care gaps and ranks urgent items first", () => {
+  it("builds PawPal threads for longer-running follow-through issues", () => {
     const state = normalizeState({
       profile: {
         name: "Mochi",
@@ -1020,9 +1022,8 @@ describe("pawfolio helpers", () => {
     const suggestions = buildPawPalFeed(state, new Date("2026-04-22T12:00:00"));
 
     expect(suggestions[0].priority).toBeGreaterThanOrEqual(suggestions[1].priority);
-    expect(suggestions.some((suggestion) => suggestion.id === "pawpal-med-details-med")).toBe(true);
-    expect(suggestions.some((suggestion) => suggestion.id === "pawpal-vaccine-next-vaccine")).toBe(true);
-    expect(rankCoachSuggestions([{ ...suggestions[0], priority: 1 }, { ...suggestions[1], priority: 99 }])[0].priority).toBe(99);
+    expect(suggestions.some((suggestion) => suggestion.id === "pawpal-thread-medication-med")).toBe(true);
+    expect(suggestions.some((suggestion) => suggestion.id === "pawpal-thread-vaccine-vaccine")).toBe(true);
   });
 
   it("shows same-day missed routine tasks in today attention, not as duplicated PawPal alerts", () => {
@@ -1061,49 +1062,7 @@ describe("pawfolio helpers", () => {
     expect(regionalCareSignals("North America", "spring").map((signal) => signal.id)).toContain("north-america-tick-check");
   });
 
-  it("keeps location coach suggestions off until location or manual region is enabled", () => {
-    const base = normalizeState({
-      profile: {
-        name: "Mochi",
-        breed: "Great Pyrenees",
-        birthday: "",
-        weight: "",
-        personality: "",
-        avatar: { fur: "#fff7df", ears: "floppy", spot: "none", accessory: "none" },
-      },
-      tasks: [],
-      diary: [],
-      care: [],
-      reminders: [{ id: "future", title: "Vet", type: "Vet", date: "2026-06-01", time: "09:00", note: "", recurrence: "none" }],
-      coachSettings: { enabled: true, seasonalTips: true, locationMode: "off", careRegion: "North America" },
-    });
-
-    expect(buildPawPalFeed(base, new Date("2026-04-22T12:00:00")).some((suggestion) => suggestion.id === "region-north-america-tick-check")).toBe(false);
-    const withRegion = normalizeState({
-      ...base,
-      coachSettings: { ...base.coachSettings, locationMode: "manual" },
-    });
-    expect(buildPawPalFeed(withRegion, new Date("2026-04-22T12:00:00")).some((suggestion) => suggestion.id === "region-north-america-tick-check")).toBe(true);
-  });
-
-  it("dismisses coach suggestions and applies one-tap task actions", () => {
-    const state = normalizeState({
-      tasks: [],
-      diary: [],
-      care: [],
-      reminders: [{ id: "future", title: "Vet", type: "Vet", date: "2026-06-01", time: "09:00", note: "", recurrence: "none" }],
-      coachSettings: { enabled: true, seasonalTips: true, locationMode: "manual", careRegion: "North America" },
-    }) as PawfolioState;
-
-    expect(buildPawPalFeed(state, new Date("2026-04-22T12:00:00")).some((suggestion) => suggestion.id === "region-north-america-tick-check")).toBe(true);
-    const next = applyCoachSuggestion(state, "region-north-america-tick-check", new Date("2026-04-22T12:00:00"));
-
-    expect(next.tasks.some((task) => task.title === "Tick check" && task.time === "20:00")).toBe(true);
-    expect(next.coachDismissals).toContain("region-north-america-tick-check");
-    expect(buildPawPalFeed(next, new Date("2026-04-22T12:00:00")).some((suggestion) => suggestion.id === "region-north-america-tick-check")).toBe(false);
-  });
-
-  it("keeps today urgent items and PawPal coaching as separate surfaces for the same issue", () => {
+  it("keeps due-today care in Today attention, not as a duplicated PawPal thread", () => {
     const state = normalizeState({
       tasks: [],
       diary: [],
@@ -1117,9 +1076,7 @@ describe("pawfolio helpers", () => {
     const pawpalItems = buildPawPalFeed(state, new Date("2026-04-22T12:00:00"));
 
     expect(todayIds).toContain("today-care-lyme-1-2026-04-22");
-    expect(pawpalItems.map((item) => item.id)).toContain("pawpal-care-status-lyme-1");
-    expect(todayIds).not.toContain("pawpal-care-status-lyme-1");
-    expect(pawpalItems.find((item) => item.id === "pawpal-care-status-lyme-1")?.title).toBe("Lyme 1 needs attention");
+    expect(pawpalItems.map((item) => item.id)).not.toContain("today-care-lyme-1-2026-04-22");
     expect(buildTodayAttentionItems(state, new Date("2026-04-22T12:00:00")).find((item) => item.id === "today-care-lyme-1-2026-04-22")?.title).toBe("Lyme 1 is due today");
   });
 
@@ -1131,11 +1088,11 @@ describe("pawfolio helpers", () => {
       reminders: [],
     });
 
-    expect(buildPawPalFeed(state, new Date("2026-04-22T12:00:00")).map((item) => item.id)).toContain("pawpal-vaccine-next-lyme-1");
-    expect(buildTodayAttentionItems(state, new Date("2026-04-22T12:00:00")).map((item) => item.id)).not.toContain("pawpal-vaccine-next-lyme-1");
+    expect(buildPawPalFeed(state, new Date("2026-04-22T12:00:00")).map((item) => item.id)).toContain("pawpal-thread-vaccine-lyme-1");
+    expect(buildTodayAttentionItems(state, new Date("2026-04-22T12:00:00")).map((item) => item.id)).not.toContain("pawpal-thread-vaccine-lyme-1");
   });
 
-  it("dismissing a today item does not hide unrelated PawPal coaching", () => {
+  it("dismissing a today item does not hide unrelated PawPal threads", () => {
     const state = normalizeState({
       tasks: [{ id: "morning-walk", title: "Morning walk", time: "08:00", done: false, note: "" }],
       taskHistory: {},
@@ -1146,25 +1103,56 @@ describe("pawfolio helpers", () => {
 
     const dismissed = applyCoachSuggestion(state, "today-missed-task-2026-04-22-morning-walk", new Date(2026, 3, 22, 8, 45));
     expect(buildTodayAttentionItems(dismissed, new Date(2026, 3, 22, 8, 45)).map((item) => item.id)).not.toContain("today-missed-task-2026-04-22-morning-walk");
-    expect(buildPawPalFeed(dismissed, new Date("2026-04-22T12:00:00")).map((item) => item.id)).toContain("pawpal-vaccine-next-lyme-1");
+    expect(buildPawPalFeed(dismissed, new Date("2026-04-22T12:00:00")).map((item) => item.id)).toContain("pawpal-thread-vaccine-lyme-1");
   });
 
-  it("dismissing a PawPal coaching item does not hide new urgent items later", () => {
+  it("snoozed PawPal threads stay hidden until their next check date", () => {
     const base = normalizeState({
       tasks: [],
       diary: [],
       care: [{ id: "lyme-1", type: "Vaccine", title: "Lyme 1", date: "2026-04-17", note: "", nextDueDate: "" }],
       reminders: [],
     });
-    const dismissed = applyCoachSuggestion(base, "pawpal-vaccine-next-lyme-1", new Date("2026-04-22T12:00:00"));
-    const later = {
-      ...dismissed,
-      tasks: [{ id: "evening-walk", title: "Evening walk", time: "19:30", done: false, note: "" }],
-      taskHistory: {},
-    };
+    const snoozed = snoozePawPalThread(base, "pawpal-thread-vaccine-lyme-1", new Date("2026-04-22T12:00:00"));
 
-    expect(buildPawPalFeed(dismissed, new Date("2026-04-22T12:00:00")).map((item) => item.id)).not.toContain("pawpal-vaccine-next-lyme-1");
-    expect(buildTodayAttentionItems(later, new Date(2026, 3, 22, 20, 35)).map((item) => item.id)).toContain("today-missed-task-2026-04-22-evening-walk");
+    expect(buildPawPalFeed(snoozed, new Date("2026-04-24T12:00:00")).map((item) => item.id)).not.toContain("pawpal-thread-vaccine-lyme-1");
+    expect(buildPawPalFeed(snoozed, new Date("2026-04-30T12:00:00")).map((item) => item.id)).toContain("pawpal-thread-vaccine-lyme-1");
+  });
+
+  it("resolved PawPal threads disappear until the issue requalifies", () => {
+    const base = normalizeState({
+      tasks: [],
+      diary: [],
+      care: [{ id: "lyme-1", type: "Vaccine", title: "Lyme 1", date: "2026-04-17", note: "", nextDueDate: "" }],
+      reminders: [],
+    });
+    const resolved = resolvePawPalThread(base, "pawpal-thread-vaccine-lyme-1", new Date("2026-04-22T12:00:00"));
+    const fixed = normalizeState({
+      ...resolved,
+      care: [{ id: "lyme-1", type: "Vaccine", title: "Lyme 1", date: "2026-04-17", note: "", nextDueDate: "2027-04-17" }],
+    });
+
+    expect(buildPawPalFeed(fixed, new Date("2026-04-23T12:00:00")).map((item) => item.id)).not.toContain("pawpal-thread-vaccine-lyme-1");
+  });
+
+  it("always builds a PawPal digest even when no threads are open", () => {
+    const calm = normalizeState({
+      tasks: [{ id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" }],
+      taskHistory: {
+        "2026-04-20": { walk: true },
+        "2026-04-21": { walk: true },
+      },
+      diary: [],
+      care: [],
+      reminders: [{ id: "future", title: "Vet", type: "Vet", date: "2026-06-01", time: "09:00", note: "", recurrence: "none" }],
+      cloudSyncMeta: { lastUploadedAt: "2026-04-21T12:00:00.000Z" },
+    });
+
+    expect(buildPawPalDigest(calm, new Date("2026-04-22T12:00:00"))).toEqual({
+      title: "Everything looks steady today",
+      body: "No longer-running care threads need a follow-up right now.",
+      tone: "good",
+    });
   });
 
   it("estimates data URL size and catches localStorage save failures", () => {

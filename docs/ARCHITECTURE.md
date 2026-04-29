@@ -93,6 +93,15 @@ The cron path now also mirrors push/email eligibility onto snapshot metadata so 
 
 Missed routine-task nudges are intentionally conservative: a task can generate one reminder exactly one hour after its scheduled time, and it does not keep repeating after that occurrence.
 
+## Companion Model
+
+Pawfolio now keeps two distinct helper surfaces:
+
+- **Today needs attention** for same-day urgency
+- **PawPal** for longer-running follow-through threads
+
+Today is intentionally short-lived and operational. PawPal is intentionally calmer and stateful: it remembers unresolved care threads, supports snooze/resolved states, and always shows a digest even when nothing urgent is happening.
+
 ## Calendar Model
 
 Google Calendar is currently one-way:

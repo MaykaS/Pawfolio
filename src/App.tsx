@@ -42,6 +42,7 @@ import {
   bottomNavTabs,
   breedOptions,
   buildPawPalFeed,
+  buildPawPalDigest,
   buildTodayAttentionItems,
   canUseBrowserNotifications,
   careRecordSummary,
@@ -84,6 +85,8 @@ import {
   safeSetLocalStorage,
   saveCareRecordToState,
   saveReminderToState,
+  snoozePawPalThread,
+  resolvePawPalThread,
   setTaskDoneForDate,
   setReminderCompletionForDate,
   sortDiaryEntries,
@@ -108,6 +111,7 @@ import {
   type CareRegion,
   type CoachSettings,
   type CoachSuggestion,
+  type CoachSuggestionAction,
   type CloudSyncMeta,
   type DailyTask,
   type DiaryEntry,
@@ -118,6 +122,8 @@ import {
   type Reminder,
   type ReminderCompletionStatus,
   type Tab,
+  type PawPalDigest,
+  type PawPalThread,
   type WellnessSummary,
 } from "./pawfolio";
 import { useCloudAccount, type CloudActionState, type TrustState } from "./hooks/useCloudAccount";
@@ -355,7 +361,8 @@ export default function App() {
   const progress = todayTasks.length ? completed / todayTasks.length : 0;
   const careRecords = useMemo(() => visibleCareRecords(state), [state]);
   const calendarItems = useMemo(() => visibleReminders(state), [state]);
-  const coachSuggestions = useMemo(() => buildPawPalFeed(state), [state]);
+  const pawPalThreads = useMemo(() => buildPawPalFeed(state), [state]);
+  const pawPalDigest = useMemo(() => buildPawPalDigest(state), [state]);
   const todayAttentionItems = useMemo(() => buildTodayAttentionItems(state), [state]);
   const upcomingReminder = useMemo(
     () => getUpcomingReminder(calendarItems, new Date(), state.reminderHistory),
@@ -368,32 +375,36 @@ export default function App() {
     enabled: state.notificationPreferences.push,
   });
 
-  const handleCoachAction = (suggestion: CoachSuggestion) => {
-    if (suggestion.action.type === "add_task") {
-      setState((current) => applyCoachSuggestion(current, suggestion.id));
+  const handleCoachAction = (item: { id: string; action: CoachSuggestionAction }) => {
+    if (item.action.type === "add_task") {
+      setState((current) => applyCoachSuggestion(current, item.id));
       return;
     }
-    if (suggestion.action.type === "open_care") {
-      const action = suggestion.action;
+    if (item.action.type === "open_care") {
+      const action = item.action;
       const record = careRecords.find((item) => item.id === action.recordId);
       setTab("care");
       if (record) setCareMode({ mode: "edit", record });
       return;
     }
-    if (suggestion.action.type === "open_today") {
+    if (item.action.type === "open_today") {
       setTab("today");
       return;
     }
-    if (suggestion.action.type === "open_reminder") {
+    if (item.action.type === "open_reminder") {
       setTab("calendar");
       setReminderMode({ mode: "create" });
       return;
     }
-    if (suggestion.action.type === "open_calendar") {
+    if (item.action.type === "open_calendar") {
       setTab("calendar");
       return;
     }
-    if (suggestion.action.type === "export_data") {
+    if (item.action.type === "open_profile") {
+      setTab("profile");
+      return;
+    }
+    if (item.action.type === "export_data") {
       void exportPawfolioData();
     }
   };
@@ -502,9 +513,11 @@ export default function App() {
       {tab === "pawpal" && (
         <PawPalScreen
           profile={state.profile}
-          suggestions={coachSuggestions}
+          digest={pawPalDigest}
+          threads={pawPalThreads}
           onAction={handleCoachAction}
-          onDone={(id) => setState((current) => dismissCoachSuggestion(current, id))}
+          onSnooze={(id) => setState((current) => snoozePawPalThread(current, id))}
+          onDone={(id) => setState((current) => resolvePawPalThread(current, id))}
         />
       )}
 
@@ -1165,20 +1178,23 @@ function TodayScreen({
 
 function PawPalScreen({
   profile,
-  suggestions,
+  digest,
+  threads,
   onAction,
+  onSnooze,
   onDone,
 }: {
   profile: DogProfile;
-  suggestions: CoachSuggestion[];
-  onAction: (suggestion: CoachSuggestion) => void;
+  digest: PawPalDigest;
+  threads: PawPalThread[];
+  onAction: (suggestion: { id: string; action: CoachSuggestionAction }) => void;
+  onSnooze: (id: string) => void;
   onDone: (id: string) => void;
 }) {
   const groups = [
-    { label: "Needs your call", types: ["care_gap"] as CoachSuggestion["type"][] },
-    { label: "I noticed", types: ["pattern"] as CoachSuggestion["type"][] },
-    { label: "I can help with", types: ["backup"] as CoachSuggestion["type"][] },
-    { label: "Looking ahead", types: ["planning", "seasonal"] as CoachSuggestion["type"][] },
+    { label: "Open threads", types: ["incomplete_medication", "vaccine_missing_next_date", "stale_backup"] as PawPalThread["type"][] },
+    { label: "Patterns", types: ["repeated_missed_walks"] as PawPalThread["type"][] },
+    { label: "Looking ahead", types: ["no_upcoming_reminders"] as PawPalThread["type"][] },
   ] as const;
 
   return (
@@ -1192,39 +1208,40 @@ function PawPalScreen({
           </span>
         }
       />
-      <section className="pawpal-hero">
+      <section className={`pawpal-hero pawpal-hero-${digest.tone}`}>
         <div>
-          <p className="label no-margin">Companion feed</p>
-          <h2>Little signals that build on how you use Pawfolio.</h2>
-          <p>PawPal watches routines, care, reminders, and season context on this device, then suggests the next helpful move.</p>
+          <p className="label no-margin">Daily digest</p>
+          <h2>{digest.title}</h2>
+          <p>{digest.body}</p>
         </div>
       </section>
-      {suggestions.length === 0 ? (
-        <EmptyState title="PawPal is all caught up" text="No care gaps or helpful nudges right now. Nice and calm." />
+      {threads.length === 0 ? (
+        <EmptyState title="PawPal is all caught up" text="Nothing longer-running needs a follow-through right now." />
       ) : (
         groups.map((group) => {
-          const groupSuggestions = suggestions.filter((suggestion) => group.types.includes(suggestion.type));
-          if (groupSuggestions.length === 0) return null;
+          const groupThreads = threads.filter((thread) => group.types.includes(thread.type));
+          if (groupThreads.length === 0) return null;
           return (
             <section className="pawpal-group" key={group.label}>
               <p className="label">{group.label}</p>
               <div className="coach-list">
-                {groupSuggestions.map((suggestion) => (
-                  <article className={`coach-suggestion coach-${suggestion.type}`} key={suggestion.id}>
+                {groupThreads.map((thread) => (
+                  <article className={`coach-suggestion coach-${thread.type}`} key={thread.id}>
                     <div>
-                      <h3>{suggestion.title}</h3>
-                      <p>{suggestion.body}</p>
-                      {suggestion.reason && <p className="coach-why">I noticed: {suggestion.reason}</p>}
+                      <h3>{thread.title}</h3>
+                      <p>{thread.body}</p>
+                      <p className="coach-why">PawPal noticed: {thread.reason}</p>
                     </div>
                     <div className="coach-actions">
-                      <button className="btn btn-sm btn-secondary" type="button" onClick={() => onAction(suggestion)}>
-                        {suggestion.actionLabel}
+                      <button className="btn btn-sm btn-secondary" type="button" onClick={() => onAction(thread)}>
+                        {thread.actionLabel}
                       </button>
-                      {suggestion.dismissible && (
-                        <button className="btn btn-sm btn-ghost" type="button" onClick={() => onDone(suggestion.id)}>
-                          Done
-                        </button>
-                      )}
+                      <button className="btn btn-sm btn-ghost" type="button" onClick={() => onSnooze(thread.id)}>
+                        Later
+                      </button>
+                      <button className="btn btn-sm btn-ghost" type="button" onClick={() => onDone(thread.id)}>
+                        Done
+                      </button>
                     </div>
                   </article>
                 ))}

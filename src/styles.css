@@ -598,6 +598,18 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   padding: 16px;
 }
 
+.pawpal-hero.pawpal-hero-good {
+  background: linear-gradient(145deg, white, var(--green-light));
+}
+
+.pawpal-hero.pawpal-hero-steady {
+  background: linear-gradient(145deg, white, var(--amber-light));
+}
+
+.pawpal-hero.pawpal-hero-watch {
+  background: linear-gradient(145deg, white, var(--primary-light));
+}
+
 .pawpal-hero h2 {
   color: var(--text);
   font-size: 20px;
@@ -667,23 +679,23 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   margin-top: 6px;
 }
 
-.coach-suggestion.coach-care_gap {
+.coach-suggestion.coach-incomplete_medication {
   border-left: 3px solid var(--green);
 }
 
-.coach-suggestion.coach-pattern {
+.coach-suggestion.coach-vaccine_missing_next_date {
+  border-left: 3px solid var(--green);
+}
+
+.coach-suggestion.coach-repeated_missed_walks {
   border-left: 3px solid var(--amber);
 }
 
-.coach-suggestion.coach-seasonal {
-  border-left: 3px solid var(--primary);
-}
-
-.coach-suggestion.coach-planning {
+.coach-suggestion.coach-no_upcoming_reminders {
   border-left: 3px solid var(--blue);
 }
 
-.coach-suggestion.coach-backup {
+.coach-suggestion.coach-stale_backup {
   border-left: 3px solid var(--lavender);
 }
 
