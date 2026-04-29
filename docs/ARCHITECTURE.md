@@ -102,6 +102,17 @@ Pawfolio now keeps two distinct helper surfaces:
 
 Today is intentionally short-lived and operational. PawPal is intentionally calmer and stateful: it remembers unresolved care threads, supports snooze/resolved states, and always shows a digest even when nothing urgent is happening.
 
+Current PawPal thread coverage includes both hard gaps and softer follow-through:
+
+- incomplete medication details
+- vaccine missing next due date
+- no upcoming reminders
+- repeated missed walks
+- stale backup
+- no recent memory
+- stale weight check-in
+- near-future care follow-up
+
 ## Calendar Model
 
 Google Calendar is currently one-way:

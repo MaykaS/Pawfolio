@@ -1026,6 +1026,31 @@ describe("pawfolio helpers", () => {
     expect(suggestions.some((suggestion) => suggestion.id === "pawpal-thread-vaccine-vaccine")).toBe(true);
   });
 
+  it("opens softer PawPal threads for memory gaps, weight drift, and near-future care follow-up", () => {
+    const state = normalizeState({
+      tasks: [
+        { id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" },
+      ],
+      taskHistory: {
+        "2026-04-18": { walk: true },
+        "2026-04-19": { walk: true },
+      },
+      diary: [{ id: "memory-1", title: "Park", body: "", date: "2026-04-20" }],
+      care: [
+        { id: "weight-1", type: "Weight", title: "36 kg", date: "2026-03-20", note: "", weightValue: "36", weightUnit: "kg" },
+        { id: "vet-1", type: "Vet visit", title: "Annual checkup", date: "2026-05-05", note: "", nextDueDate: "2026-05-05" },
+      ],
+      reminders: [{ id: "future", title: "Grooming", type: "Grooming", date: "2026-05-20", time: "11:00", note: "", recurrence: "none" }],
+      cloudSyncMeta: { lastUploadedAt: "2026-04-27T10:00:00.000Z" },
+    });
+
+    const threads = buildPawPalFeed(state, new Date("2026-04-29T12:00:00"));
+
+    expect(threads.map((thread) => thread.id)).toContain("pawpal-thread-memory-gap");
+    expect(threads.map((thread) => thread.id)).toContain("pawpal-thread-weight-checkin");
+    expect(threads.map((thread) => thread.id)).toContain("pawpal-thread-followup-vet-1");
+  });
+
   it("shows same-day missed routine tasks in today attention, not as duplicated PawPal alerts", () => {
     const state = normalizeState({
       tasks: [{ id: "morning-walk", title: "Morning walk", time: "08:00", done: false, note: "" }],
@@ -1142,10 +1167,10 @@ describe("pawfolio helpers", () => {
         "2026-04-20": { walk: true },
         "2026-04-21": { walk: true },
       },
-      diary: [],
-      care: [],
+      diary: [{ id: "memory-1", title: "Sunny porch", body: "", date: "2026-04-28" }],
+      care: [{ id: "weight-1", type: "Weight", title: "36 kg", date: "2026-04-25", note: "", weightValue: "36", weightUnit: "kg" }],
       reminders: [{ id: "future", title: "Vet", type: "Vet", date: "2026-06-01", time: "09:00", note: "", recurrence: "none" }],
-      cloudSyncMeta: { lastUploadedAt: "2026-04-21T12:00:00.000Z" },
+      cloudSyncMeta: { lastUploadedAt: "2026-04-28T12:00:00.000Z" },
     });
 
     expect(buildPawPalDigest(calm, new Date("2026-04-22T12:00:00"))).toEqual({

@@ -391,6 +391,10 @@ export default function App() {
       setTab("today");
       return;
     }
+    if (item.action.type === "open_diary") {
+      setTab("diary");
+      return;
+    }
     if (item.action.type === "open_reminder") {
       setTab("calendar");
       setReminderMode({ mode: "create" });
@@ -1194,7 +1198,7 @@ function PawPalScreen({
   const groups = [
     { label: "Open threads", types: ["incomplete_medication", "vaccine_missing_next_date", "stale_backup"] as PawPalThread["type"][] },
     { label: "Patterns", types: ["repeated_missed_walks"] as PawPalThread["type"][] },
-    { label: "Looking ahead", types: ["no_upcoming_reminders"] as PawPalThread["type"][] },
+    { label: "Looking ahead", types: ["no_upcoming_reminders", "care_follow_up", "weight_checkin", "no_recent_memory"] as PawPalThread["type"][] },
   ] as const;
 
   return (

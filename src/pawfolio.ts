@@ -176,7 +176,10 @@ export type PawPalThreadType =
   | "vaccine_missing_next_date"
   | "no_upcoming_reminders"
   | "repeated_missed_walks"
-  | "stale_backup";
+  | "stale_backup"
+  | "no_recent_memory"
+  | "weight_checkin"
+  | "care_follow_up";
 
 export type PawPalThreadStatus = "open" | "snoozed" | "resolved";
 
@@ -209,6 +212,7 @@ export type PawPalThread = PawPalThreadState & {
 export type CoachSuggestionAction =
   | { type: "add_task"; title: string; time: string }
   | { type: "open_today" }
+  | { type: "open_diary" }
   | { type: "open_care"; recordId?: string }
   | { type: "open_reminder" }
   | { type: "open_calendar" }
@@ -1737,10 +1741,20 @@ function pawPalThreadRecheckDays(type: PawPalThreadType) {
   if (type === "vaccine_missing_next_date") return 7;
   if (type === "no_upcoming_reminders") return 7;
   if (type === "repeated_missed_walks") return 3;
+  if (type === "no_recent_memory") return 4;
+  if (type === "weight_checkin") return 10;
+  if (type === "care_follow_up") return 5;
   return 5;
 }
 
 type PawPalThreadCandidate = Omit<PawPalThread, "status" | "firstSeenAt" | "lastSeenAt" | "nextCheckAt" | "resolvedAt" | "lastAction">;
+
+function daysUntil(date?: string, now = new Date()) {
+  if (!date) return Number.POSITIVE_INFINITY;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(`${date}T00:00`);
+  return Math.ceil((target.getTime() - today.getTime()) / 86_400_000);
+}
 
 function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
   const settings = state.coachSettings || initialState.coachSettings;
@@ -1796,6 +1810,27 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
     });
   }
 
+  const followUpCare = records.find((record) => {
+    const status = careStatus(record, now);
+    if (status !== "Due soon") return false;
+    const dueDate = record.nextDueDate || record.date;
+    const days = daysUntil(dueDate, now);
+    return days > 0 && days <= 21;
+  });
+  if (followUpCare) {
+    const dueDate = followUpCare.nextDueDate || followUpCare.date;
+    candidates.push({
+      id: `pawpal-thread-followup-${followUpCare.id}`,
+      type: "care_follow_up",
+      priority: 68,
+      title: `${followUpCare.title} is coming up`,
+      body: `${followUpCare.type} is due ${prettyDate(dueDate)}. PawPal is keeping it on your radar before it turns urgent.`,
+      reason: "This is a near-future follow-up, so it belongs in PawPal rather than Today.",
+      actionLabel: "Review care",
+      action: { type: "open_care", recordId: followUpCare.id },
+    });
+  }
+
   const dates = Object.keys(state.taskHistory || {}).sort().slice(-7);
   const walkTasks = state.tasks.filter((task) => /walk/i.test(task.title));
   const missedWalkDays = dates.filter((date) => walkTasks.some((task) => !state.taskHistory[date]?.[task.id])).length;
@@ -1809,6 +1844,40 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
       reason: "This is showing up as a pattern across several tracked days, not just a one-off miss.",
       actionLabel: "Review today",
       action: { type: "open_today" },
+    });
+  }
+
+  const lastMemoryDate = sortDiaryEntries(state.diary)[0]?.date;
+  const memoryGapDays = lastMemoryDate ? daysSince(`${lastMemoryDate}T00:00:00.000Z`, now) : Number.POSITIVE_INFINITY;
+  if (memoryGapDays >= 3) {
+    candidates.push({
+      id: "pawpal-thread-memory-gap",
+      type: "no_recent_memory",
+      priority: 38,
+      title: lastMemoryDate ? "No new memory lately" : "No memory saved yet",
+      body: lastMemoryDate
+        ? "A quick photo or note would help keep the little moments from getting lost."
+        : "A first photo or note would make Pawfolio feel more like your dog's story, not just a checklist.",
+      reason: "PawPal is watching for quieter moments too, not only admin gaps.",
+      actionLabel: "Add memory",
+      action: { type: "open_diary" },
+    });
+  }
+
+  const latestWeightRecord = weightTrendSeries(records).slice(-1)[0];
+  const weightGapDays = latestWeightRecord ? daysSince(`${latestWeightRecord.date}T00:00:00.000Z`, now) : Number.POSITIVE_INFINITY;
+  if (weightGapDays >= 21) {
+    candidates.push({
+      id: "pawpal-thread-weight-checkin",
+      type: "weight_checkin",
+      priority: 56,
+      title: latestWeightRecord ? "Weight could use a fresh check-in" : "No weight check-in yet",
+      body: latestWeightRecord
+        ? `The last weight was logged ${prettyDate(latestWeightRecord.date)}.`
+        : "A first weight log makes trends and care notes more useful later.",
+      reason: "PawPal is treating weight as a slow-moving wellness thread, not a same-day alert.",
+      actionLabel: "Review care",
+      action: { type: "open_care" },
     });
   }
 
