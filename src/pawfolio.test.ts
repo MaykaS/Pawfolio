@@ -259,7 +259,7 @@ describe("pawfolio helpers", () => {
     expect(wellnessSummary(state, new Date("2026-04-22T12:00:00"))).toEqual({
       label: "Steady",
       tone: "amber",
-      detail: "Based on recent routine + care",
+      detail: "",
     });
   });
 

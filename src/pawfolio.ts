@@ -441,7 +441,7 @@ export function wellnessSummary(
   return {
     label: "Steady",
     tone: "amber",
-    detail: "Based on recent routine + care",
+    detail: "",
   };
 }
 
