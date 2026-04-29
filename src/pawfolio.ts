@@ -375,9 +375,13 @@ export function walkRhythm(tasks: DailyTask[], taskHistory: TaskHistory, windowD
 
   const historyDates = Object.keys(taskHistory).sort();
   if (historyDates.length === 0) return 0;
+  const walkHistoryDates = historyDates.filter((date) =>
+    Object.keys(taskHistory[date] || {}).some((taskId) => walkTaskIds.has(taskId)),
+  );
+  if (walkHistoryDates.length === 0) return 0;
 
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const firstTracked = new Date(`${historyDates[0]}T00:00`);
+  const firstTracked = new Date(`${walkHistoryDates[0]}T00:00`);
   const trackedDays = Math.max(1, Math.floor((today.getTime() - firstTracked.getTime()) / 86_400_000) + 1);
   const effectiveWindowDays = Math.min(windowDays, trackedDays);
 

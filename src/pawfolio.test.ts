@@ -212,6 +212,21 @@ describe("pawfolio helpers", () => {
     expect(walkRhythm(tasks, history, 2, new Date("2026-04-22T12:00:00"))).toBe(1.5);
   });
 
+  it("uses recent walk history instead of older unrelated task history", () => {
+    const tasks: DailyTask[] = [
+      { id: "morning-walk", title: "Morning walk", time: "08:00", done: false, note: "" },
+      { id: "breakfast", title: "Breakfast", time: "07:00", done: false, note: "" },
+    ];
+    const history = {
+      "2026-04-01": { breakfast: true },
+      "2026-04-21": { "morning-walk": true, breakfast: true },
+      "2026-04-22": { "morning-walk": true },
+    };
+
+    expect(walkRhythm(tasks, history, 14, new Date("2026-04-22T12:00:00"))).toBe(1);
+    expect(formatWalkRhythm(walkRhythm(tasks, history, 14, new Date("2026-04-22T12:00:00")))).toBe("1/day");
+  });
+
   it("reports phone push status in a user-facing way", () => {
     expect(
       pushStatusLabel({
