@@ -207,8 +207,8 @@ describe("pawfolio helpers", () => {
     };
 
     expect(walkRhythm(tasks, {}, 14, new Date("2026-04-22T12:00:00"))).toBe(0);
-    expect(walkRhythm(tasks, history, 14, new Date("2026-04-22T12:00:00"))).toBe(0.3);
-    expect(formatWalkRhythm(walkRhythm(tasks, history, 14, new Date("2026-04-22T12:00:00")))).toBe("0.3/day");
+    expect(walkRhythm(tasks, history, 14, new Date("2026-04-22T12:00:00"))).toBe(1.3);
+    expect(formatWalkRhythm(walkRhythm(tasks, history, 14, new Date("2026-04-22T12:00:00")))).toBe("1.3/day");
     expect(walkRhythm(tasks, history, 2, new Date("2026-04-22T12:00:00"))).toBe(1.5);
   });
 
@@ -705,7 +705,7 @@ describe("pawfolio helpers", () => {
     expect(buildGoogleCalendarEvent(reminder, "Mochi", "America/New_York")).toMatchObject({
       summary: "Mochi: Heartgard",
       start: { dateTime: "2026-01-01T08:00:00", timeZone: "America/New_York" },
-      end: { dateTime: "2026-01-01T08:00:00", timeZone: "America/New_York" },
+      end: { dateTime: "2026-01-01T08:30:00", timeZone: "America/New_York" },
       recurrence: ["RRULE:FREQ=MONTHLY"],
     });
   });
@@ -726,6 +726,10 @@ describe("pawfolio helpers", () => {
     expect(effectiveReminderTimeZone({ ...reminder, timeZone: undefined }, { deviceTimeZone: "America/New_York" })).toBe("America/New_York");
     expect(buildGoogleCalendarEvent(reminder, "Mochi", "America/New_York").start).toMatchObject({
       dateTime: "2026-06-01T11:45:00",
+      timeZone: "Europe/London",
+    });
+    expect(buildGoogleCalendarEvent(reminder, "Mochi", "America/New_York").end).toMatchObject({
+      dateTime: "2026-06-01T12:15:00",
       timeZone: "Europe/London",
     });
   });
@@ -866,6 +870,12 @@ describe("pawfolio helpers", () => {
     ]);
     expect(close).toHaveLength(3);
     expect(close.every((point) => point.y >= 0 && point.y <= 100)).toBe(true);
+
+    const pounds = weightTrendPlot([
+      { id: "weight-1", type: "Weight", title: "80 lb", date: "2026-04-17", note: "", weightValue: "80", weightUnit: "lb" },
+      { id: "weight-2", type: "Weight", title: "80.05 lb", date: "2026-04-18", note: "", weightValue: "80.05", weightUnit: "lb" },
+    ]);
+    expect(Math.round(pounds[1].y)).toBeGreaterThan(Math.round(close[1].y));
   });
 
   it("creates routine coach insights from local patterns", () => {

@@ -373,15 +373,23 @@ export function walkRhythm(tasks: DailyTask[], taskHistory: TaskHistory, windowD
   const walkTaskIds = new Set(tasks.filter(isWalkTask).map((task) => task.id));
   if (walkTaskIds.size === 0 || windowDays <= 0) return 0;
 
+  const historyDates = Object.keys(taskHistory).sort();
+  if (historyDates.length === 0) return 0;
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const firstTracked = new Date(`${historyDates[0]}T00:00`);
+  const trackedDays = Math.max(1, Math.floor((today.getTime() - firstTracked.getTime()) / 86_400_000) + 1);
+  const effectiveWindowDays = Math.min(windowDays, trackedDays);
+
   let completed = 0;
-  for (let offset = 0; offset < windowDays; offset += 1) {
+  for (let offset = 0; offset < effectiveWindowDays; offset += 1) {
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
     const iso = toLocalISO(date);
     const day = taskHistory[iso] || {};
     completed += [...walkTaskIds].filter((taskId) => Boolean(day[taskId])).length;
   }
 
-  return Math.round((completed / windowDays) * 10) / 10;
+  return Math.round((completed / effectiveWindowDays) * 10) / 10;
 }
 
 export function formatWalkRhythm(value: number) {
@@ -1423,7 +1431,9 @@ export function weightTrendPlot(records: CareRecord[], maxPoints = 8) {
 
   const minValue = Math.min(...points.map((point) => point.value));
   const maxValue = Math.max(...points.map((point) => point.value));
-  const range = Math.max(maxValue - minValue, 0.1);
+  const unit = (points[points.length - 1]?.unit || "lb").toLowerCase();
+  const minimumRange = unit === "kg" ? 0.5 : 1.0;
+  const range = Math.max(maxValue - minValue, minimumRange);
   const leftPad = 8;
   const rightPad = 92;
   const topPad = 18;
@@ -1458,6 +1468,14 @@ export function buildGoogleCalendarEvent(
   timeZone = "UTC",
 ) {
   const effectiveTimeZone = reminder.timeZone || timeZone;
+  const endDateTime = reminder.time
+    ? (() => {
+        const [hours = "0", minutes = "0"] = reminder.time.split(":");
+        const end = new Date(`${reminder.date}T${hours.padStart(2, "0")}:${minutes.padStart(2, "0")}:00`);
+        end.setMinutes(end.getMinutes() + 30);
+        return `${toLocalISO(end)}T${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}:00`;
+      })()
+    : undefined;
   return {
     summary: `${petName}: ${reminder.title}`,
     description: [reminder.type, reminder.note].filter(Boolean).join(" - "),
@@ -1465,7 +1483,7 @@ export function buildGoogleCalendarEvent(
       ? { dateTime: `${reminder.date}T${reminder.time}:00`, timeZone: effectiveTimeZone }
       : { date: reminder.date },
     end: reminder.time
-      ? { dateTime: `${reminder.date}T${reminder.time}:00`, timeZone: effectiveTimeZone }
+      ? { dateTime: endDateTime!, timeZone: effectiveTimeZone }
       : { date: reminder.date },
     recurrence: reminder.recurrence === "none" ? [] : [`RRULE:FREQ=${reminder.recurrence.toUpperCase()}`],
   };
