@@ -1049,6 +1049,10 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
     ...(state || {}),
   };
   const legacyCoach = base.routineCoachSettings || initialState.routineCoachSettings;
+  const normalizedMissedRoutineGraceMinutes = Math.max(
+    initialState.routineCoachSettings.missedRoutineGraceMinutes,
+    base.routineCoachSettings?.missedRoutineGraceMinutes ?? initialState.routineCoachSettings.missedRoutineGraceMinutes,
+  );
   const coachSettings = {
     ...initialState.coachSettings,
     ...(base.coachSettings || {}),
@@ -1104,6 +1108,7 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
       ...initialState.routineCoachSettings,
       ...(base.routineCoachSettings || {}),
       enabled: coachSettings.enabled,
+      missedRoutineGraceMinutes: normalizedMissedRoutineGraceMinutes,
     },
     coachSettings,
     pawPalMemory: {

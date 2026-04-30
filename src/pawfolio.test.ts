@@ -384,6 +384,22 @@ describe("pawfolio helpers", () => {
     expect(normalized.careEvents[0].notifyLeadMinutes).toBe(0);
   });
 
+  it("pulls older routine grace settings up to the one-hour missed-task rule", () => {
+    const normalized = normalizeState({
+      tasks: [],
+      diary: [],
+      care: [],
+      reminders: [],
+      routineCoachSettings: {
+        enabled: true,
+        missedRoutineNudges: true,
+        missedRoutineGraceMinutes: 30,
+      },
+    });
+
+    expect(normalized.routineCoachSettings.missedRoutineGraceMinutes).toBe(60);
+  });
+
   it("normalizes diary galleries from legacy single photos", () => {
     const normalized = normalizeState({
       tasks: [],
