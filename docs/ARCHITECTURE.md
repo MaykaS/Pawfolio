@@ -117,10 +117,12 @@ Current PawPal thread coverage includes both hard gaps and softer follow-through
 - vaccine missing next due date
 - no upcoming reminders
 - repeated missed walks
+- broader routine drift
 - stale backup
 - no recent memory
 - stale weight check-in
 - near-future care follow-up
+- seasonal and regional care nudges
 
 ## Calendar Model
 

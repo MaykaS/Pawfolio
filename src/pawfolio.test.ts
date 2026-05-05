@@ -1145,6 +1145,28 @@ describe("pawfolio helpers", () => {
     expect(threads.map((thread) => thread.id)).toContain("pawpal-thread-memory-gap");
     expect(threads.map((thread) => thread.id)).toContain("pawpal-thread-weight-checkin");
     expect(threads.map((thread) => thread.id)).toContain("pawpal-thread-followup-vet-1");
+    expect(threads.map((thread) => thread.id).some((id) => id.startsWith("pawpal-thread-seasonal-"))).toBe(true);
+  });
+
+  it("opens a PawPal routine-drift thread when recent tracked completion slips", () => {
+    const state = normalizeState({
+      tasks: [
+        { id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" },
+        { id: "meal", title: "Breakfast", time: "07:00", done: false, note: "" },
+      ],
+      taskHistory: {
+        "2026-04-18": { walk: false, meal: true },
+        "2026-04-19": { walk: false, meal: false },
+        "2026-04-20": { walk: true, meal: false },
+        "2026-04-21": { walk: false, meal: true },
+      },
+      diary: [{ id: "memory-1", title: "Park", body: "", date: "2026-04-21" }],
+      care: [],
+      reminders: [{ id: "future", title: "Vet", type: "Vet", date: "2026-05-20", time: "09:00", note: "", recurrence: "none" }],
+      cloudSyncMeta: { lastUploadedAt: "2026-04-20T10:00:00.000Z" },
+    });
+
+    expect(buildPawPalFeed(state, new Date("2026-04-22T12:00:00")).map((thread) => thread.id)).toContain("pawpal-thread-routine-drift");
   });
 
   it("shows same-day missed routine tasks in today attention, not as duplicated PawPal alerts", () => {
@@ -1258,6 +1280,10 @@ describe("pawfolio helpers", () => {
 
   it("always builds a PawPal digest even when no threads are open", () => {
     const calm = normalizeState({
+      coachSettings: {
+        ...initialState.coachSettings,
+        enabled: false,
+      },
       tasks: [{ id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" }],
       taskHistory: {
         "2026-04-20": { walk: true },

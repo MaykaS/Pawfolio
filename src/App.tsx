@@ -1202,8 +1202,8 @@ function PawPalScreen({
 }) {
   const groups = [
     { label: "Open threads", types: ["incomplete_medication", "vaccine_missing_next_date", "stale_backup"] as PawPalThread["type"][] },
-    { label: "Patterns", types: ["repeated_missed_walks"] as PawPalThread["type"][] },
-    { label: "Looking ahead", types: ["no_upcoming_reminders", "care_follow_up", "weight_checkin", "no_recent_memory"] as PawPalThread["type"][] },
+    { label: "Patterns", types: ["repeated_missed_walks", "routine_drift"] as PawPalThread["type"][] },
+    { label: "Looking ahead", types: ["no_upcoming_reminders", "care_follow_up", "weight_checkin", "no_recent_memory", "seasonal_care_nudge"] as PawPalThread["type"][] },
   ] as const;
 
   return (
@@ -1225,7 +1225,7 @@ function PawPalScreen({
         </div>
       </section>
       {threads.length === 0 ? (
-        <EmptyState title="PawPal is all caught up" text="Nothing longer-running needs a follow-through right now." />
+        <EmptyState title="PawPal is keeping watch" text="Everything looks steady right now. PawPal will keep an eye on care patterns, planning gaps, and seasonal context." />
       ) : (
         groups.map((group) => {
           const groupThreads = threads.filter((thread) => group.types.includes(thread.type));

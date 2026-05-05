@@ -195,10 +195,12 @@ export type PawPalThreadType =
   | "vaccine_missing_next_date"
   | "no_upcoming_reminders"
   | "repeated_missed_walks"
+  | "routine_drift"
   | "stale_backup"
   | "no_recent_memory"
   | "weight_checkin"
-  | "care_follow_up";
+  | "care_follow_up"
+  | "seasonal_care_nudge";
 
 export type PawPalThreadStatus = "open" | "snoozed" | "resolved";
 
@@ -1717,7 +1719,7 @@ export function routineCoachInsights(tasks: DailyTask[], taskHistory: TaskHistor
   const insights: string[] = [];
   const recentDates = dates.slice(-7);
   const walkTasks = tasks.filter((task) => /walk/i.test(task.title));
-  const missedWalks = recentDates.filter((date) => walkTasks.some((task) => !taskHistory[date]?.[task.id])).length;
+  const missedWalks = recentDates.filter((date) => walkTasks.some((task) => taskOccursOnDate(task, date) && !taskHistory[date]?.[task.id])).length;
   if (walkTasks.length && recentDates.length >= 3 && missedWalks >= 2) {
     insights.push("Walks have been missed a few times lately. Want to move one to an easier time?");
   }
@@ -1834,9 +1836,11 @@ function pawPalThreadRecheckDays(type: PawPalThreadType) {
   if (type === "vaccine_missing_next_date") return 7;
   if (type === "no_upcoming_reminders") return 7;
   if (type === "repeated_missed_walks") return 3;
-  if (type === "no_recent_memory") return 4;
-  if (type === "weight_checkin") return 10;
+  if (type === "routine_drift") return 3;
+  if (type === "no_recent_memory") return 3;
+  if (type === "weight_checkin") return 7;
   if (type === "care_follow_up") return 5;
+  if (type === "seasonal_care_nudge") return 7;
   return 5;
 }
 
@@ -1890,14 +1894,16 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
   }
 
   const upcoming = getUpcomingReminders(reminders, now, state.reminderHistory);
-  if (upcoming.length === 0) {
+  if (upcoming.length <= 1) {
     candidates.push({
       id: "pawpal-thread-upcoming-reminders",
       type: "no_upcoming_reminders",
       priority: 70,
-      title: "No upcoming reminders",
-      body: "The calendar looks quiet after today. A reminder or two could keep the week calmer.",
-      reason: "PawPal looked ahead and did not find any future reminders to carry the routine forward.",
+      title: upcoming.length === 0 ? "No upcoming reminders" : "The week ahead looks light",
+      body: upcoming.length === 0
+        ? "The calendar looks quiet after today. A reminder or two could keep the week calmer."
+        : "There is only one upcoming reminder after today. A little more planning could make the week calmer.",
+      reason: "PawPal looked ahead and did not find much future reminder coverage to carry the routine forward.",
       actionLabel: "Add reminder",
       action: { type: "open_reminder" },
     });
@@ -1908,7 +1914,7 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
     if (status !== "Due soon") return false;
     const dueDate = record.nextDueDate || record.date;
     const days = daysUntil(dueDate, now);
-    return days > 0 && days <= 21;
+    return days > 0 && days <= 30;
   });
   if (followUpCare) {
     const dueDate = followUpCare.nextDueDate || followUpCare.date;
@@ -1926,7 +1932,9 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
 
   const dates = Object.keys(state.taskHistory || {}).sort().slice(-7);
   const walkTasks = state.tasks.filter((task) => /walk/i.test(task.title));
-  const missedWalkDays = dates.filter((date) => walkTasks.some((task) => !state.taskHistory[date]?.[task.id])).length;
+  const missedWalkDays = dates.filter((date) =>
+    walkTasks.some((task) => taskOccursOnDate(task, date) && !state.taskHistory[date]?.[task.id]),
+  ).length;
   if (walkTasks.length && dates.length >= 3 && missedWalkDays >= 2) {
     candidates.push({
       id: "pawpal-thread-missed-walks",
@@ -1940,9 +1948,31 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
     });
   }
 
+  const recentDates = Object.keys(state.taskHistory || {}).sort().slice(-5);
+  if (recentDates.length >= 3 && state.tasks.length > 0) {
+    const completionRates = recentDates.map((date) => {
+      const tasks = tasksForDate(state.tasks, state.taskHistory, date);
+      if (tasks.length === 0) return 1;
+      return tasks.filter((task) => task.done).length / tasks.length;
+    });
+    const averageCompletion = completionRates.reduce((sum, value) => sum + value, 0) / completionRates.length;
+    if (averageCompletion < 0.72) {
+      candidates.push({
+        id: "pawpal-thread-routine-drift",
+        type: "routine_drift",
+        priority: 64,
+        title: "Routine feels a little off lately",
+        body: "A few recent routine check-ins were missed. A small timing tweak could make the week feel easier.",
+        reason: "PawPal is seeing a multi-day routine pattern, not just a one-off same-day miss.",
+        actionLabel: "Review today",
+        action: { type: "open_today" },
+      });
+    }
+  }
+
   const lastMemoryDate = sortDiaryEntries(state.diary)[0]?.date;
   const memoryGapDays = lastMemoryDate ? daysSince(`${lastMemoryDate}T00:00:00.000Z`, now) : Number.POSITIVE_INFINITY;
-  if (memoryGapDays >= 3) {
+  if (memoryGapDays >= 2) {
     candidates.push({
       id: "pawpal-thread-memory-gap",
       type: "no_recent_memory",
@@ -1959,7 +1989,7 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
 
   const latestWeightRecord = weightTrendSeries(records).slice(-1)[0];
   const weightGapDays = latestWeightRecord ? daysSince(`${latestWeightRecord.date}T00:00:00.000Z`, now) : Number.POSITIVE_INFINITY;
-  if (weightGapDays >= 21) {
+  if (weightGapDays >= 14) {
     candidates.push({
       id: "pawpal-thread-weight-checkin",
       type: "weight_checkin",
@@ -1975,7 +2005,7 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
   }
 
   const hasMeaningfulLocalData = state.diary.length > 0 || records.length > 0;
-  if (hasMeaningfulLocalData && daysSince(state.cloudSyncMeta.lastUploadedAt, now) >= 5) {
+  if (hasMeaningfulLocalData && daysSince(state.cloudSyncMeta.lastUploadedAt, now) >= 4) {
     candidates.push({
       id: "pawpal-thread-stale-backup",
       type: "stale_backup",
@@ -1987,6 +2017,23 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
       reason: "PawPal is treating backup freshness as a longer-running trust thread, not a same-day alert.",
       actionLabel: "Open profile",
       action: { type: "open_profile" },
+    });
+  }
+
+  const season = getSeasonForDate(now, settings.careRegion);
+  const regionalSignal = regionalCareSignals(settings.careRegion, season)[0];
+  const breedSignal = breedCareSignals(state.profile)[0];
+  const seasonalSignal = regionalSignal || breedSignal;
+  if (seasonalSignal) {
+    candidates.push({
+      id: `pawpal-thread-seasonal-${seasonalSignal.id}`,
+      type: "seasonal_care_nudge",
+      priority: 28,
+      title: seasonalSignal.title,
+      body: seasonalSignal.body,
+      reason: "PawPal is looking ahead with seasonal and regional context, not just today's urgency.",
+      actionLabel: "Review today",
+      action: { type: "open_today" },
     });
   }
 

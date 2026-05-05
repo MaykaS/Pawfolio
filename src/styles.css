@@ -688,6 +688,10 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   border-left: 3px solid var(--amber);
 }
 
+.coach-suggestion.coach-routine_drift {
+  border-left: 3px solid var(--amber);
+}
+
 .coach-suggestion.coach-no_upcoming_reminders {
   border-left: 3px solid var(--blue);
 }
@@ -702,6 +706,10 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 
 .coach-suggestion.coach-no_recent_memory {
   border-left: 3px solid var(--primary);
+}
+
+.coach-suggestion.coach-seasonal_care_nudge {
+  border-left: 3px solid var(--green);
 }
 
 .coach-suggestion.coach-stale_backup {

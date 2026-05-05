@@ -46,7 +46,7 @@ The current app state is strong:
 - restore now reports a clearer success/empty/failure result instead of hiding behind timestamps alone
 - normal app open lands on Today instead of redirecting to Profile
 - Today and PawPal now have distinct jobs: Today handles same-day urgency, while PawPal tracks calmer follow-through threads over time
-- PawPal can now stay alive in normal use with softer follow-through threads like memory gaps, stale weight check-ins, near-future care follow-up, and stale backup
+- PawPal can now stay alive in normal use with softer follow-through threads like memory gaps, stale weight check-ins, near-future care follow-up, routine drift, seasonal nudges, and stale backup
 
 Email reminders are intentionally on hold in the product. The backend plumbing remains in code, but the app does not pretend email is a ready user-facing path while sender-domain setup is out of scope.
 
