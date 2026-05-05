@@ -476,7 +476,7 @@ export function wellnessSummary(
     return {
       label: "Great",
       tone: "green",
-      detail: "7-day care balance",
+      detail: "",
     };
   }
 

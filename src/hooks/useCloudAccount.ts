@@ -213,8 +213,8 @@ export function useCloudAccount({
 
   useEffect(() => {
     const callback = parseAuthCallbackUrl(window.location.href);
-    if (callback.requestedTab === "profile" || callback.authReturn || callback.code || callback.error) {
-      setTab("profile");
+    if (callback.requestedTab === "today") {
+      setTab("today");
     }
   }, [setTab]);
 
@@ -240,8 +240,8 @@ export function useCloudAccount({
 
     const finishAuthReturn = async () => {
       const callback = parseAuthCallbackUrl(window.location.href);
-      if (callback.requestedTab === "profile" || callback.authReturn || callback.code || callback.error) {
-        setTab("profile");
+      if (callback.requestedTab === "today") {
+        setTab("today");
       }
 
       if (callback.error) {
@@ -311,7 +311,6 @@ export function useCloudAccount({
       persistCalendarTokens(nextSession);
       setSession(nextSession);
       if (nextSession) {
-        setTab("profile");
         setCloudStatus("Signed in. This device is your working copy.");
         window.history.replaceState({}, document.title, cleanupAuthCallbackUrl(window.location.href));
       }

@@ -44,6 +44,7 @@ The current app state is strong:
 - the Profile area now behaves more like a trust center than a random settings pile
 - the top Profile snapshot now balances memories, wellness, and days together instead of showing a raw walk metric
 - restore now reports a clearer success/empty/failure result instead of hiding behind timestamps alone
+- normal app open lands on Today instead of redirecting to Profile
 - Today and PawPal now have distinct jobs: Today handles same-day urgency, while PawPal tracks calmer follow-through threads over time
 - PawPal can now stay alive in normal use with softer follow-through threads like memory gaps, stale weight check-ins, near-future care follow-up, and stale backup
 
@@ -119,3 +120,5 @@ If you update the notification delivery schema, rerun `supabase/schema.sql` so s
 - [Decision Log](docs/DECISIONS.md)
 - [Next Steps](docs/NEXT_STEPS.md)
 - [PM Audit](docs/PM_AUDIT.md)
+- [Friend Beta Launch](docs/FRIEND_BETA_LAUNCH.md)
+- [Privacy Policy Draft](docs/PRIVACY_POLICY_DRAFT.md)

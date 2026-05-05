@@ -109,6 +109,7 @@ That constraint keeps the experience legible while the product matures.
 - follow-through threads for unresolved care and planning gaps
 - a separate daily digest that stays distinct from same-day Today urgency
 - softer ongoing threads for memory gaps, stale weight check-ins, and near-future follow-up so PawPal does not vanish in normal use
+- normal signed-in app open starts on Today; Profile is a destination, not the default landing screen
 
 ## What Is Working Well Now
 

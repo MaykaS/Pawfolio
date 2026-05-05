@@ -100,7 +100,7 @@ Pawfolio now keeps two distinct helper surfaces:
 - **Today needs attention** for same-day urgency
 - **PawPal** for longer-running follow-through threads
 
-Today is intentionally short-lived and operational. PawPal is intentionally calmer and stateful: it remembers unresolved care threads, supports snooze/resolved states, and always shows a digest even when nothing urgent is happening.
+Today is intentionally short-lived and operational. PawPal is intentionally calmer and stateful: it remembers unresolved care threads, supports snooze/resolved states, and always shows a digest even when nothing urgent is happening. Normal signed-in app open should land on Today unless the user explicitly navigates elsewhere in-session.
 
 Current PawPal thread coverage includes both hard gaps and softer follow-through:
 
