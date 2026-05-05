@@ -61,6 +61,15 @@ Primary product entities:
 
 Photos live in IndexedDB locally and are now included in cloud snapshot backup/restore.
 
+Routine tasks are now schedule-aware rather than implicitly daily. A task can be:
+
+- every day
+- every other day
+- every N days from a chosen start date
+- specific weekdays
+
+Done state still stays tied to each occurrence date through `taskHistory`.
+
 ## Cloud Model
 
 Current cloud persistence is snapshot-based.

@@ -92,14 +92,17 @@ import {
   sortDiaryEntries,
   sortTasksByTime,
   storageKey,
+  taskScheduleLabel,
   taskHourOptions,
   taskMeridiemOptions,
   taskMinuteOptions,
   taskTimeFromParts,
   taskTimeParts,
   taskTime,
+  normalizeTaskSchedule,
   tasksForDate,
   todayISO,
+  weekdayOptions,
   withTaskTime,
   visibleCareRecords,
   visibleReminders,
@@ -114,6 +117,7 @@ import {
   type CoachSuggestionAction,
   type CloudSyncMeta,
   type DailyTask,
+  type DailyTaskSchedule,
   type DiaryEntry,
   type DogAvatar,
   type DogProfile,
@@ -1146,6 +1150,7 @@ function TodayScreen({
             <div className="task-copy">
               <div className={task.done ? "task-label done" : "task-label"}>{task.title}</div>
               <div className="task-time">{taskTime(task)}</div>
+              {normalizeTaskSchedule(task.schedule).type !== "daily" && <div className="task-repeat-hint">{taskScheduleLabel(task)}</div>}
               {task.note && openNoteId !== task.id && <p className="task-note-preview">{task.note}</p>}
             </div>
             <div className="row-actions">
@@ -2472,7 +2477,33 @@ function TaskSheet({
   const existing = mode.mode === "edit" ? mode.task : undefined;
   const [title, setTitle] = useState(existing?.title || "");
   const [timeParts, setTimeParts] = useState(() => taskTimeParts(existing?.time || "08:00"));
+  const existingSchedule = normalizeTaskSchedule(existing?.schedule, existing ? todayISO() : todayISO());
+  const [repeatMode, setRepeatMode] = useState<"daily" | "every_other_day" | "interval" | "weekdays">(
+    existingSchedule.type === "interval"
+      ? existingSchedule.intervalDays === 2
+        ? "every_other_day"
+        : "interval"
+      : existingSchedule.type === "weekdays"
+        ? "weekdays"
+        : "daily",
+  );
+  const [intervalDays, setIntervalDays] = useState(
+    existingSchedule.type === "interval" ? String(Math.max(2, existingSchedule.intervalDays || 2)) : "3",
+  );
+  const [startDate, setStartDate] = useState(existingSchedule.startDate || todayISO());
+  const [weekdays, setWeekdays] = useState<number[]>(
+    existingSchedule.type === "weekdays" ? (existingSchedule.weekdays || [1]) : [1, 3, 5],
+  );
   const time = taskTimeFromParts(timeParts.hour, timeParts.minute, timeParts.meridiem);
+
+  const schedule: DailyTaskSchedule =
+    repeatMode === "daily"
+      ? { type: "daily" }
+      : repeatMode === "every_other_day"
+        ? { type: "interval", intervalDays: 2, startDate }
+        : repeatMode === "interval"
+          ? { type: "interval", intervalDays: Math.max(2, Math.floor(Number(intervalDays) || 2)), startDate }
+          : { type: "weekdays", weekdays: weekdays.length > 0 ? weekdays : [1] };
 
   return (
     <Sheet title={mode.mode === "edit" ? "Edit task" : "Add task"} onClose={onClose}>
@@ -2486,6 +2517,7 @@ function TaskSheet({
             time: withTaskTime({ ...(existing || { id: "preview", title: title.trim(), done: false, note: "" }), title: title.trim(), time }).time,
             done: existing?.done || false,
             note: existing?.note || "",
+            schedule,
           });
         }}
       >
@@ -2500,6 +2532,62 @@ function TaskSheet({
             onChange={(next) => setTimeParts((current) => ({ ...current, ...next }))}
           />
         </Field>
+        <Field label="Repeat">
+          <select className="input" value={repeatMode} onChange={(event) => setRepeatMode(event.target.value as "daily" | "every_other_day" | "interval" | "weekdays")}>
+            <option value="daily">Every day</option>
+            <option value="every_other_day">Every other day</option>
+            <option value="interval">Every N days</option>
+            <option value="weekdays">Selected weekdays</option>
+          </select>
+        </Field>
+        {repeatMode === "every_other_day" && (
+          <Field label="Start date">
+            <input className="input" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required />
+          </Field>
+        )}
+        {repeatMode === "interval" && (
+          <div className="form-two">
+            <Field label="Start date">
+              <input className="input" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required />
+            </Field>
+            <Field label="Every">
+              <div className="task-interval-row">
+                <input
+                  className="input"
+                  type="number"
+                  min={2}
+                  value={intervalDays}
+                  onChange={(event) => setIntervalDays(event.target.value)}
+                />
+                <span>days</span>
+              </div>
+            </Field>
+          </div>
+        )}
+        {repeatMode === "weekdays" && (
+          <Field label="On these days">
+            <div className="task-weekday-row">
+              {weekdayOptions.map((day) => {
+                const active = weekdays.includes(day.value);
+                return (
+                  <button
+                    key={day.value}
+                    className={active ? "choice-chip active" : "choice-chip"}
+                    type="button"
+                    onClick={() =>
+                      setWeekdays((current) => {
+                        const next = active ? current.filter((value) => value !== day.value) : [...current, day.value];
+                        return next.length > 0 ? next.sort((a, b) => a - b) : current;
+                      })
+                    }
+                  >
+                    {day.label}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+        )}
         <button className="btn btn-primary">{mode.mode === "edit" ? "Save task" : "Add task"}</button>
       </form>
     </Sheet>

@@ -9,7 +9,7 @@ It is intentionally warm, companion-like, and photo-friendly, but it is built to
 Today Pawfolio is a working product, not just a concept demo. It supports:
 
 - dog profile onboarding and editing
-- daily routine tracking with structured times
+- daily routine tracking with structured times and custom schedules
 - diary entries with multi-photo memories
 - care records for medication, vaccines, vet visits, and weight
 - reminders with recurrence, lead times, and completion history

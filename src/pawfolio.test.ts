@@ -195,6 +195,69 @@ describe("pawfolio helpers", () => {
     expect(tasksForDate(tasks, history, "2026-04-23")[0].done).toBe(false);
   });
 
+  it("migrates older tasks to an every-day schedule", () => {
+    const normalized = normalizeState({
+      tasks: [{ id: "brush", title: "Brush teeth", time: "08:00", done: false, note: "" }],
+      diary: [],
+      care: [],
+      reminders: [],
+    });
+
+    expect(normalized.tasks[0].schedule).toEqual({ type: "daily" });
+  });
+
+  it("shows every-other-day tasks only on matching dates", () => {
+    const tasks: DailyTask[] = [
+      {
+        id: "brush",
+        title: "Brush teeth",
+        time: "08:00",
+        done: false,
+        note: "",
+        schedule: { type: "interval", intervalDays: 2, startDate: "2026-04-22" },
+      },
+    ];
+
+    expect(tasksForDate(tasks, {}, "2026-04-22").map((task) => task.id)).toEqual(["brush"]);
+    expect(tasksForDate(tasks, {}, "2026-04-23")).toEqual([]);
+    expect(tasksForDate(tasks, {}, "2026-04-24").map((task) => task.id)).toEqual(["brush"]);
+  });
+
+  it("shows every-n-days tasks from their chosen start date", () => {
+    const tasks: DailyTask[] = [
+      {
+        id: "supplement",
+        title: "Supplement",
+        time: "09:00",
+        done: false,
+        note: "",
+        schedule: { type: "interval", intervalDays: 3, startDate: "2026-04-21" },
+      },
+    ];
+
+    expect(tasksForDate(tasks, {}, "2026-04-20")).toEqual([]);
+    expect(tasksForDate(tasks, {}, "2026-04-21").map((task) => task.id)).toEqual(["supplement"]);
+    expect(tasksForDate(tasks, {}, "2026-04-24").map((task) => task.id)).toEqual(["supplement"]);
+    expect(tasksForDate(tasks, {}, "2026-04-25")).toEqual([]);
+  });
+
+  it("shows weekday tasks only on selected weekdays", () => {
+    const tasks: DailyTask[] = [
+      {
+        id: "brush",
+        title: "Brush coat",
+        time: "18:00",
+        done: false,
+        note: "",
+        schedule: { type: "weekdays", weekdays: [1, 3, 5] },
+      },
+    ];
+
+    expect(tasksForDate(tasks, {}, "2026-04-20").map((task) => task.id)).toEqual(["brush"]);
+    expect(tasksForDate(tasks, {}, "2026-04-21")).toEqual([]);
+    expect(tasksForDate(tasks, {}, "2026-04-22").map((task) => task.id)).toEqual(["brush"]);
+  });
+
   it("falls back to a steady wellness state when routine history is still thin", () => {
     const state: PawfolioState = {
       ...normalizeState(initialState),
@@ -360,6 +423,22 @@ describe("pawfolio helpers", () => {
     const history = setTaskDoneForDate({}, "2026-04-22", "walk", true);
     expect(missedRoutineTasks(tasks, history, new Date(2026, 3, 22, 9, 0), 60)).toEqual([]);
     expect(tasksForDate(tasks, history, "2026-04-23").map((task) => task.done)).toEqual([false, false]);
+  });
+
+  it("only evaluates missed routine nudges for tasks scheduled on that day", () => {
+    const tasks: DailyTask[] = [
+      {
+        id: "brush",
+        title: "Brush teeth",
+        time: "08:00",
+        done: false,
+        note: "",
+        schedule: { type: "interval", intervalDays: 2, startDate: "2026-04-22" },
+      },
+    ];
+
+    expect(missedRoutineTasks(tasks, {}, new Date(2026, 3, 23, 10, 0), 60)).toEqual([]);
+    expect(missedRoutineTasks(tasks, {}, new Date(2026, 3, 24, 9, 0), 60).map((task) => task.id)).toEqual(["brush"]);
   });
 
   it("normalizes older reminders with no recurrence", () => {
@@ -769,6 +848,7 @@ describe("pawfolio helpers", () => {
       time: "08:45",
       done: false,
       note: "",
+      schedule: { type: "daily" },
     });
     expect(tasks[0].time).toBe("08:00");
   });

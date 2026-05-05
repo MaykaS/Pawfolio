@@ -142,9 +142,6 @@ button {
   margin-top: 20px;
 }
 
-.no-margin {
-  margin: 0;
-}
 
 .label-row {
   display: flex;
@@ -784,6 +781,12 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   margin-top: 2px;
 }
 
+.task-repeat-hint {
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 2px;
+}
+
 .task-note-preview {
   color: var(--muted);
   font-size: 11px;
@@ -838,6 +841,27 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 .task-time-picker select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px oklch(58% 0.15 38 / 0.12);
+}
+
+.task-interval-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.task-interval-row .input {
+  margin: 0;
+}
+
+.task-interval-row span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.task-weekday-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .row-actions,
@@ -1995,6 +2019,10 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
+}
+
+.no-margin {
+  margin: 0;
 }
 
 .toggle-pill {

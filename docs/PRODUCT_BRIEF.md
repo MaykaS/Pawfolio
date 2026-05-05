@@ -68,7 +68,7 @@ That constraint keeps the experience legible while the product matures.
 ### Today
 
 - daily routine checklist
-- structured task times
+- structured task times and custom task schedules
 - urgent attention items
 - quick operational view of what matters now
 

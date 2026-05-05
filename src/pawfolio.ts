@@ -1,5 +1,14 @@
 export type Tab = "today" | "diary" | "care" | "calendar" | "pawpal" | "profile";
 export const bottomNavTabs = ["today", "diary", "care", "calendar", "profile"] as const satisfies Tab[];
+export const weekdayOptions = [
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
+  { value: 0, label: "Sun" },
+] as const;
 
 export type DogAvatar = {
   fur: string;
@@ -25,6 +34,16 @@ export type DailyTask = {
   time: string;
   done: boolean;
   note: string;
+  schedule?: DailyTaskSchedule;
+};
+
+export type DailyTaskScheduleType = "daily" | "interval" | "weekdays";
+
+export type DailyTaskSchedule = {
+  type: DailyTaskScheduleType;
+  intervalDays?: number;
+  startDate?: string;
+  weekdays?: number[];
 };
 
 export type DiaryEntry = {
@@ -570,11 +589,75 @@ export function taskTime(task: DailyTask) {
   return canonical ? formatTaskTime(canonical) : "Anytime";
 }
 
-export function withTaskTime(task: Omit<DailyTask, "time"> & { time?: string }): DailyTask {
+export function normalizeTaskSchedule(
+  schedule?: Partial<DailyTaskSchedule>,
+  fallbackStartDate = todayISO(),
+): DailyTaskSchedule {
+  const type = schedule?.type || "daily";
+  if (type === "interval") {
+    return {
+      type,
+      intervalDays: Math.max(1, Math.floor(Number(schedule?.intervalDays) || 1)),
+      startDate: schedule?.startDate || fallbackStartDate,
+    };
+  }
+  if (type === "weekdays") {
+    const weekdays = [...new Set((schedule?.weekdays || []).map((day) => Number(day)).filter((day) => day >= 0 && day <= 6))];
+    return {
+      type,
+      weekdays: weekdays.length > 0 ? weekdays.sort((a, b) => a - b) : [1],
+    };
+  }
+  return { type: "daily" };
+}
+
+export function withTaskTime(
+  task: Omit<DailyTask, "time" | "schedule"> & { time?: string; schedule?: Partial<DailyTaskSchedule> },
+): DailyTask {
   return {
     ...task,
     time: toTimeInputValue(task.time || inferredTaskTime(task)) || "Anytime",
+    schedule: normalizeTaskSchedule(task.schedule),
   };
+}
+
+function isoDateToLocalDate(date: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined;
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function startOfLocalDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+export function taskOccursOnDate(task: DailyTask, date: string) {
+  const schedule = normalizeTaskSchedule(task.schedule);
+  if (schedule.type === "daily") return true;
+  const target = isoDateToLocalDate(date);
+  if (!target) return false;
+  if (schedule.type === "weekdays") {
+    return (schedule.weekdays || []).includes(target.getDay());
+  }
+  const start = isoDateToLocalDate(schedule.startDate || date);
+  if (!start) return false;
+  const diffDays = Math.floor((startOfLocalDay(target).getTime() - startOfLocalDay(start).getTime()) / 86_400_000);
+  if (diffDays < 0) return false;
+  const interval = Math.max(1, schedule.intervalDays || 1);
+  return diffDays % interval === 0;
+}
+
+export function taskScheduleLabel(task: DailyTask) {
+  const schedule = normalizeTaskSchedule(task.schedule);
+  if (schedule.type === "daily") return "Every day";
+  if (schedule.type === "interval") {
+    if ((schedule.intervalDays || 1) === 2) return "Every other day";
+    return `Every ${schedule.intervalDays} days`;
+  }
+  const weekdayLabels = (schedule.weekdays || [])
+    .map((day) => weekdayOptions.find((option) => option.value === day)?.label)
+    .filter(Boolean);
+  return weekdayLabels.join(" / ") || "Weekdays";
 }
 
 export function compareTasksByTime(a: DailyTask, b: DailyTask) {
@@ -710,7 +793,12 @@ export function updateTaskTime(tasks: DailyTask[], id: string, time: string) {
 
 export function tasksForDate(tasks: DailyTask[], taskHistory: TaskHistory, date: string) {
   const day = taskHistory[date] || {};
-  return sortTasksByTime(tasks.map((task) => ({ ...task, done: Boolean(day[task.id]) })));
+  return sortTasksByTime(
+    tasks
+      .map(withTaskTime)
+      .filter((task) => taskOccursOnDate(task, date))
+      .map((task) => ({ ...task, done: Boolean(day[task.id]) })),
+  );
 }
 
 export function setTaskDoneForDate(taskHistory: TaskHistory, date: string, taskId: string, done: boolean): TaskHistory {

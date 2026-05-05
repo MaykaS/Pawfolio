@@ -16,7 +16,7 @@ Delivered:
 
 - dog onboarding and profile editing
 - Today, Diary, Care, Calendar, and Profile surfaces
-- routine tasks with structured times
+- routine tasks with structured times and flexible schedules
 - reminders with recurrence and lead times
 - shared care/calendar records
 - photo-backed diary
