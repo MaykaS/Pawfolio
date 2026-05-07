@@ -221,6 +221,14 @@ export type PawPalDigest = {
   tone: "good" | "steady" | "watch";
 };
 
+export type PawPalPlannerPrompt = {
+  id: string;
+  title: string;
+  body: string;
+  actionLabel: string;
+  action: CoachSuggestionAction;
+};
+
 export type PawPalThread = PawPalThreadState & {
   title: string;
   body: string;
@@ -1363,6 +1371,33 @@ export function withNextOccurrence(
   return occurrenceDate ? { ...reminder, date: occurrenceDate } : reminder;
 }
 
+export function nextCalendarOccurrenceDate(
+  reminder: Pick<Reminder, "date" | "recurrence">,
+  now = new Date(),
+) {
+  if (!reminder.date) return "";
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let occurrence = new Date(`${reminder.date}T00:00`);
+  if (reminder.recurrence === "none") {
+    return occurrence.getTime() >= today.getTime() ? toLocalISO(occurrence) : "";
+  }
+
+  let guard = 0;
+  while (guard < 1000 && occurrence.getTime() < today.getTime()) {
+    occurrence = addRecurrence(occurrence, reminder.recurrence);
+    guard += 1;
+  }
+  return toLocalISO(occurrence);
+}
+
+export function withNextCalendarOccurrence(
+  reminder: Reminder,
+  now = new Date(),
+): Reminder {
+  const occurrenceDate = nextCalendarOccurrenceDate(reminder, now);
+  return occurrenceDate ? { ...reminder, date: occurrenceDate } : reminder;
+}
+
 export function getUpcomingReminders(
   reminders: Reminder[],
   now = new Date(),
@@ -1372,6 +1407,16 @@ export function getUpcomingReminders(
     .map((reminder) => withNextOccurrence(reminder, now, reminderHistory))
     .filter((reminder) => isFutureOrToday(reminder.date, now))
     .filter((reminder) => !reminderCompletionStatus(reminderHistory, reminder))
+    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+}
+
+export function getUpcomingCalendarItems(
+  reminders: Reminder[],
+  now = new Date(),
+) {
+  return reminders
+    .map((reminder) => withNextCalendarOccurrence(reminder, now))
+    .filter((reminder) => isFutureOrToday(reminder.date, now))
     .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
 }
 
@@ -2099,6 +2144,98 @@ export function buildPawPalDigest(state: PawfolioState, now = new Date()): PawPa
 
 export function buildPawPalFeed(state: PawfolioState, now = new Date()) {
   return buildPawPalThreads(state, now);
+}
+
+export function buildPawPalPlannerPrompt(state: PawfolioState, now = new Date()): PawPalPlannerPrompt {
+  const threads = buildPawPalThreads(state, now);
+  const threadTypes = new Set(threads.map((thread) => thread.type));
+  const records = visibleCareRecords(state);
+  const reminders = visibleReminders(state);
+  const season = getSeasonForDate(now, state.coachSettings?.careRegion || initialState.coachSettings.careRegion);
+  const seasonalSignal = regionalCareSignals(state.coachSettings?.careRegion || initialState.coachSettings.careRegion, season)[0]
+    || breedCareSignals(state.profile)[0];
+
+  if (!threadTypes.has("no_recent_memory")) {
+    const latestMemoryDate = sortDiaryEntries(state.diary)[0]?.date;
+    const memoryGapDays = latestMemoryDate ? daysSince(`${latestMemoryDate}T00:00:00.000Z`, now) : Number.POSITIVE_INFINITY;
+    if (memoryGapDays >= 1) {
+      return {
+        id: "pawpal-prompt-memory",
+        title: "Save one little moment",
+        body: "A quick photo or note today would keep the week feeling more like your dog's story than just admin.",
+        actionLabel: "Add memory",
+        action: { type: "open_diary" },
+      };
+    }
+  }
+
+  if (!threadTypes.has("no_upcoming_reminders")) {
+    const upcoming = getUpcomingReminders(reminders, now, state.reminderHistory);
+    if (upcoming.length <= 2) {
+      return {
+        id: "pawpal-prompt-plan",
+        title: "Set up the week ahead",
+        body: upcoming.length === 0
+          ? "Adding one future reminder now could make the next few days feel calmer."
+          : "You only have a little ahead on the calendar. One more reminder could make the week feel steadier.",
+        actionLabel: "Add reminder",
+        action: { type: "open_reminder" },
+      };
+    }
+  }
+
+  if (!threadTypes.has("weight_checkin")) {
+    const latestWeightRecord = weightTrendSeries(records).slice(-1)[0];
+    const weightGapDays = latestWeightRecord ? daysSince(`${latestWeightRecord.date}T00:00:00.000Z`, now) : Number.POSITIVE_INFINITY;
+    if (weightGapDays >= 10) {
+      return {
+        id: "pawpal-prompt-weight",
+        title: "Freshen the weight trend",
+        body: latestWeightRecord
+          ? `The last weight check was ${prettyDate(latestWeightRecord.date)}. A fresh number would keep the trend useful.`
+          : "A first weight check-in would make future wellness trends more useful.",
+        actionLabel: "Open care",
+        action: { type: "open_care" },
+      };
+    }
+  }
+
+  if (!threadTypes.has("seasonal_care_nudge") && seasonalSignal) {
+    return {
+      id: `pawpal-prompt-seasonal-${seasonalSignal.id}`,
+      title: seasonalSignal.title,
+      body: seasonalSignal.body,
+      actionLabel: "Open today",
+      action: { type: "open_today" },
+    };
+  }
+
+  const recentDates = Object.keys(state.taskHistory || {}).sort().slice(-4);
+  if (recentDates.length >= 2 && !threadTypes.has("routine_drift")) {
+    const completionRates = recentDates.map((date) => {
+      const tasks = tasksForDate(state.tasks, state.taskHistory, date);
+      if (tasks.length === 0) return 1;
+      return tasks.filter((task) => task.done).length / tasks.length;
+    });
+    const averageCompletion = completionRates.reduce((sum, value) => sum + value, 0) / completionRates.length;
+    if (averageCompletion < 0.9) {
+      return {
+        id: "pawpal-prompt-routine",
+        title: "Smooth out one routine edge",
+        body: "Nothing is urgent, but one small timing tweak could make daily care feel easier this week.",
+        actionLabel: "Open today",
+        action: { type: "open_today" },
+      };
+    }
+  }
+
+  return {
+    id: "pawpal-prompt-steady",
+    title: "Everything looks calm",
+    body: "A quick glance at memories, care, or next week's reminders is probably all you need today.",
+    actionLabel: "Open calendar",
+    action: { type: "open_calendar" },
+  };
 }
 
 export function buildCoachSuggestions(state: PawfolioState, now = new Date()) {

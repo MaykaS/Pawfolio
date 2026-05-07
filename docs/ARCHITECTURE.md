@@ -111,6 +111,8 @@ Pawfolio now keeps two distinct helper surfaces:
 
 Today is intentionally short-lived and operational. PawPal is intentionally calmer and stateful: it remembers unresolved care threads, supports snooze/resolved states, and always shows a digest even when nothing urgent is happening. Normal signed-in app open should land on Today unless the user explicitly navigates elsewhere in-session.
 
+PawPal also now carries a separate planner prompt layer. Threads remain persistent follow-through; the planner prompt is ephemeral and always offers one calm next-useful action even when no major thread is open.
+
 Current PawPal thread coverage includes both hard gaps and softer follow-through:
 
 - incomplete medication details
@@ -140,6 +142,11 @@ Per-reminder scheduling now resolves time zone in this order:
 2. current device/default time zone
 
 That keeps travel cases possible without making time zone a heavy global setting.
+
+Calendar chronology is now deliberately separate from notification state:
+
+- Calendar `Upcoming` shows the next real dated items in order, even if a future item is already marked done
+- Notifications and alert timing still use open-item-only reminder logic
 
 ## Trust Layer Structure
 

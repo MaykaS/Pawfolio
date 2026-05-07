@@ -43,6 +43,7 @@ import {
   breedOptions,
   buildPawPalFeed,
   buildPawPalDigest,
+  buildPawPalPlannerPrompt,
   buildTodayAttentionItems,
   canUseBrowserNotifications,
   careRecordSummary,
@@ -64,6 +65,7 @@ import {
   getNotificationGroups,
   getUpcomingReminder,
   getUpcomingReminders,
+  getUpcomingCalendarItems,
   initialState,
   isStoredPhotoRef,
   limitDiaryPhotos,
@@ -127,6 +129,7 @@ import {
   type ReminderCompletionStatus,
   type Tab,
   type PawPalDigest,
+  type PawPalPlannerPrompt,
   type PawPalThread,
   type WellnessSummary,
 } from "./pawfolio";
@@ -367,6 +370,7 @@ export default function App() {
   const calendarItems = useMemo(() => visibleReminders(state), [state]);
   const pawPalThreads = useMemo(() => buildPawPalFeed(state), [state]);
   const pawPalDigest = useMemo(() => buildPawPalDigest(state), [state]);
+  const pawPalPlannerPrompt = useMemo(() => buildPawPalPlannerPrompt(state), [state]);
   const todayAttentionItems = useMemo(() => buildTodayAttentionItems(state), [state]);
   const upcomingReminder = useMemo(
     () => getUpcomingReminder(calendarItems, new Date(), state.reminderHistory),
@@ -522,6 +526,7 @@ export default function App() {
         <PawPalScreen
           profile={state.profile}
           digest={pawPalDigest}
+          plannerPrompt={pawPalPlannerPrompt}
           threads={pawPalThreads}
           onAction={handleCoachAction}
           onSnooze={(id) => setState((current) => snoozePawPalThread(current, id))}
@@ -1188,6 +1193,7 @@ function TodayScreen({
 function PawPalScreen({
   profile,
   digest,
+  plannerPrompt,
   threads,
   onAction,
   onSnooze,
@@ -1195,6 +1201,7 @@ function PawPalScreen({
 }: {
   profile: DogProfile;
   digest: PawPalDigest;
+  plannerPrompt: PawPalPlannerPrompt;
   threads: PawPalThread[];
   onAction: (suggestion: { id: string; action: CoachSuggestionAction }) => void;
   onSnooze: (id: string) => void;
@@ -1224,9 +1231,19 @@ function PawPalScreen({
           <p>{digest.body}</p>
         </div>
       </section>
-      {threads.length === 0 ? (
-        <EmptyState title="PawPal is keeping watch" text="Everything looks steady right now. PawPal will keep an eye on care patterns, planning gaps, and seasonal context." />
-      ) : (
+      <article className="coach-suggestion coach-planner-prompt">
+        <div>
+          <p className="label no-margin">Next useful thing</p>
+          <h3>{plannerPrompt.title}</h3>
+          <p>{plannerPrompt.body}</p>
+        </div>
+        <div className="coach-actions">
+          <button className="btn btn-sm btn-secondary" type="button" onClick={() => onAction(plannerPrompt)}>
+            {plannerPrompt.actionLabel}
+          </button>
+        </div>
+      </article>
+      {threads.length === 0 ? null : (
         groups.map((group) => {
           const groupThreads = threads.filter((thread) => group.types.includes(thread.type));
           if (groupThreads.length === 0) return null;
@@ -1629,7 +1646,7 @@ function CalendarScreen({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const monthEvents = eventsForMonth(reminders, visibleMonth);
-  const upcoming = getUpcomingReminders(reminders, new Date(), reminderHistory);
+  const upcoming = getUpcomingCalendarItems(reminders, new Date());
   const visibleUpcoming = showAllUpcoming ? upcoming : upcoming.slice(0, 3);
   const isCurrentMonth = monthKey(visibleMonth) === monthKey(currentMonth);
   const selectedDateEvents = selectedDate ? eventsForDate(reminders, selectedDate) : [];
@@ -1691,12 +1708,32 @@ function CalendarScreen({
               <span>{new Date(`${reminder.date}T00:00`).toLocaleDateString("en", { month: "short" })}</span>
             </div>
             <div className="event-copy">
-              {reminder.recurrence !== "none" && <span className="badge badge-amber">{recurrenceLabel(reminder.recurrence)}</span>}
+              <div className="badge-row">
+                {reminder.recurrence !== "none" && <span className="badge badge-amber">{recurrenceLabel(reminder.recurrence)}</span>}
+                {reminderCompletionStatus(reminderHistory, reminder) && (
+                  <span className={reminderCompletionStatus(reminderHistory, reminder) === "done" ? "badge badge-green" : "badge badge-gray"}>
+                    {reminderCompletionStatus(reminderHistory, reminder) === "done" ? "Done" : "Skipped"}
+                  </span>
+                )}
+              </div>
               <h2>{reminder.title}</h2>
               <p>{reminder.type} - {reminder.time || "Any time"} {reminder.note && `- ${reminder.note}`}</p>
-              <button className="mini-done-btn" type="button" onClick={() => onComplete(reminder, "done")}>
-                Mark done
-              </button>
+              <div className="reminder-status-actions">
+                <button
+                  className="mini-done-btn"
+                  type="button"
+                  onClick={() => onComplete(reminder, reminderCompletionStatus(reminderHistory, reminder) === "done" ? undefined : "done")}
+                >
+                  {reminderCompletionStatus(reminderHistory, reminder) === "done" ? "Undo" : "Mark done"}
+                </button>
+                <button
+                  className="mini-skip-btn"
+                  type="button"
+                  onClick={() => onComplete(reminder, reminderCompletionStatus(reminderHistory, reminder) === "skipped" ? undefined : "skipped")}
+                >
+                  {reminderCompletionStatus(reminderHistory, reminder) === "skipped" ? "Undo skip" : "Skip"}
+                </button>
+              </div>
             </div>
             <CardActions onEdit={() => onEdit(reminder)} onDelete={() => onDelete(reminder.id)} />
           </article>

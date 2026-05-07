@@ -723,6 +723,10 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   gap: 8px;
 }
 
+.coach-planner-prompt {
+  border-left: 3px solid var(--primary);
+}
+
 .task-item {
   display: block;
   padding: 10px 12px;

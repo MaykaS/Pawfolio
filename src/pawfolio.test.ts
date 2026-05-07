@@ -5,6 +5,7 @@ import {
   breedCareSignals,
   buildPawPalFeed,
   buildPawPalDigest,
+  buildPawPalPlannerPrompt,
   buildTodayAttentionItems,
   buildGoogleCalendarEvent,
   bottomNavTabs,
@@ -27,6 +28,7 @@ import {
   getSeasonForDate,
   getUpcomingReminder,
   getUpcomingReminders,
+  getUpcomingCalendarItems,
   initialState,
   isStoredPhotoRef,
   isFutureOrToday,
@@ -887,6 +889,27 @@ describe("pawfolio helpers", () => {
     expect(getUpcomingReminder(reminders, new Date("2026-04-22T12:00:00"))?.title).toBe("Morning meds");
   });
 
+  it("keeps calendar chronology separate from open reminder filtering", () => {
+    const reminders: Reminder[] = [
+      { id: "lyme", title: "Lyme 2", type: "Vaccine", date: "2026-05-08", time: "11:15", note: "", recurrence: "none" },
+      { id: "monthly-med", title: "Simplicity trio", type: "Medication", date: "2026-05-13", time: "", note: "", recurrence: "monthly" },
+      { id: "rabies", title: "Rabbis", type: "Vaccine", date: "2028-07-23", time: "", note: "", recurrence: "none" },
+    ];
+    const history = {
+      "2026-05-08": { lyme: "done" as const },
+    };
+
+    expect(getUpcomingCalendarItems(reminders, new Date("2026-05-06T12:00:00")).map((reminder) => reminder.title)).toEqual([
+      "Lyme 2",
+      "Simplicity trio",
+      "Rabbis",
+    ]);
+    expect(getUpcomingReminders(reminders, new Date("2026-05-06T12:00:00"), history).map((reminder) => reminder.title)).toEqual([
+      "Simplicity trio",
+      "Rabbis",
+    ]);
+  });
+
   it("calculates next recurring reminder occurrences", () => {
     const reminder: Reminder = {
       id: "heartgard",
@@ -1300,6 +1323,41 @@ describe("pawfolio helpers", () => {
       body: "No longer-running care threads need a follow-up right now.",
       tone: "good",
     });
+  });
+
+  it("builds a planner prompt even when no PawPal threads are open", () => {
+    const calm = normalizeState({
+      tasks: [{ id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" }],
+      taskHistory: {
+        "2026-04-20": { walk: true },
+        "2026-04-21": { walk: true },
+      },
+      diary: [{ id: "memory-1", title: "Sunny porch", body: "", date: "2026-04-28" }],
+      care: [{ id: "weight-1", type: "Weight", title: "36 kg", date: "2026-04-25", note: "", weightValue: "36", weightUnit: "kg" }],
+      reminders: [{ id: "future", title: "Vet", type: "Vet", date: "2026-06-01", time: "09:00", note: "", recurrence: "none" }],
+      cloudSyncMeta: { lastUploadedAt: "2026-04-28T12:00:00.000Z" },
+    });
+
+    const prompt = buildPawPalPlannerPrompt(calm, new Date("2026-04-22T12:00:00"));
+    expect(prompt.id).toContain("pawpal-prompt");
+    expect(prompt.action.type).toBeTruthy();
+  });
+
+  it("keeps planner prompts from duplicating an already-open PawPal thread", () => {
+    const state = normalizeState({
+      tasks: [{ id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" }],
+      taskHistory: {
+        "2026-04-18": { walk: true },
+        "2026-04-19": { walk: true },
+      },
+      diary: [{ id: "memory-1", title: "Park", body: "", date: "2026-04-20" }],
+      care: [],
+      reminders: [{ id: "future", title: "Grooming", type: "Grooming", date: "2026-05-20", time: "11:00", note: "", recurrence: "none" }],
+      cloudSyncMeta: { lastUploadedAt: "2026-04-27T10:00:00.000Z" },
+    });
+
+    expect(buildPawPalFeed(state, new Date("2026-04-29T12:00:00")).map((thread) => thread.id)).toContain("pawpal-thread-upcoming-reminders");
+    expect(buildPawPalPlannerPrompt(state, new Date("2026-04-29T12:00:00")).id).not.toBe("pawpal-prompt-plan");
   });
 
   it("estimates data URL size and catches localStorage save failures", () => {
