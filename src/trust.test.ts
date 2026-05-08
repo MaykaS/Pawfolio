@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatCalendarSyncSummary,
   notificationsSheetMessage,
   restoreStatusDetail,
   restoreSummaryLabel,
   trustDetailsMessage,
+  googleCalendarStatusDetail,
 } from "./trust";
 import type { RestoreSummary } from "./hooks/useCloudAccount";
 
@@ -56,5 +58,18 @@ describe("trust copy helpers", () => {
         restoreState: "empty",
       }),
     ).toContain("No cloud backup");
+  });
+
+  it("shows concrete Google Calendar sync results", () => {
+    expect(formatCalendarSyncSummary({ created: 2, updated: 1, deleted: 0 })).toBe("2 created, 1 updated, 0 removed.");
+    expect(
+      googleCalendarStatusDetail({
+        status: "connected",
+        enabled: true,
+        signedIn: true,
+        lastSyncAt: "2026-05-08T14:00:00.000Z",
+        lastSyncSummary: { created: 2, updated: 1, deleted: 0 },
+      }),
+    ).toContain("2 created, 1 updated, 0 removed.");
   });
 });

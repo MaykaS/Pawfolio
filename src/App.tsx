@@ -2932,6 +2932,7 @@ function ProfileScreen({
           enabled: notificationPreferences.googleCalendar || googleCalendarSyncState.connected,
           signedIn: Boolean(session),
           lastSyncAt: googleCalendarSyncState.lastSyncAt,
+          lastSyncSummary: googleCalendarSyncState.lastSyncSummary,
         })}
         cloudStatus={cloudStatus}
         accountDisabled={!isCloudConfigured}

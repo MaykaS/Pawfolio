@@ -174,7 +174,7 @@ export async function syncGoogleCalendar(session: Session) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Could not sync Google Calendar.");
-  return payload as { ok: true; synced: number; deleted: number; lastSyncAt?: string };
+  return payload as { ok: true; synced: number; created: number; updated: number; deleted: number; lastSyncAt?: string };
 }
 
 function urlBase64ToUint8Array(value: string) {

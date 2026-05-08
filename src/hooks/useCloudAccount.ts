@@ -369,6 +369,11 @@ export function useCloudAccount({
                   ...current.googleCalendarSyncState,
                   connected: true,
                   lastSyncAt: result.lastSyncAt || new Date().toISOString(),
+                  lastSyncSummary: {
+                    created: result.created,
+                    updated: result.updated,
+                    deleted: result.deleted,
+                  },
                 },
               }));
             }).catch(() => {
@@ -431,6 +436,11 @@ export function useCloudAccount({
               ...current.googleCalendarSyncState,
               connected: true,
               lastSyncAt: result.lastSyncAt || new Date().toISOString(),
+              lastSyncSummary: {
+                created: result.created,
+                updated: result.updated,
+                deleted: result.deleted,
+              },
             },
           }));
         }
@@ -571,9 +581,14 @@ export function useCloudAccount({
             ...current.googleCalendarSyncState,
             connected: true,
             lastSyncAt: result.lastSyncAt || new Date().toISOString(),
+            lastSyncSummary: {
+              created: result.created,
+              updated: result.updated,
+              deleted: result.deleted,
+            },
           },
         }));
-        setCloudStatus("Google Calendar is up to date.");
+        setCloudStatus(`Google Calendar synced: ${result.created} created, ${result.updated} updated, ${result.deleted} removed.`);
       })
       .catch((error: Error) => {
         setCalendarState("sync_error");

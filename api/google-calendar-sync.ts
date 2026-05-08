@@ -53,6 +53,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
   const linksByLocalId = new Map((links || []).map((link: CalendarEventLink) => [`${link.local_item_type}:${link.local_item_id}`, link]));
   const activeKeys = new Set<string>();
   let synced = 0;
+  let createdCount = 0;
+  let updatedCount = 0;
 
   for (const reminder of reminders) {
     const body = {
@@ -82,6 +84,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
         last_synced_at: new Date().toISOString(),
       });
       synced += 1;
+      createdCount += 1;
       continue;
     }
 
@@ -102,6 +105,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
         })
         .eq("id", link.id);
       synced += 1;
+      updatedCount += 1;
     }
   }
 
@@ -132,5 +136,12 @@ export default async function handler(request: VercelRequest, response: VercelRe
     .eq("user_id", user.id)
     .eq("provider", "google_calendar");
 
-  return sendJson(response, 200, { ok: true, synced, deleted, lastSyncAt });
+  return sendJson(response, 200, {
+    ok: true,
+    synced,
+    created: createdCount,
+    updated: updatedCount,
+    deleted,
+    lastSyncAt,
+  });
 }

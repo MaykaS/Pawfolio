@@ -198,6 +198,11 @@ export type GoogleCalendarSyncState = {
   connected: boolean;
   calendarId?: string;
   lastSyncAt?: string;
+  lastSyncSummary?: {
+    created: number;
+    updated: number;
+    deleted: number;
+  };
 };
 
 export type RoutineCoachSettings = {

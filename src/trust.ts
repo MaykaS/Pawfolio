@@ -26,21 +26,37 @@ export function googleCalendarStatusDetail({
   enabled,
   signedIn,
   lastSyncAt,
+  lastSyncSummary,
 }: {
   status: TrustState["calendar"];
   enabled: boolean;
   signedIn: boolean;
   lastSyncAt?: string;
+  lastSyncSummary?: {
+    created: number;
+    updated: number;
+    deleted: number;
+  };
 }) {
   if (!signedIn) return "Sign in to connect Google Calendar.";
   if (status === "sync_error") return "Calendar setup needs attention. Open Account details for the exact fix.";
   if (status === "connected") {
+    const summary = formatCalendarSyncSummary(lastSyncSummary);
     return lastSyncAt
-      ? `Last synced ${prettySyncTime(lastSyncAt)}.`
+      ? `Last synced ${prettySyncTime(lastSyncAt)}.${summary ? ` ${summary}` : ""}`
       : "Connected and ready to sync.";
   }
   if (enabled) return "Connect Google Calendar for one-way reminder sync.";
   return "Off";
+}
+
+export function formatCalendarSyncSummary(summary?: {
+  created: number;
+  updated: number;
+  deleted: number;
+}) {
+  if (!summary) return "";
+  return `${summary.created} created, ${summary.updated} updated, ${summary.deleted} removed.`;
 }
 
 export function cloudSyncStatusLabel(signedIn: boolean, enabled: boolean) {
