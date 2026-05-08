@@ -107,6 +107,12 @@ export type WellnessSummary = {
   detail: string;
 };
 
+export type TodayTaskGroups = {
+  overdue: DailyTask[];
+  dueLater: DailyTask[];
+  completed: DailyTask[];
+};
+
 export type ProofModeSectionId = "vaccines" | "vet" | "medications";
 
 export type ProofModeItem = {
@@ -745,6 +751,22 @@ export function compareTasksByTime(a: DailyTask, b: DailyTask) {
 
 export function sortTasksByTime(tasks: DailyTask[]) {
   return [...tasks].sort(compareTasksByTime);
+}
+
+export function groupTodayTasks(tasks: DailyTask[], now = new Date()): TodayTaskGroups {
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const completed = tasks.filter((task) => task.done);
+  const overdue = tasks.filter((task) => {
+    if (task.done) return false;
+    const minutes = parseTaskTimeMinutes(task.time);
+    return typeof minutes === "number" && minutes < currentMinutes;
+  });
+  const dueLater = tasks.filter((task) => !task.done && !overdue.some((overdueTask) => overdueTask.id === task.id));
+  return {
+    overdue,
+    dueLater,
+    completed,
+  };
 }
 
 export function withReminderRecurrence(

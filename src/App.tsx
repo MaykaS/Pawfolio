@@ -81,6 +81,7 @@ import {
   getUpcomingReminder,
   getUpcomingReminders,
   getUpcomingCalendarItems,
+  groupTodayTasks,
   healthDocTitleFromFileName,
   healthDocsForCareRecord,
   initialState,
@@ -1219,6 +1220,7 @@ function TodayScreen({
   onDismissCoach: (id: string) => void;
 }) {
   const careMoments = getCareMoments(tasks);
+  const taskGroups = useMemo(() => groupTodayTasks(tasks), [tasks]);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
 
   return (
@@ -1313,9 +1315,84 @@ function TodayScreen({
           <span>{upcomingReminder.title} {upcomingReminder.time || ""}</span>
         )}
       </div>
+      {taskGroups.overdue.length > 0 && (
+        <TaskSection
+          label="Overdue"
+          tasks={taskGroups.overdue}
+          tone="overdue"
+          openNoteId={openNoteId}
+          onToggleTask={onToggleTask}
+          onTaskNote={onTaskNote}
+          onEditTask={onEditTask}
+          onDeleteTask={onDeleteTask}
+          onToggleNote={setOpenNoteId}
+        />
+      )}
+      {taskGroups.dueLater.length > 0 && (
+        <TaskSection
+          label="Due later"
+          tasks={taskGroups.dueLater}
+          tone="due"
+          openNoteId={openNoteId}
+          onToggleTask={onToggleTask}
+          onTaskNote={onTaskNote}
+          onEditTask={onEditTask}
+          onDeleteTask={onDeleteTask}
+          onToggleNote={setOpenNoteId}
+        />
+      )}
+      {taskGroups.completed.length > 0 && (
+        <TaskSection
+          label="Completed"
+          tasks={taskGroups.completed}
+          tone="complete"
+          openNoteId={openNoteId}
+          onToggleTask={onToggleTask}
+          onTaskNote={onTaskNote}
+          onEditTask={onEditTask}
+          onDeleteTask={onDeleteTask}
+          onToggleNote={setOpenNoteId}
+        />
+      )}
+      {taskGroups.completed.length === tasks.length && tasks.length > 0 && (
+        <section className="today-status-card">
+          <p className="label no-margin">Handled for today</p>
+          <p>The routine is in a good place. A quick memory or note is probably all that is left.</p>
+        </section>
+      )}
+    </section>
+  );
+}
 
+function TaskSection({
+  label,
+  tasks,
+  tone,
+  openNoteId,
+  onToggleTask,
+  onTaskNote,
+  onEditTask,
+  onDeleteTask,
+  onToggleNote,
+}: {
+  label: string;
+  tasks: DailyTask[];
+  tone: "overdue" | "due" | "complete";
+  openNoteId: string | null;
+  onToggleTask: (id: string) => void;
+  onTaskNote: (id: string, note: string) => void;
+  onEditTask: (task: DailyTask) => void;
+  onDeleteTask: (id: string) => void;
+  onToggleNote: (id: string | null) => void;
+}) {
+  return (
+    <section className="today-task-section">
+      <div className="label-row">
+        <p className="label no-margin">{label}</p>
+        <span>{tasks.length}</span>
+      </div>
       {tasks.map((task) => (
-        <article className="task-item" key={task.id}>
+        <article className={`task-item task-item-${tone}`} key={task.id}>
           <div className="task-main-row">
             <button
               className={task.done ? "task-check done" : "task-check"}
@@ -1336,7 +1413,7 @@ function TodayScreen({
                 className={task.note ? "tiny-btn note-active" : "tiny-btn"}
                 type="button"
                 aria-label={task.note ? `Edit note for ${task.title}` : `Add note for ${task.title}`}
-                onClick={() => setOpenNoteId(openNoteId === task.id ? null : task.id)}
+                onClick={() => onToggleNote(openNoteId === task.id ? null : task.id)}
               >
                 <NotebookPen size={14} />
               </button>

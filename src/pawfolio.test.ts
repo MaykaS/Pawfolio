@@ -34,6 +34,7 @@ import {
   getUpcomingReminder,
   getUpcomingReminders,
   getUpcomingCalendarItems,
+  groupTodayTasks,
   healthDocsForCareRecord,
   initialState,
   isStoredPhotoRef,
@@ -205,6 +206,21 @@ describe("pawfolio helpers", () => {
 
     expect(tasksForDate(tasks, history, "2026-04-22")[0].done).toBe(true);
     expect(tasksForDate(tasks, history, "2026-04-23")[0].done).toBe(false);
+  });
+
+  it("groups today tasks into overdue, due later, and completed buckets", () => {
+    const tasks: DailyTask[] = [
+      { id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" },
+      { id: "dinner", title: "Dinner", time: "18:00", done: false, note: "" },
+      { id: "brush", title: "Brush", time: "Anytime", done: false, note: "" },
+      { id: "med", title: "Medication", time: "09:00", done: true, note: "" },
+    ];
+
+    const grouped = groupTodayTasks(tasks, new Date("2026-05-08T12:00:00"));
+
+    expect(grouped.overdue.map((task) => task.id)).toEqual(["walk"]);
+    expect(grouped.dueLater.map((task) => task.id)).toEqual(["dinner", "brush"]);
+    expect(grouped.completed.map((task) => task.id)).toEqual(["med"]);
   });
 
   it("migrates older tasks to an every-day schedule", () => {
