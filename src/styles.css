@@ -1170,6 +1170,42 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   text-transform: uppercase;
 }
 
+.care-quick-add-card {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.care-quick-add-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.care-quick-add-btn {
+  align-items: center;
+  background: rgba(248, 226, 216, 0.35);
+  border: 1px solid rgba(218, 191, 177, 0.4);
+  border-radius: 12px;
+  color: var(--text);
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  min-height: 66px;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.care-quick-add-btn span {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.care-quick-upload input {
+  display: none;
+}
+
 .health-docs-panel {
   display: grid;
   gap: 8px;

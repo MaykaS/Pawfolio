@@ -18,6 +18,7 @@ import {
   Pill,
   Plus,
   Sparkles,
+  Syringe,
   Trash2,
   UserRound,
   X,
@@ -694,6 +695,8 @@ export default function App() {
           tasks={state.tasks}
           reminders={calendarItems}
           onOpenCare={() => setCareMode({ mode: "create" })}
+          onQuickAddCare={(type) => setCareMode({ mode: "create", presetType: type })}
+          onQuickAddReminder={() => setReminderMode({ mode: "create", draft: { type: "Vet" } })}
           onEdit={(record) => setCareMode({ mode: "edit", record })}
           onDelete={(id) =>
             setState((current) => deleteCareItemFromState(current, id))
@@ -1570,6 +1573,8 @@ function CareScreen({
   tasks,
   reminders,
   onOpenCare,
+  onQuickAddCare,
+  onQuickAddReminder,
   onEdit,
   onDelete,
   onUploadDocs,
@@ -1589,6 +1594,8 @@ function CareScreen({
   tasks: DailyTask[];
   reminders: Reminder[];
   onOpenCare: () => void;
+  onQuickAddCare: (type: CareRecord["type"]) => void;
+  onQuickAddReminder: () => void;
   onEdit: (record: CareRecord) => void;
   onDelete: (id: string) => void;
   onUploadDocs: (files: File[], options?: { linkedCareRecordId?: string; category?: HealthDocCategory }) => Promise<HealthDoc[]>;
@@ -1651,6 +1658,47 @@ function CareScreen({
           </button>
         ))}
       </div>
+      <section className="card care-quick-add-card">
+        <p className="label no-margin">Quick add</p>
+        <div className="care-quick-add-grid">
+          <button className="care-quick-add-btn" type="button" onClick={() => onQuickAddCare("Vaccine")}>
+            <Syringe size={16} />
+            <span>Vaccine</span>
+          </button>
+          <button className="care-quick-add-btn" type="button" onClick={() => onQuickAddCare("Vet visit")}>
+            <HeartPulse size={16} />
+            <span>Vet</span>
+          </button>
+          <button className="care-quick-add-btn" type="button" onClick={() => onQuickAddCare("Weight")}>
+            <Heart size={16} />
+            <span>Weight</span>
+          </button>
+          <button className="care-quick-add-btn" type="button" onClick={() => onQuickAddCare("Medication")}>
+            <Pill size={16} />
+            <span>Meds</span>
+          </button>
+          <label className="care-quick-add-btn care-quick-upload">
+            <NotebookPen size={16} />
+            <span>Doc</span>
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              onChange={(event) => {
+                const files = [...(event.target.files || [])];
+                if (files.length) {
+                  void onUploadDocs(files, { category: "Other" }).then(() => setActiveCareTab("Docs"));
+                }
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+          <button className="care-quick-add-btn" type="button" onClick={onQuickAddReminder}>
+            <CalendarDays size={16} />
+            <span>Reminder</span>
+          </button>
+        </div>
+      </section>
       <CareHistoryPanel
         activeTab={activeCareTab}
         records={filteredRecords}

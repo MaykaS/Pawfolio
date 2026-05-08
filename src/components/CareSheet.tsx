@@ -16,7 +16,7 @@ import {
 } from "../pawfolio";
 import { Field, Sheet } from "./Sheet";
 
-export type CareSheetMode = { mode: "create" } | { mode: "edit"; record: CareRecord };
+export type CareSheetMode = { mode: "create"; presetType?: CareRecord["type"] } | { mode: "edit"; record: CareRecord };
 
 export function CareSheet({
   mode,
@@ -37,8 +37,9 @@ export function CareSheet({
 }) {
   const existing = mode.mode === "edit" ? mode.record : undefined;
   const normalizedExisting = existing ? normalizeMedicationFrequency(normalizeMedicationDose(existing)) : undefined;
+  const presetType = mode.mode === "create" ? mode.presetType : undefined;
   const [record, setRecord] = useState({
-    type: normalizedExisting?.type || "Weight",
+    type: normalizedExisting?.type || presetType || "Weight",
     title: normalizedExisting?.title || "",
     date: normalizedExisting?.date || todayISO(),
     startDate: normalizedExisting?.startDate || "",
@@ -89,7 +90,16 @@ export function CareSheet({
   };
 
   return (
-    <Sheet title={mode.mode === "edit" ? "Edit care record" : "Add care record"} onClose={onClose}>
+    <Sheet
+      title={
+        mode.mode === "edit"
+          ? "Edit care record"
+          : presetType
+            ? `Add ${presetType.toLowerCase()}`
+            : "Add care record"
+      }
+      onClose={onClose}
+    >
       <form
         onSubmit={(event) => {
           event.preventDefault();
