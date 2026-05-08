@@ -1175,6 +1175,78 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   gap: 8px;
 }
 
+.proof-mode-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.proof-mode-intro,
+.proof-mode-section {
+  display: grid;
+  gap: 10px;
+}
+
+.proof-mode-intro h2 {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.proof-mode-intro p:last-child,
+.proof-mode-section-head p:last-child,
+.proof-mode-empty {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.proof-mode-section-head {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.proof-mode-list {
+  display: grid;
+  gap: 8px;
+}
+
+.proof-mode-item {
+  align-items: flex-start;
+  background: rgba(248, 226, 216, 0.35);
+  border-radius: 12px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 11px 12px;
+}
+
+.proof-mode-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.proof-mode-copy h3 {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.proof-mode-copy p {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.proof-mode-actions {
+  align-items: center;
+  margin-top: 0;
+}
+
 .health-docs-toolbar {
   display: grid;
   gap: 8px;

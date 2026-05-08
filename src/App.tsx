@@ -53,6 +53,7 @@ import {
   buildPawPalFeed,
   buildPawPalDigest,
   buildPawPalPlannerPrompt,
+  buildProofModeSections,
   buildTodayAttentionItems,
   canUseBrowserNotifications,
   careRecordDocCategory,
@@ -152,6 +153,8 @@ import {
   type PawPalDigest,
   type PawPalPlannerPrompt,
   type PawPalThread,
+  type ProofModeItem,
+  type ProofModeSection,
   type WellnessSummary,
 } from "./pawfolio";
 import { useCloudAccount, type CloudActionState, type TrustState } from "./hooks/useCloudAccount";
@@ -1582,6 +1585,7 @@ function CareScreen({
     { label: "Vaccines", types: ["Vaccine"] },
     { label: "Vet visits", types: ["Vet visit", "Allergy", "Health note"] },
     { label: "Weight", types: ["Weight"] },
+    { label: "Proof", types: [] as string[] },
     { label: "Docs", types: [] as string[] },
   ];
   const [activeCareTab, setActiveCareTab] = useState(careTabs[0].label);
@@ -1600,6 +1604,7 @@ function CareScreen({
     .filter((record) => record.type === "Medication")
     .map((record) => medicationPlanStatus(record));
   const coachInsights = routineCoachInsights(tasks, taskHistory, reminders, records);
+  const proofSections = useMemo(() => buildProofModeSections(records, healthDocs), [records, healthDocs]);
 
   return (
     <section className="screen">
@@ -1633,7 +1638,17 @@ function CareScreen({
         medicationStatuses={medicationStatuses}
         insights={coachInsights}
       />
-      {activeCareTab === "Docs" ? (
+      {activeCareTab === "Proof" ? (
+        <ProofModePanel
+          sections={proofSections}
+          onOpenRecord={(recordId) => {
+            const record = records.find((item) => item.id === recordId);
+            if (record) setSelectedRecord(record);
+          }}
+          onOpenDoc={onOpenDoc}
+          onDownloadDoc={onDownloadDoc}
+        />
+      ) : activeCareTab === "Docs" ? (
         <HealthDocsPanel
           docs={healthDocs}
           records={records}
@@ -1779,13 +1794,109 @@ function CareHistoryPanel({
     );
   }
 
-  if (activeTab === "Docs") return null;
+  if (activeTab === "Docs" || activeTab === "Proof") return null;
 
   return (
     <section className="care-history card">
       <p className="label no-margin">Routine Coach</p>
       <p>{insights[0]}</p>
     </section>
+  );
+}
+
+function ProofModePanel({
+  sections,
+  onOpenRecord,
+  onOpenDoc,
+  onDownloadDoc,
+}: {
+  sections: ProofModeSection[];
+  onOpenRecord: (recordId: string) => void;
+  onOpenDoc: (assetRef: string) => Promise<void>;
+  onDownloadDoc: (assetRef: string, fileName: string) => Promise<void>;
+}) {
+  const totalReady = sections.reduce((sum, section) => (
+    sum + section.items.filter((item) => Boolean(item.assetRef)).length
+  ), 0);
+
+  return (
+    <section className="proof-mode-panel">
+      <section className="card proof-mode-intro">
+        <div>
+          <p className="label no-margin">Proof mode</p>
+          <h2>{totalReady ? `${totalReady} docs ready fast` : "Build a faster proof trail"}</h2>
+        </div>
+        <p>
+          Open the paperwork people usually ask for first, then jump back to the source record if you need the full story.
+        </p>
+      </section>
+      {sections.map((section) => (
+        <section className="card proof-mode-section" key={section.id}>
+          <div className="proof-mode-section-head">
+            <div>
+              <p className="label no-margin">{section.title}</p>
+              <p>{section.description}</p>
+            </div>
+            <span className={section.items.length ? "badge badge-green" : "badge badge-gray"}>{section.items.length}</span>
+          </div>
+          {section.items.length === 0 ? (
+            <p className="proof-mode-empty">Nothing saved here yet.</p>
+          ) : (
+            <div className="proof-mode-list">
+              {section.items.map((item) => (
+                <ProofModeItemCard
+                  item={item}
+                  key={item.id}
+                  onOpenRecord={onOpenRecord}
+                  onOpenDoc={onOpenDoc}
+                  onDownloadDoc={onDownloadDoc}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      ))}
+    </section>
+  );
+}
+
+function ProofModeItemCard({
+  item,
+  onOpenRecord,
+  onOpenDoc,
+  onDownloadDoc,
+}: {
+  item: ProofModeItem;
+  onOpenRecord: (recordId: string) => void;
+  onOpenDoc: (assetRef: string) => Promise<void>;
+  onDownloadDoc: (assetRef: string, fileName: string) => Promise<void>;
+}) {
+  return (
+    <article className="proof-mode-item">
+      <div className="proof-mode-copy">
+        <div className="badge-row">
+          <span className={badgeClassForTone(item.statusTone)}>{item.statusLabel}</span>
+        </div>
+        <h3>{item.title}</h3>
+        <p>{item.meta}</p>
+        <p className="care-support">{item.support}</p>
+      </div>
+      <div className="health-doc-actions proof-mode-actions">
+        {item.assetRef && item.fileName ? (
+          <>
+            <button className="tiny-btn" type="button" title="View doc" onClick={() => void onOpenDoc(item.assetRef!)}>
+              <Eye size={14} />
+            </button>
+            <button className="tiny-btn" type="button" title="Download doc" onClick={() => void onDownloadDoc(item.assetRef!, item.fileName!)}>
+              <Download size={14} />
+            </button>
+          </>
+        ) : null}
+        <button className="tiny-btn" type="button" title="Open record" onClick={() => onOpenRecord(item.recordId)}>
+          <Link2 size={14} />
+        </button>
+      </div>
+    </article>
   );
 }
 
