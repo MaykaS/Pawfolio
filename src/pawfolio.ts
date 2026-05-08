@@ -1747,8 +1747,6 @@ export function medicationPlanSummary(record: CareRecord) {
 
 export function medicationPlanSupportDetail(record: CareRecord) {
   const parts: string[] = [];
-  if (record.refillDate) parts.push(`Refill ${prettyDate(record.refillDate)}`);
-  if (record.nextDueDate) parts.push(`Next ${prettyDate(record.nextDueDate)}`);
   if (record.adherenceNotes) parts.push(record.adherenceNotes);
   if (record.note) parts.push(record.note);
   return parts.join(" - ");
@@ -1758,46 +1756,46 @@ export function careRecordProofStatus(record: CareRecord, docs: HealthDoc[]) {
   const attached = healthDocsForCareRecord(docs, record.id);
   if (record.type === "Vaccine") {
     return attached.length
-      ? { label: attached.length === 1 ? "Certificate attached" : `${attached.length} certificates attached`, tone: "green" as const }
-      : { label: "No certificate saved", tone: "amber" as const };
+      ? { label: attached.length === 1 ? "Certificate" : `${attached.length} docs`, tone: "green" as const }
+      : { label: "No certificate", tone: "amber" as const };
   }
   if (record.type === "Vet visit") {
     return attached.length
-      ? { label: attached.length === 1 ? "Visit summary attached" : `${attached.length} visit docs attached`, tone: "green" as const }
-      : { label: "No visit summary attached", tone: "amber" as const };
+      ? { label: attached.length === 1 ? "Summary" : `${attached.length} docs`, tone: "green" as const }
+      : { label: "No summary", tone: "amber" as const };
   }
   if (record.type === "Medication") {
     return attached.length
-      ? { label: attached.length === 1 ? "Document attached" : `${attached.length} documents attached`, tone: "green" as const }
-      : { label: "No document saved", tone: "gray" as const };
+      ? { label: attached.length === 1 ? "Document" : `${attached.length} docs`, tone: "green" as const }
+      : { label: "No documents", tone: "gray" as const };
   }
   return attached.length
-    ? { label: attached.length === 1 ? "Document attached" : `${attached.length} documents attached`, tone: "green" as const }
-    : { label: "No document saved", tone: "gray" as const };
+    ? { label: attached.length === 1 ? "Document" : `${attached.length} docs`, tone: "green" as const }
+    : { label: "No documents", tone: "gray" as const };
 }
 
 export function careRecordNextStepStatus(record: CareRecord) {
   if (record.type === "Vaccine") {
     return record.nextDueDate
-      ? { label: `Next due ${prettyDate(record.nextDueDate)}`, tone: "green" as const }
-      : { label: "Next due missing", tone: "amber" as const };
+      ? { label: `Due ${prettyDate(record.nextDueDate)}`, tone: "green" as const }
+      : { label: "No next date", tone: "amber" as const };
   }
   if (record.type === "Vet visit") {
     return record.nextDueDate
-      ? { label: `Follow-up due ${prettyDate(record.nextDueDate)}`, tone: "green" as const }
-      : { label: "No follow-up saved", tone: "amber" as const };
+      ? { label: `Follow-up ${prettyDate(record.nextDueDate)}`, tone: "green" as const }
+      : { label: "No follow-up", tone: "amber" as const };
   }
   if (record.type === "Medication") {
     if (record.nextDueDate) return { label: `Next ${prettyDate(record.nextDueDate)}`, tone: "green" as const };
     if (record.refillDate) return { label: `Refill ${prettyDate(record.refillDate)}`, tone: "green" as const };
     const status = medicationPlanStatus(record);
     if (status === "Ended") return { label: "Plan ended", tone: "gray" as const };
-    if (status === "Needs review") return { label: "Plan details need review", tone: "amber" as const };
-    return { label: "No next step saved", tone: "amber" as const };
+    if (status === "Needs review") return { label: "Needs review", tone: "amber" as const };
+    return { label: "No next step", tone: "amber" as const };
   }
   return record.nextDueDate
     ? { label: `Next ${prettyDate(record.nextDueDate)}`, tone: "green" as const }
-    : { label: "No next step saved", tone: "gray" as const };
+    : { label: "No next step", tone: "gray" as const };
 }
 
 export function hasCareRecordProofGap(record: CareRecord, docs: HealthDoc[]) {

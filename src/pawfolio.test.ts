@@ -34,7 +34,6 @@ import {
   getUpcomingReminder,
   getUpcomingReminders,
   getUpcomingCalendarItems,
-  groupTodayTasks,
   healthDocsForCareRecord,
   initialState,
   isStoredPhotoRef,
@@ -206,21 +205,6 @@ describe("pawfolio helpers", () => {
 
     expect(tasksForDate(tasks, history, "2026-04-22")[0].done).toBe(true);
     expect(tasksForDate(tasks, history, "2026-04-23")[0].done).toBe(false);
-  });
-
-  it("groups today tasks into overdue, due later, and completed buckets", () => {
-    const tasks: DailyTask[] = [
-      { id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" },
-      { id: "dinner", title: "Dinner", time: "18:00", done: false, note: "" },
-      { id: "brush", title: "Brush", time: "Anytime", done: false, note: "" },
-      { id: "med", title: "Medication", time: "09:00", done: true, note: "" },
-    ];
-
-    const grouped = groupTodayTasks(tasks, new Date("2026-05-08T12:00:00"));
-
-    expect(grouped.overdue.map((task) => task.id)).toEqual(["walk"]);
-    expect(grouped.dueLater.map((task) => task.id)).toEqual(["dinner", "brush"]);
-    expect(grouped.completed.map((task) => task.id)).toEqual(["med"]);
   });
 
   it("migrates older tasks to an every-day schedule", () => {
@@ -623,8 +607,8 @@ describe("pawfolio helpers", () => {
 
     expect(medicationPlanDateSummary(record)).toContain("Apr 1");
     expect(medicationPlanSummary(record)).toContain("Every month");
-    expect(medicationPlanSupportDetail(record)).toContain("Refill");
     expect(medicationPlanSupportDetail(record)).toContain("Give with breakfast.");
+    expect(medicationPlanSupportDetail(record)).toContain("Watch appetite.");
   });
 
   it("normalizes shared care and calendar records into one care event", () => {
@@ -1195,11 +1179,11 @@ describe("pawfolio helpers", () => {
     const linked = linkHealthDocsToCareRecord(docs, ["doc-1"], record);
     expect(healthDocsForCareRecord(linked, "rabies-1")).toHaveLength(1);
     expect(careRecordProofStatus(record, linked)).toEqual({
-      label: "Certificate attached",
+      label: "Certificate",
       tone: "green",
     });
     expect(careRecordNextStepStatus(record)).toEqual({
-      label: "Next due Jul 23",
+      label: "Due Jul 23",
       tone: "green",
     });
   });
@@ -1288,7 +1272,7 @@ describe("pawfolio helpers", () => {
       statusLabel: "Certificate ready",
       docId: "doc-rabies",
     });
-    expect(sections[0].items.some((item) => item.title === "Lyme" && item.statusLabel === "No certificate saved")).toBe(true);
+    expect(sections[0].items.some((item) => item.title === "Lyme" && item.statusLabel === "No certificate")).toBe(true);
     expect(sections[1].items[0]).toMatchObject({
       title: "Spring checkup",
       statusLabel: "Visit summary ready",
@@ -1296,7 +1280,7 @@ describe("pawfolio helpers", () => {
     });
     expect(sections[2].items[0]).toMatchObject({
       title: "Simplicity trio",
-      statusLabel: "No document saved",
+      statusLabel: "No documents",
     });
   });
 

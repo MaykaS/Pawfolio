@@ -248,7 +248,9 @@ export function CareSheet({
                 <input className="input" type="date" value={record.refillDate} onChange={(event) => update("refillDate", event.target.value)} />
               </Field>
               <Field label="Reminder">
-                {renderLeadChips(record.notifyLeadMinutes, (value) => setRecord((current) => ({ ...current, notifyLeadMinutes: value })))}
+                <div className="reminder-lead-inline">
+                  {renderLeadChips(record.notifyLeadMinutes, (value) => setRecord((current) => ({ ...current, notifyLeadMinutes: value })))}
+                </div>
               </Field>
             </div>
             <Field label="Missed dose / reaction notes">
@@ -287,14 +289,18 @@ export function CareSheet({
                 <input className="input" type="date" value={record.nextDueDate} onChange={(event) => update("nextDueDate", event.target.value)} />
               </Field>
               <Field label="Reminder">
-                {renderLeadChips(record.notifyLeadMinutes, (value) => setRecord((current) => ({ ...current, notifyLeadMinutes: value })))}
+                <div className="reminder-lead-inline">
+                  {renderLeadChips(record.notifyLeadMinutes, (value) => setRecord((current) => ({ ...current, notifyLeadMinutes: value })))}
+                </div>
               </Field>
             </div>
           </>
         )}
         {record.type === "Medication" || record.type === "Vet visit" ? null : isSharedCareType(record.type) && (
           <Field label="Reminder">
-            {renderLeadChips(record.notifyLeadMinutes, (value) => setRecord((current) => ({ ...current, notifyLeadMinutes: value })))}
+            <div className="reminder-lead-inline">
+              {renderLeadChips(record.notifyLeadMinutes, (value) => setRecord((current) => ({ ...current, notifyLeadMinutes: value })))}
+            </div>
           </Field>
         )}
         {supportsDocs && (
@@ -314,7 +320,7 @@ export function CareSheet({
               </div>
             ) : (
               <p className="settings-note">
-                Save certificates, visit summaries, or medication paperwork so the proof stays with the record.
+                Keep proof with this record.
               </p>
             )}
           </Field>

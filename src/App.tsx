@@ -81,14 +81,12 @@ import {
   getUpcomingReminder,
   getUpcomingReminders,
   getUpcomingCalendarItems,
-  groupTodayTasks,
   healthDocTitleFromFileName,
   healthDocsForCareRecord,
   initialState,
   isStoredPhotoRef,
   linkHealthDocsToCareRecord,
   limitDiaryPhotos,
-  medicationConsistency,
   medicationPlanStatus,
   medicationPlanSupportDetail,
   normalizeState,
@@ -1220,7 +1218,6 @@ function TodayScreen({
   onDismissCoach: (id: string) => void;
 }) {
   const careMoments = getCareMoments(tasks);
-  const taskGroups = useMemo(() => groupTodayTasks(tasks), [tasks]);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
 
   return (
@@ -1315,84 +1312,8 @@ function TodayScreen({
           <span>{upcomingReminder.title} {upcomingReminder.time || ""}</span>
         )}
       </div>
-      {taskGroups.overdue.length > 0 && (
-        <TaskSection
-          label="Overdue"
-          tasks={taskGroups.overdue}
-          tone="overdue"
-          openNoteId={openNoteId}
-          onToggleTask={onToggleTask}
-          onTaskNote={onTaskNote}
-          onEditTask={onEditTask}
-          onDeleteTask={onDeleteTask}
-          onToggleNote={setOpenNoteId}
-        />
-      )}
-      {taskGroups.dueLater.length > 0 && (
-        <TaskSection
-          label="Due later"
-          tasks={taskGroups.dueLater}
-          tone="due"
-          openNoteId={openNoteId}
-          onToggleTask={onToggleTask}
-          onTaskNote={onTaskNote}
-          onEditTask={onEditTask}
-          onDeleteTask={onDeleteTask}
-          onToggleNote={setOpenNoteId}
-        />
-      )}
-      {taskGroups.completed.length > 0 && (
-        <TaskSection
-          label="Completed"
-          tasks={taskGroups.completed}
-          tone="complete"
-          openNoteId={openNoteId}
-          onToggleTask={onToggleTask}
-          onTaskNote={onTaskNote}
-          onEditTask={onEditTask}
-          onDeleteTask={onDeleteTask}
-          onToggleNote={setOpenNoteId}
-        />
-      )}
-      {taskGroups.completed.length === tasks.length && tasks.length > 0 && (
-        <section className="today-status-card">
-          <p className="label no-margin">Handled for today</p>
-          <p>The routine is in a good place. A quick memory or note is probably all that is left.</p>
-        </section>
-      )}
-    </section>
-  );
-}
-
-function TaskSection({
-  label,
-  tasks,
-  tone,
-  openNoteId,
-  onToggleTask,
-  onTaskNote,
-  onEditTask,
-  onDeleteTask,
-  onToggleNote,
-}: {
-  label: string;
-  tasks: DailyTask[];
-  tone: "overdue" | "due" | "complete";
-  openNoteId: string | null;
-  onToggleTask: (id: string) => void;
-  onTaskNote: (id: string, note: string) => void;
-  onEditTask: (task: DailyTask) => void;
-  onDeleteTask: (id: string) => void;
-  onToggleNote: (id: string | null) => void;
-}) {
-  return (
-    <section className="today-task-section">
-      <div className="label-row">
-        <p className="label no-margin">{label}</p>
-        <span>{tasks.length}</span>
-      </div>
       {tasks.map((task) => (
-        <article className={`task-item task-item-${tone}`} key={task.id}>
+        <article className="task-item" key={task.id}>
           <div className="task-main-row">
             <button
               className={task.done ? "task-check done" : "task-check"}
@@ -1413,7 +1334,7 @@ function TaskSection({
                 className={task.note ? "tiny-btn note-active" : "tiny-btn"}
                 type="button"
                 aria-label={task.note ? `Edit note for ${task.title}` : `Add note for ${task.title}`}
-                onClick={() => onToggleNote(openNoteId === task.id ? null : task.id)}
+                onClick={() => setOpenNoteId(openNoteId === task.id ? null : task.id)}
               >
                 <NotebookPen size={14} />
               </button>
@@ -1703,11 +1624,7 @@ function CareScreen({
   const filteredRecords = records.filter((record) => activeTypes.includes(record.type));
   const empty = careEmptyState(activeCareTab);
   const weights = weightTrendSeries(records);
-  const meds = medicationConsistency(records);
   const [selectedRecord, setSelectedRecord] = useState<CareRecord | null>(null);
-  const medicationStatuses = filteredRecords
-    .filter((record) => record.type === "Medication")
-    .map((record) => medicationPlanStatus(record));
   const coachInsights = routineCoachInsights(tasks, taskHistory, reminders, records);
   const proofSections = useMemo(() => buildProofModeSections(records, healthDocs), [records, healthDocs]);
   const medicalSummary = useMemo(() => buildMedicalSummary(records, healthDocs), [records, healthDocs]);
@@ -1735,54 +1652,53 @@ function CareScreen({
           </button>
         ))}
       </div>
-      <section className="card care-quick-add-card">
-        <p className="label no-margin">Quick add</p>
-        <div className="care-quick-add-grid">
-          <button className="care-quick-add-btn" type="button" onClick={() => onQuickAddCare("Vaccine")}>
-            <Syringe size={16} />
-            <span>Vaccine</span>
-          </button>
-          <button className="care-quick-add-btn" type="button" onClick={() => onQuickAddCare("Vet visit")}>
-            <HeartPulse size={16} />
-            <span>Vet</span>
-          </button>
-          <button className="care-quick-add-btn" type="button" onClick={() => onQuickAddCare("Weight")}>
-            <Heart size={16} />
-            <span>Weight</span>
-          </button>
-          <button className="care-quick-add-btn" type="button" onClick={() => onQuickAddCare("Medication")}>
-            <Pill size={16} />
-            <span>Meds</span>
-          </button>
-          <label className="care-quick-add-btn care-quick-upload">
-            <NotebookPen size={16} />
-            <span>Doc</span>
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              multiple
-              onChange={(event) => {
-                const files = [...(event.target.files || [])];
-                if (files.length) {
-                  void onUploadDocs(files, { category: "Other" }).then(() => setActiveCareTab("Docs"));
-                }
-                event.currentTarget.value = "";
-              }}
-            />
-          </label>
-          <button className="care-quick-add-btn" type="button" onClick={onQuickAddReminder}>
-            <CalendarDays size={16} />
-            <span>Reminder</span>
-          </button>
-        </div>
-      </section>
+      {activeCareTab === "Summary" && (
+        <section className="card care-quick-add-card">
+          <p className="label no-margin">Quick add</p>
+          <div className="care-quick-add-grid">
+            <button className="care-quick-add-btn" type="button" onClick={() => onQuickAddCare("Vaccine")}>
+              <Syringe size={16} />
+              <span>Vaccine</span>
+            </button>
+            <button className="care-quick-add-btn" type="button" onClick={() => onQuickAddCare("Vet visit")}>
+              <HeartPulse size={16} />
+              <span>Vet</span>
+            </button>
+            <button className="care-quick-add-btn" type="button" onClick={() => onQuickAddCare("Weight")}>
+              <Heart size={16} />
+              <span>Weight</span>
+            </button>
+            <button className="care-quick-add-btn" type="button" onClick={() => onQuickAddCare("Medication")}>
+              <Pill size={16} />
+              <span>Meds</span>
+            </button>
+            <label className="care-quick-add-btn care-quick-upload">
+              <NotebookPen size={16} />
+              <span>Doc</span>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                multiple
+                onChange={(event) => {
+                  const files = [...(event.target.files || [])];
+                  if (files.length) {
+                    void onUploadDocs(files, { category: "Other" }).then(() => setActiveCareTab("Docs"));
+                  }
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
+            <button className="care-quick-add-btn" type="button" onClick={onQuickAddReminder}>
+              <CalendarDays size={16} />
+              <span>Reminder</span>
+            </button>
+          </div>
+        </section>
+      )}
       <CareHistoryPanel
         activeTab={activeCareTab}
         records={filteredRecords}
-        healthDocs={healthDocs}
         weights={weights}
-        meds={meds}
-        medicationStatuses={medicationStatuses}
         insights={coachInsights}
       />
       {activeCareTab === "Summary" ? (
@@ -1894,18 +1810,12 @@ function CareScreen({
 function CareHistoryPanel({
   activeTab,
   records,
-  healthDocs,
   weights,
-  meds,
-  medicationStatuses,
   insights,
 }: {
   activeTab: string;
   records: CareRecord[];
-  healthDocs: HealthDoc[];
   weights: ReturnType<typeof weightTrendSeries>;
-  meds: ReturnType<typeof medicationConsistency>;
-  medicationStatuses: ReturnType<typeof medicationPlanStatus>[];
   insights: string[];
 }) {
   if (activeTab === "Weight") {
@@ -1923,35 +1833,7 @@ function CareHistoryPanel({
     );
   }
 
-  if (activeTab === "Meds") {
-    const active = medicationStatuses.filter((status) => status === "Active").length;
-    const upcoming = medicationStatuses.filter((status) => status === "Upcoming").length;
-    const needsReview = medicationStatuses.filter((status) => status === "Needs review").length;
-    return (
-      <section className="care-history card">
-        <p className="label no-margin">Medication consistency</p>
-        <div className="mini-metrics">
-          <span><strong>{meds.last30Days}</strong> last 30 days</span>
-          <span><strong>{active}</strong> active</span>
-          <span><strong>{upcoming}</strong> upcoming</span>
-          <span><strong>{needsReview}</strong> need review</span>
-        </div>
-      </section>
-    );
-  }
-
-  if (activeTab === "Vaccines" || activeTab === "Vet visits") {
-    const docsAttached = records.filter((record) => healthDocsForCareRecord(healthDocs, record.id).length > 0).length;
-    return (
-      <section className="care-history card">
-        <p className="label no-margin">{activeTab === "Vaccines" ? "Vaccine follow-ups" : "Visit follow-ups"}</p>
-        <p>{records.filter((record) => record.nextDueDate).length || 0} records have a next date saved.</p>
-        <p className="care-history-support">{docsAttached} records already have proof attached.</p>
-      </section>
-    );
-  }
-
-  if (activeTab === "Docs" || activeTab === "Proof" || activeTab === "Summary") return null;
+  if (activeTab === "Docs" || activeTab === "Proof" || activeTab === "Summary" || activeTab === "Meds" || activeTab === "Vaccines" || activeTab === "Vet visits") return null;
 
   return (
     <section className="care-history card">

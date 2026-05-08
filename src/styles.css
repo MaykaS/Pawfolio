@@ -727,28 +727,6 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   border-left: 3px solid var(--primary);
 }
 
-.today-task-section {
-  display: grid;
-  gap: 8px;
-}
-
-.today-status-card {
-  background: rgba(222, 242, 228, 0.68);
-  border: 1px solid rgba(86, 157, 108, 0.22);
-  border-radius: 14px;
-  display: grid;
-  gap: 6px;
-  margin-top: 8px;
-  padding: 12px 14px;
-}
-
-.today-status-card p:last-child {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.45;
-}
-
 .task-item {
   display: block;
   padding: 10px 12px;
@@ -759,19 +737,6 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   box-shadow: var(--shadow-sm);
-}
-
-.task-item-overdue {
-  border-left: 3px solid var(--primary);
-}
-
-.task-item-due {
-  border-left: 3px solid rgba(218, 191, 177, 0.5);
-}
-
-.task-item-complete {
-  background: rgba(255, 255, 255, 0.76);
-  border-left: 3px solid rgba(86, 157, 108, 0.28);
 }
 
 .task-item:active { transform: scale(0.98); }
@@ -1170,6 +1135,10 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 6px;
+}
+
+.care-proof-grid .badge {
+  white-space: nowrap;
 }
 
 .care-history-support {
@@ -2654,6 +2623,25 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
+}
+
+.reminder-lead-inline {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.reminder-lead-inline::-webkit-scrollbar {
+  display: none;
+}
+
+.reminder-lead-inline .choice-chip-row,
+.reminder-lead-row {
+  flex-wrap: nowrap;
+}
+
+.reminder-lead-inline .choice-chip,
+.reminder-lead-row .choice-chip {
+  white-space: nowrap;
 }
 
 .choice-chip {
