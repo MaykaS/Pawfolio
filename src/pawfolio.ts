@@ -2026,6 +2026,10 @@ function daysSince(value?: string, now = new Date()) {
 function pawPalThreadRecheckDays(type: PawPalThreadType) {
   if (type === "incomplete_medication") return 2;
   if (type === "vaccine_missing_next_date") return 7;
+  if (type === "vaccine_missing_proof") return 5;
+  if (type === "vet_visit_missing_proof") return 5;
+  if (type === "care_missing_next_step") return 4;
+  if (type === "unattached_health_doc") return 4;
   if (type === "no_upcoming_reminders") return 7;
   if (type === "repeated_missed_walks") return 3;
   if (type === "routine_drift") return 3;
@@ -2045,12 +2049,24 @@ function daysUntil(date?: string, now = new Date()) {
   return Math.ceil((target.getTime() - today.getTime()) / 86_400_000);
 }
 
+function hasReminderCoverageForDate(reminders: Reminder[], record: CareRecord, targetDate?: string) {
+  if (!targetDate) return false;
+  return reminders.some((reminder) => {
+    if (reminder.date !== targetDate) return false;
+    if (record.type === "Vaccine" && reminder.type === "Vaccine") return true;
+    if (record.type === "Medication" && reminder.type === "Medication") return true;
+    if (record.type === "Vet visit" && reminder.type === "Vet") return true;
+    return reminder.title.toLowerCase() === record.title.toLowerCase();
+  });
+}
+
 function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
   const settings = state.coachSettings || initialState.coachSettings;
   if (!settings.enabled) return [] as PawPalThreadCandidate[];
 
   const records = visibleCareRecords(state);
   const reminders = visibleReminders(state);
+  const docs = state.healthDocs || [];
   const candidates: PawPalThreadCandidate[] = [];
 
   const incompleteMedication = records.find(
@@ -2082,6 +2098,70 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
       reason: "The vaccine is logged, but its follow-up timing is still open.",
       actionLabel: "Review vaccine",
       action: { type: "open_care", recordId: vaccineWithoutNext.id },
+    });
+  }
+
+  const vaccineWithoutProof = records.find((record) => record.type === "Vaccine" && hasCareRecordProofGap(record, docs));
+  if (vaccineWithoutProof) {
+    candidates.push({
+      id: `pawpal-thread-vaccine-proof-${vaccineWithoutProof.id}`,
+      type: "vaccine_missing_proof",
+      priority: 84,
+      title: "Save the vaccine proof",
+      body: `${vaccineWithoutProof.title} is logged, but the certificate is still missing.`,
+      reason: "You have the care event, but not the proof that usually matters later for boarding, travel, or the vet desk.",
+      actionLabel: "Open health docs",
+      action: { type: "open_health_docs" },
+    });
+  }
+
+  const vetWithoutProof = records.find(
+    (record) => record.type === "Vet visit" && !record.note.trim() && hasCareRecordProofGap(record, docs),
+  );
+  if (vetWithoutProof) {
+    candidates.push({
+      id: `pawpal-thread-vet-proof-${vetWithoutProof.id}`,
+      type: "vet_visit_missing_proof",
+      priority: 80,
+      title: "Capture the visit proof",
+      body: `${vetWithoutProof.title} does not have notes or a document attached yet.`,
+      reason: "PawPal wants the visit to be useful later, not only logged on the day it happened.",
+      actionLabel: "Review visit",
+      action: { type: "open_care", recordId: vetWithoutProof.id },
+    });
+  }
+
+  const recordMissingNextStep = records.find((record) => {
+    if (!hasCareRecordNextStepGap(record)) return false;
+    if (!record.nextDueDate) return record.type === "Medication";
+    return !hasReminderCoverageForDate(reminders, record, record.nextDueDate);
+  });
+  if (recordMissingNextStep) {
+    candidates.push({
+      id: `pawpal-thread-next-step-${recordMissingNextStep.id}`,
+      type: "care_missing_next_step",
+      priority: 78,
+      title: "This care record needs a clearer next step",
+      body: recordMissingNextStep.nextDueDate
+        ? `${recordMissingNextStep.title} has a follow-up date, but nothing is carrying that next step yet.`
+        : `${recordMissingNextStep.title} still needs a next due or refill step to stay easy to trust.`,
+      reason: "The event is saved, but the next action after it is still too easy to lose.",
+      actionLabel: "Review care",
+      action: { type: "open_care", recordId: recordMissingNextStep.id },
+    });
+  }
+
+  const unattachedDoc = docs.find((doc) => !doc.linkedCareRecordId);
+  if (unattachedDoc) {
+    candidates.push({
+      id: `pawpal-thread-unattached-doc-${unattachedDoc.id}`,
+      type: "unattached_health_doc",
+      priority: 66,
+      title: "A health doc still needs a home",
+      body: `${unattachedDoc.title} is saved, but it is not linked to a care record yet.`,
+      reason: "The paperwork is here, but PawPal cannot use it well until it belongs to the right record.",
+      actionLabel: "Open health docs",
+      action: { type: "open_health_docs", docId: unattachedDoc.id },
     });
   }
 
@@ -2298,9 +2378,20 @@ export function buildPawPalPlannerPrompt(state: PawfolioState, now = new Date())
   const threadTypes = new Set(threads.map((thread) => thread.type));
   const records = visibleCareRecords(state);
   const reminders = visibleReminders(state);
+  const docs = state.healthDocs || [];
   const season = getSeasonForDate(now, state.coachSettings?.careRegion || initialState.coachSettings.careRegion);
   const seasonalSignal = regionalCareSignals(state.coachSettings?.careRegion || initialState.coachSettings.careRegion, season)[0]
     || breedCareSignals(state.profile)[0];
+
+  if (!threadTypes.has("unattached_health_doc") && docs.length === 0 && records.some((record) => record.type === "Vaccine" || record.type === "Vet visit")) {
+    return {
+      id: "pawpal-prompt-first-doc",
+      title: "Start a proof trail",
+      body: "Saving one certificate or visit summary now would make future care feel much easier to trust.",
+      actionLabel: "Open health docs",
+      action: { type: "open_health_docs" },
+    };
+  }
 
   if (!threadTypes.has("no_recent_memory")) {
     const latestMemoryDate = sortDiaryEntries(state.diary)[0]?.date;
@@ -2378,10 +2469,10 @@ export function buildPawPalPlannerPrompt(state: PawfolioState, now = new Date())
 
   return {
     id: "pawpal-prompt-steady",
-    title: "Everything looks calm",
-    body: "A quick glance at memories, care, or next week's reminders is probably all you need today.",
-    actionLabel: "Open calendar",
-    action: { type: "open_calendar" },
+    title: "Keep the record feeling complete",
+    body: "A quick glance at health docs, care follow-ups, or next week's reminders is probably all you need today.",
+    actionLabel: "Open health docs",
+    action: { type: "open_health_docs" },
   };
 }
 

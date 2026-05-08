@@ -1328,7 +1328,7 @@ function PawPalScreen({
   onDone: (id: string) => void;
 }) {
   const groups = [
-    { label: "Open threads", types: ["incomplete_medication", "vaccine_missing_next_date", "stale_backup"] as PawPalThread["type"][] },
+    { label: "Open threads", types: ["incomplete_medication", "vaccine_missing_next_date", "vaccine_missing_proof", "vet_visit_missing_proof", "care_missing_next_step", "stale_backup", "unattached_health_doc"] as PawPalThread["type"][] },
     { label: "Patterns", types: ["repeated_missed_walks", "routine_drift"] as PawPalThread["type"][] },
     { label: "Looking ahead", types: ["no_upcoming_reminders", "care_follow_up", "weight_checkin", "no_recent_memory", "seasonal_care_nudge"] as PawPalThread["type"][] },
   ] as const;
