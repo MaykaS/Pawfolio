@@ -66,6 +66,7 @@ import {
   tasksForDate,
   todayISO,
   toLocalISO,
+  updateHealthDocById,
   updateTaskTime,
   validateCareRecord,
   visibleCareRecords,
@@ -1181,6 +1182,40 @@ describe("pawfolio helpers", () => {
       label: "Next due Jul 23",
       tone: "green",
     });
+  });
+
+  it("updates health doc metadata without losing the record", () => {
+    const docs: HealthDoc[] = [
+      {
+        id: "doc-1",
+        title: "Rabies certificate",
+        fileName: "rabies.pdf",
+        mimeType: "application/pdf",
+        assetRef: "pawfolio-doc:1",
+        category: "Vaccine",
+        uploadedAt: "2026-04-22T12:00:00.000Z",
+        linkedCareRecordId: "rabies-1",
+      },
+    ];
+
+    expect(
+      updateHealthDocById(docs, "doc-1", {
+        title: "Updated rabies cert",
+        category: "Other",
+        linkedCareRecordId: undefined,
+      }),
+    ).toEqual([
+      {
+        id: "doc-1",
+        title: "Updated rabies cert",
+        fileName: "rabies.pdf",
+        mimeType: "application/pdf",
+        assetRef: "pawfolio-doc:1",
+        category: "Other",
+        uploadedAt: "2026-04-22T12:00:00.000Z",
+        linkedCareRecordId: undefined,
+      },
+    ]);
   });
 
   it("opens proof and next-step PawPal threads for incomplete serious care records", () => {

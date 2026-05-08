@@ -1097,6 +1097,19 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   box-shadow: var(--shadow-sm);
 }
 
+.care-open {
+  align-items: flex-start;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: flex;
+  flex: 1;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
 .care-icon-wrap {
   width: 38px;
   height: 38px;
@@ -1220,21 +1233,100 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 }
 
 .health-doc-chip-row {
-  flex-wrap: nowrap;
+  display: grid;
   gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-  scrollbar-width: none;
-}
-
-.health-doc-chip-row::-webkit-scrollbar {
-  display: none;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .health-doc-chip-row .choice-chip {
-  flex: 0 0 auto;
+  font-size: 11px;
   min-height: 32px;
-  padding-inline: 11px;
+  overflow-wrap: anywhere;
+  padding-inline: 8px;
+  white-space: normal;
+}
+
+.health-docs-toolbar .health-doc-chip-row + .health-doc-chip-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.care-detail-sheet {
+  display: grid;
+  gap: 10px;
+}
+
+.care-detail-card {
+  display: grid;
+  gap: 8px;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.detail-row {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.detail-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.detail-row strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.detail-head-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.detail-doc-list {
+  display: grid;
+  gap: 8px;
+}
+
+.detail-doc-item {
+  align-items: flex-start;
+  background: rgba(248, 226, 216, 0.45);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.detail-doc-item h3 {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.detail-doc-item p {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+@media (max-width: 380px) {
+  .health-doc-chip-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .health-docs-toolbar .health-doc-chip-row + .health-doc-chip-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .care-history {

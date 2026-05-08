@@ -1315,6 +1315,17 @@ export function upsertHealthDocs(docs: HealthDoc[], nextDocs: HealthDoc[]) {
   return sortHealthDocs([...byId.values()]);
 }
 
+export function updateHealthDocById(docs: HealthDoc[], docId: string, patch: Partial<HealthDoc>) {
+  return sortHealthDocs(docs.map((doc) => (
+    doc.id === docId
+      ? {
+          ...doc,
+          ...patch,
+        }
+      : doc
+  )));
+}
+
 export function deleteHealthDocFromState(docs: HealthDoc[], docId: string) {
   return sortHealthDocs(docs.filter((doc) => doc.id !== docId));
 }

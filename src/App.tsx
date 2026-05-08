@@ -55,6 +55,7 @@ import {
   buildPawPalPlannerPrompt,
   buildTodayAttentionItems,
   canUseBrowserNotifications,
+  careRecordDocCategory,
   careRecordSummary,
   careStatus,
   careEmptyState,
@@ -118,6 +119,7 @@ import {
   normalizeTaskSchedule,
   tasksForDate,
   todayISO,
+  updateHealthDocById,
   upsertHealthDocs,
   weekdayOptions,
   withTaskTime,
@@ -172,6 +174,7 @@ import {
 type TaskMode = { mode: "create" } | { mode: "edit"; task: DailyTask };
 type MemoryMode = { mode: "create" } | { mode: "edit"; entry: DiaryEntry };
 type ReminderMode = { mode: "create"; date?: string } | { mode: "edit"; reminder: Reminder };
+type HealthDocEditMode = { doc: HealthDoc };
 type BackupPayload = { app: "Pawfolio"; version: number; exportedAt: string; state: PawfolioState; photos?: PhotoRecord[]; docs?: HealthDocRecord[] };
 
 function loadState(): PawfolioState {
@@ -323,6 +326,7 @@ export default function App() {
   const [memoryMode, setMemoryMode] = useState<MemoryMode | null>(null);
   const [careMode, setCareMode] = useState<CareSheetMode | null>(null);
   const [reminderMode, setReminderMode] = useState<ReminderMode | null>(null);
+  const [healthDocEditMode, setHealthDocEditMode] = useState<HealthDocEditMode | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [selectedMemory, setSelectedMemory] = useState<DiaryEntry | null>(null);
   const [saveError, setSaveError] = useState("");
@@ -555,6 +559,13 @@ export default function App() {
     }));
   };
 
+  const updateHealthDoc = (docId: string, patch: Partial<HealthDoc>) => {
+    setState((current) => ({
+      ...current,
+      healthDocs: updateHealthDocById(current.healthDocs, docId, patch),
+    }));
+  };
+
   if (!state.profile) {
     return (
       <main className="app-root">
@@ -665,9 +676,11 @@ export default function App() {
             setState((current) => deleteCareItemFromState(current, id))
           }
           onUploadDocs={uploadHealthDocs}
+          onUpdateDoc={updateHealthDoc}
           onDeleteDoc={deleteHealthDoc}
           onOpenDoc={openStoredHealthDoc}
           onDownloadDoc={downloadStoredHealthDoc}
+          onEditDoc={(doc) => setHealthDocEditMode({ doc })}
           onOpenLinkedRecord={(recordId) => {
             const record = careRecords.find((item) => item.id === recordId);
             if (!record) return;
@@ -902,6 +915,18 @@ export default function App() {
             }))
           }
           onClose={() => setNotificationsOpen(false)}
+        />
+      )}
+
+      {healthDocEditMode && (
+        <HealthDocEditSheet
+          doc={healthDocEditMode.doc}
+          records={careRecords}
+          onClose={() => setHealthDocEditMode(null)}
+          onSave={(patch) => {
+            updateHealthDoc(healthDocEditMode.doc.id, patch);
+            setHealthDocEditMode(null);
+          }}
         />
       )}
 
@@ -1525,9 +1550,11 @@ function CareScreen({
   onEdit,
   onDelete,
   onUploadDocs,
+  onUpdateDoc,
   onDeleteDoc,
   onOpenDoc,
   onDownloadDoc,
+  onEditDoc,
   onOpenLinkedRecord,
   onTabIntentConsumed,
 }: {
@@ -1542,9 +1569,11 @@ function CareScreen({
   onEdit: (record: CareRecord) => void;
   onDelete: (id: string) => void;
   onUploadDocs: (files: File[], options?: { linkedCareRecordId?: string; category?: HealthDocCategory }) => Promise<HealthDoc[]>;
+  onUpdateDoc: (docId: string, patch: Partial<HealthDoc>) => void;
   onDeleteDoc: (doc: HealthDoc) => Promise<void>;
   onOpenDoc: (assetRef: string) => Promise<void>;
   onDownloadDoc: (assetRef: string, fileName: string) => Promise<void>;
+  onEditDoc: (doc: HealthDoc) => void;
   onOpenLinkedRecord: (recordId: string) => void;
   onTabIntentConsumed: () => void;
 }) {
@@ -1566,6 +1595,7 @@ function CareScreen({
   const empty = careEmptyState(activeCareTab);
   const weights = weightTrendSeries(records);
   const meds = medicationConsistency(records);
+  const [selectedRecord, setSelectedRecord] = useState<CareRecord | null>(null);
   const medicationStatuses = filteredRecords
     .filter((record) => record.type === "Medication")
     .map((record) => medicationPlanStatus(record));
@@ -1611,6 +1641,7 @@ function CareScreen({
           onDeleteDoc={onDeleteDoc}
           onOpenDoc={onOpenDoc}
           onDownloadDoc={onDownloadDoc}
+          onEditDoc={onEditDoc}
           onOpenLinkedRecord={onOpenLinkedRecord}
         />
       ) : filteredRecords.length === 0 ? (
@@ -1632,35 +1663,57 @@ function CareScreen({
 
           return (
             <article className="care-item" key={record.id}>
-              <div className={record.type === "Medication" ? "care-icon-wrap badge-blue" : "care-icon-wrap badge-green"}>
-                {record.type === "Medication" ? <Pill size={18} /> : <HeartPulse size={18} />}
-              </div>
-              <div className="care-copy">
-                {planStatus ? (
-                  <div className="badge-row">
-                    <span className={statusClass}>{planStatus}</span>
-                  </div>
-                ) : (
-                  <span className={careStatus(record) === "OK" ? "badge badge-green" : careStatus(record) === "Overdue" ? "badge badge-red" : "badge badge-amber"}>
-                    {careStatus(record)}
-                  </span>
-                )}
-                <h2>{record.title}</h2>
-                <p>{careRecordSummary(record)}</p>
-                <div className="care-proof-grid">
-                  <span className={badgeClassForTone(careRecordProofStatus(record, healthDocs).tone)}>
-                    {careRecordProofStatus(record, healthDocs).label}
-                  </span>
-                  <span className={badgeClassForTone(careRecordNextStepStatus(record).tone)}>
-                    {careRecordNextStepStatus(record).label}
-                  </span>
+              <button className="care-open" type="button" onClick={() => setSelectedRecord(record)}>
+                <div className={record.type === "Medication" ? "care-icon-wrap badge-blue" : "care-icon-wrap badge-green"}>
+                  {record.type === "Medication" ? <Pill size={18} /> : <HeartPulse size={18} />}
                 </div>
-                {supportDetail && <p className="care-support">{supportDetail}</p>}
-              </div>
+                <div className="care-copy">
+                  {planStatus ? (
+                    <div className="badge-row">
+                      <span className={statusClass}>{planStatus}</span>
+                    </div>
+                  ) : (
+                    <span className={careStatus(record) === "OK" ? "badge badge-green" : careStatus(record) === "Overdue" ? "badge badge-red" : "badge badge-amber"}>
+                      {careStatus(record)}
+                    </span>
+                  )}
+                  <h2>{record.title}</h2>
+                  <p>{careRecordSummary(record)}</p>
+                  <div className="care-proof-grid">
+                    <span className={badgeClassForTone(careRecordProofStatus(record, healthDocs).tone)}>
+                      {careRecordProofStatus(record, healthDocs).label}
+                    </span>
+                    <span className={badgeClassForTone(careRecordNextStepStatus(record).tone)}>
+                      {careRecordNextStepStatus(record).label}
+                    </span>
+                  </div>
+                  {supportDetail && <p className="care-support">{supportDetail}</p>}
+                </div>
+              </button>
               <CardActions onEdit={() => onEdit(record)} onDelete={() => onDelete(record.id)} />
             </article>
           );
         })
+      )}
+      {selectedRecord && (
+        <CareDetailSheet
+          record={selectedRecord}
+          linkedReminder={reminders.find((reminder) => reminder.id === selectedRecord.id)}
+          docs={healthDocsForCareRecord(healthDocs, selectedRecord.id)}
+          onClose={() => setSelectedRecord(null)}
+          onEdit={() => {
+            onEdit(selectedRecord);
+            setSelectedRecord(null);
+          }}
+          onDelete={() => {
+            onDelete(selectedRecord.id);
+            setSelectedRecord(null);
+          }}
+          onOpenDoc={onOpenDoc}
+          onDownloadDoc={onDownloadDoc}
+          onEditDoc={onEditDoc}
+          onUnlinkDoc={(doc) => onUpdateDoc(doc.id, { linkedCareRecordId: undefined })}
+        />
       )}
     </section>
   );
@@ -1736,6 +1789,183 @@ function CareHistoryPanel({
   );
 }
 
+function CareDetailSheet({
+  record,
+  linkedReminder,
+  docs,
+  onClose,
+  onEdit,
+  onDelete,
+  onOpenDoc,
+  onDownloadDoc,
+  onEditDoc,
+  onUnlinkDoc,
+}: {
+  record: CareRecord;
+  linkedReminder?: Reminder;
+  docs: HealthDoc[];
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onOpenDoc: (assetRef: string) => Promise<void>;
+  onDownloadDoc: (assetRef: string, fileName: string) => Promise<void>;
+  onEditDoc: (doc: HealthDoc) => void;
+  onUnlinkDoc: (doc: HealthDoc) => void;
+}) {
+  const proof = careRecordProofStatus(record, docs);
+  const nextStep = careRecordNextStepStatus(record);
+  const reminderDetail = linkedReminder
+    ? `${linkedReminder.type}${linkedReminder.time ? ` • ${linkedReminder.time}` : ""}${linkedReminder.recurrence !== "none" ? ` • ${recurrenceLabel(linkedReminder.recurrence)}` : ""}`
+    : "";
+  const summaryRows = [
+    { label: "Type", value: record.type },
+    { label: "Event date", value: prettyDate(record.date) },
+    record.startDate ? { label: "Start", value: prettyDate(record.startDate) } : null,
+    record.endDate ? { label: "End", value: prettyDate(record.endDate) } : null,
+    record.nextDueDate ? { label: record.type === "Vet visit" ? "Follow-up" : "Next due", value: prettyDate(record.nextDueDate) } : null,
+    record.refillDate ? { label: "Refill", value: prettyDate(record.refillDate) } : null,
+    record.clinic ? { label: "Clinic", value: record.clinic } : null,
+    record.vetName ? { label: "Vet", value: record.vetName } : null,
+    record.reason ? { label: "Reason", value: record.reason } : null,
+  ].filter(Boolean) as { label: string; value: string }[];
+
+  return (
+    <Sheet title={record.title} onClose={onClose}>
+      <div className="care-detail-sheet">
+        <div className="entry-head">
+          <div className="badge-row">
+            <span className={badgeClassForTone(proof.tone)}>{proof.label}</span>
+            <span className={badgeClassForTone(nextStep.tone)}>{nextStep.label}</span>
+          </div>
+          <CardActions onEdit={onEdit} onDelete={onDelete} />
+        </div>
+        <section className="card care-detail-card">
+          <div className="detail-grid">
+            {summaryRows.map((row) => (
+              <div className="detail-row" key={`${row.label}-${row.value}`}>
+                <span>{row.label}</span>
+                <strong>{row.value}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+        {record.note || record.adherenceNotes ? (
+          <section className="card care-detail-card">
+            <p className="label no-margin">Notes</p>
+            {record.note ? <p>{record.note}</p> : null}
+            {record.adherenceNotes ? <p className="care-support">{record.adherenceNotes}</p> : null}
+          </section>
+        ) : null}
+        <section className="card care-detail-card">
+          <div className="detail-head-row">
+            <p className="label no-margin">Linked reminder</p>
+            {!linkedReminder && <span className="badge badge-gray">None</span>}
+          </div>
+          {linkedReminder ? (
+            <>
+              <h3>{linkedReminder.title}</h3>
+              <p>{reminderDetail}</p>
+            </>
+          ) : (
+            <p>No reminder is carrying this next step yet.</p>
+          )}
+        </section>
+        <section className="card care-detail-card">
+          <div className="detail-head-row">
+            <p className="label no-margin">Attached documents</p>
+            <span className={docs.length ? "badge badge-green" : "badge badge-gray"}>{docs.length || 0}</span>
+          </div>
+          {docs.length === 0 ? (
+            <p>No documents attached yet.</p>
+          ) : (
+            <div className="detail-doc-list">
+              {docs.map((doc) => (
+                <article className="detail-doc-item" key={doc.id}>
+                  <div>
+                    <h3>{doc.title}</h3>
+                    <p>{doc.category} • Uploaded {prettyDate(doc.uploadedAt.slice(0, 10))}</p>
+                  </div>
+                  <div className="health-doc-actions">
+                    <button className="tiny-btn" type="button" title="View" onClick={() => void onOpenDoc(doc.assetRef)}>
+                      <Eye size={14} />
+                    </button>
+                    <button className="tiny-btn" type="button" title="Download" onClick={() => void onDownloadDoc(doc.assetRef, doc.fileName)}>
+                      <Download size={14} />
+                    </button>
+                    <button className="tiny-btn" type="button" title="Edit metadata" onClick={() => onEditDoc(doc)}>
+                      <Pencil size={14} />
+                    </button>
+                    <button className="tiny-btn danger" type="button" title="Unlink" onClick={() => onUnlinkDoc(doc)}>
+                      <X size={14} />
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </Sheet>
+  );
+}
+
+function HealthDocEditSheet({
+  doc,
+  records,
+  onClose,
+  onSave,
+}: {
+  doc: HealthDoc;
+  records: CareRecord[];
+  onClose: () => void;
+  onSave: (patch: Partial<HealthDoc>) => void;
+}) {
+  const [title, setTitle] = useState(doc.title);
+  const [category, setCategory] = useState<HealthDocCategory>(doc.category);
+  const [linkedCareRecordId, setLinkedCareRecordId] = useState(doc.linkedCareRecordId || "");
+  const candidateRecords = records.filter((record) => {
+    if (category === "Other") return true;
+    return careRecordDocCategory(record.type) === category;
+  });
+
+  return (
+    <Sheet title="Edit health doc" onClose={onClose}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSave({
+            title: title.trim() || doc.title,
+            category,
+            linkedCareRecordId: linkedCareRecordId || undefined,
+          });
+        }}
+      >
+        <Field label="Title">
+          <input className="input" value={title} onChange={(event) => setTitle(event.target.value)} />
+        </Field>
+        <Field label="Category">
+          <select className="input" value={category} onChange={(event) => setCategory(event.target.value as HealthDocCategory)}>
+            {(["Vaccine", "Vet visit", "Medication", "Other"] as HealthDocCategory[]).map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Linked record">
+          <select className="input" value={linkedCareRecordId} onChange={(event) => setLinkedCareRecordId(event.target.value)}>
+            <option value="">Unlinked</option>
+            {candidateRecords.map((record) => (
+              <option key={record.id} value={record.id}>
+                {record.title} • {prettyDate(record.date)}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <button className="btn btn-primary">Save health doc</button>
+      </form>
+    </Sheet>
+  );
+}
+
 function HealthDocsPanel({
   docs,
   records,
@@ -1743,6 +1973,7 @@ function HealthDocsPanel({
   onDeleteDoc,
   onOpenDoc,
   onDownloadDoc,
+  onEditDoc,
   onOpenLinkedRecord,
 }: {
   docs: HealthDoc[];
@@ -1751,6 +1982,7 @@ function HealthDocsPanel({
   onDeleteDoc: (doc: HealthDoc) => Promise<void>;
   onOpenDoc: (assetRef: string) => Promise<void>;
   onDownloadDoc: (assetRef: string, fileName: string) => Promise<void>;
+  onEditDoc: (doc: HealthDoc) => void;
   onOpenLinkedRecord: (recordId: string) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -1871,6 +2103,9 @@ function HealthDocsPanel({
                       <Link2 size={14} />
                     </button>
                   )}
+                  <button className="tiny-btn" type="button" aria-label={`Edit ${doc.title}`} title="Edit" onClick={() => onEditDoc(doc)}>
+                    <Pencil size={14} />
+                  </button>
                   <button className="tiny-btn danger" type="button" aria-label={`Delete ${doc.title}`} title="Delete" onClick={() => void onDeleteDoc(doc)}>
                     <Trash2 size={14} />
                   </button>
