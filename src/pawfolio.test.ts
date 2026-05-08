@@ -10,6 +10,8 @@ import {
   buildGoogleCalendarEvent,
   bottomNavTabs,
   careEmptyState,
+  careRecordNextStepStatus,
+  careRecordProofStatus,
   careStatus,
   cloudBackupStatusDetail,
   cloudBackupStatusLabel,
@@ -29,6 +31,7 @@ import {
   getUpcomingReminder,
   getUpcomingReminders,
   getUpcomingCalendarItems,
+  healthDocsForCareRecord,
   initialState,
   isStoredPhotoRef,
   isFutureOrToday,
@@ -53,6 +56,7 @@ import {
   safeSetLocalStorage,
   saveCareRecordToState,
   saveReminderToState,
+  linkHealthDocsToCareRecord,
   snoozePawPalThread,
   resolvePawPalThread,
   setReminderCompletionForDate,
@@ -101,6 +105,7 @@ import {
   toTimeInputValue,
   type CareRecord,
   type DailyTask,
+  type HealthDoc,
   type PawfolioState,
   type Reminder,
   type Tab,
@@ -1145,6 +1150,66 @@ describe("pawfolio helpers", () => {
     expect(suggestions.some((suggestion) => suggestion.id === "pawpal-thread-vaccine-vaccine")).toBe(true);
   });
 
+  it("links health docs back to care records and reports proof state", () => {
+    const docs: HealthDoc[] = [
+      {
+        id: "doc-1",
+        title: "Rabies certificate",
+        fileName: "rabies.pdf",
+        mimeType: "application/pdf",
+        assetRef: "pawfolio-doc:1",
+        category: "Other",
+        uploadedAt: "2026-04-22T12:00:00.000Z",
+      },
+    ];
+    const record: CareRecord = {
+      id: "rabies-1",
+      type: "Vaccine",
+      title: "Rabies",
+      date: "2026-04-22",
+      note: "",
+      nextDueDate: "2028-07-23",
+    };
+
+    const linked = linkHealthDocsToCareRecord(docs, ["doc-1"], record);
+    expect(healthDocsForCareRecord(linked, "rabies-1")).toHaveLength(1);
+    expect(careRecordProofStatus(record, linked)).toEqual({
+      label: "Certificate attached",
+      tone: "green",
+    });
+    expect(careRecordNextStepStatus(record)).toEqual({
+      label: "Next due Jul 23",
+      tone: "green",
+    });
+  });
+
+  it("opens proof and next-step PawPal threads for incomplete serious care records", () => {
+    const state = normalizeState({
+      care: [
+        { id: "lyme-1", type: "Vaccine", title: "Lyme 1", date: "2026-04-17", note: "", nextDueDate: "2026-05-08" },
+        { id: "vet-1", type: "Vet visit", title: "Annual checkup", date: "2026-04-18", note: "", clinic: "Northside Vet" },
+      ],
+      healthDocs: [
+        {
+          id: "doc-free",
+          title: "Lyme certificate",
+          fileName: "lyme.pdf",
+          mimeType: "application/pdf",
+          assetRef: "pawfolio-doc:free",
+          category: "Vaccine",
+          uploadedAt: "2026-04-19T10:00:00.000Z",
+        },
+      ],
+      reminders: [],
+    });
+
+    const threadIds = buildPawPalFeed(state, new Date("2026-04-22T12:00:00")).map((thread) => thread.id);
+    expect(threadIds).toContain("pawpal-thread-vaccine-proof-lyme-1");
+    expect(threadIds).toContain("pawpal-thread-next-step-lyme-1");
+    expect(threadIds).toContain("pawpal-thread-vet-proof-vet-1");
+    expect(threadIds).toContain("pawpal-thread-unattached-doc-doc-free");
+  });
+
   it("opens softer PawPal threads for memory gaps, weight drift, and near-future care follow-up", () => {
     const state = normalizeState({
       tasks: [
@@ -1341,6 +1406,18 @@ describe("pawfolio helpers", () => {
     const prompt = buildPawPalPlannerPrompt(calm, new Date("2026-04-22T12:00:00"));
     expect(prompt.id).toContain("pawpal-prompt");
     expect(prompt.action.type).toBeTruthy();
+  });
+
+  it("uses a health-doc planner prompt before the proof trail exists", () => {
+    const calm = normalizeState({
+      care: [{ id: "rabies-1", type: "Vaccine", title: "Rabies", date: "2026-04-25", note: "", nextDueDate: "2028-07-23" }],
+      healthDocs: [],
+      reminders: [{ id: "future", title: "Vet", type: "Vet", date: "2026-06-01", time: "09:00", note: "", recurrence: "none" }],
+    });
+
+    const prompt = buildPawPalPlannerPrompt(calm, new Date("2026-04-26T12:00:00"));
+    expect(prompt.id).toBe("pawpal-prompt-first-doc");
+    expect(prompt.action.type).toBe("open_health_docs");
   });
 
   it("keeps planner prompts from duplicating an already-open PawPal thread", () => {

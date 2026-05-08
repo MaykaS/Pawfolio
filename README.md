@@ -1,6 +1,6 @@
 # Pawfolio
 
-Pawfolio is a mobile-first dog care app for the real life of one dog: routines, reminders, care history, diary memories, and a private backup path that feels trustworthy instead of flimsy.
+Pawfolio is a mobile-first dog care app for the real life of one dog: routines, reminders, care history, health documents, diary memories, and a private backup path that feels trustworthy instead of flimsy.
 
 It is intentionally warm, companion-like, and photo-friendly, but it is built to hold serious pet-care information without turning into a sterile admin tool.
 
@@ -12,6 +12,7 @@ Today Pawfolio is a working product, not just a concept demo. It supports:
 - daily routine tracking with structured times and custom schedules
 - diary entries with multi-photo memories
 - care records for medication, vaccines, vet visits, and weight
+- searchable health documents for certificates, visit summaries, and care paperwork
 - reminders with recurrence, lead times, and completion history
 - one-way Google Calendar sync
 - local-first working state with signed-in private backup and restore
@@ -48,6 +49,8 @@ The current app state is strong:
 - Today and PawPal now have distinct jobs: Today handles same-day urgency, while PawPal tracks calmer follow-through threads over time
 - Calendar Upcoming now reflects the true next chronological items instead of only unresolved ones
 - PawPal now pairs its digest with a planner-style next useful thing so it does not feel absent in calm periods
+- Care records can now hold health documents, and those files are searchable from a dedicated Health docs view
+- PawPal now coordinates missing proof, missing follow-up, and unattached documents instead of acting like a generic suggestion feed
 
 Email reminders are intentionally on hold in the product. The backend plumbing remains in code, but the app does not pretend email is a ready user-facing path while sender-domain setup is out of scope.
 
@@ -57,6 +60,8 @@ Email reminders are intentionally on hold in the product. The backend plumbing r
 - Cloud is the private backup layer.
 - Restore pulls the latest backup back onto the current device.
 - Google Calendar is the active outbound integration.
+- Care is the source of record, and Health docs is the proof layer for that record.
+- PawPal is a care coordinator, not a same-day alert list.
 - Email stays deferred until it is worth the operational complexity.
 - Scheduled notifications are layered: this saved phone can alert locally, and some scheduled reminders are also delivered from the cloud backup path.
 - Missed routine-task nudges are intentionally conservative: one hour late, once only for that task occurrence.

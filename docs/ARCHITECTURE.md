@@ -20,6 +20,7 @@ That is the right architecture for the current stage because it keeps iteration 
 - Supabase Auth
 - Supabase Postgres snapshot storage
 - IndexedDB for photos
+- IndexedDB for health documents
 - service worker / PWA shell
 - Vercel deployment
 
@@ -52,14 +53,16 @@ Primary product entities:
 - diary entries
 - care records
 - care events
+- health document metadata
 - reminders
 - reminder completion history
 - local preferences
 - integration settings
 - cloud sync metadata
 - photo records
+- health document records
 
-Photos live in IndexedDB locally and are now included in cloud snapshot backup/restore.
+Photos and health documents live in IndexedDB locally and are included in cloud snapshot backup/restore.
 
 Routine tasks are now schedule-aware rather than implicitly daily. A task can be:
 
@@ -78,6 +81,7 @@ Supabase stores:
 
 - latest Pawfolio state JSON
 - photo records
+- health document records
 - snapshot-level notification channel flags for cron filtering
 - push subscriptions
 - integration accounts
@@ -117,6 +121,10 @@ Current PawPal thread coverage includes both hard gaps and softer follow-through
 
 - incomplete medication details
 - vaccine missing next due date
+- vaccine missing proof
+- vet visit missing proof
+- care record missing next step
+- unattached health document
 - no upcoming reminders
 - repeated missed walks
 - broader routine drift

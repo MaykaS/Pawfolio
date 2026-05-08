@@ -6,7 +6,7 @@ Pawfolio
 
 ## One-Line Description
 
-A companion-style dog care app that helps one owner manage routines, reminders, health history, and memories in one place.
+A companion-style dog care app that helps one owner manage routines, reminders, health history, health documents, and memories in one calm, trustworthy place.
 
 ## Problem
 
@@ -33,6 +33,7 @@ Typical needs:
 - remember appointments and recurring care
 - capture photos and moments without losing context
 - keep health and medication history readable
+- keep vaccine certificates, visit summaries, and proof easy to find later
 - feel confident that important data can be recovered
 
 ## Product Promise
@@ -85,6 +86,7 @@ That constraint keeps the experience legible while the product matures.
 - vaccines
 - vet visits
 - weight history
+- searchable health documents linked back to care records
 - type-specific care fields and summaries
 
 ### Calendar
@@ -106,11 +108,20 @@ That constraint keeps the experience legible while the product matures.
 ### PawPal
 
 - local rule-based companion layer
-- follow-through threads for unresolved care and planning gaps
+- follow-through threads for unresolved care, missing proof, and planning gaps
 - a separate daily digest that stays distinct from same-day Today urgency
 - softer ongoing threads for memory gaps, stale weight check-ins, near-future follow-up, routine drift, and seasonal care nudges so PawPal does not vanish in normal use
 - one calm planner-style next-useful prompt, even when no long-running thread is open
 - normal signed-in app open starts on Today; Profile is a destination, not the default landing screen
+
+## Product Wedge
+
+Pawfolio is strongest when it behaves like a trust hub for one dog:
+
+- the place where care history lives
+- the place where proof lives
+- the place where next steps stay legible
+- the place where the owner can recover what happened without digging through texts, camera rolls, or vet portals
 
 ## What Is Working Well Now
 
@@ -119,6 +130,7 @@ That constraint keeps the experience legible while the product matures.
 - restore-first onboarding prevents recovery dead ends
 - Google Calendar is the active external planning integration
 - time zone behavior now follows device-default scheduling with per-reminder override
+- health documents now make care records feel more like a real source of proof, not just an entry form
 - the app already feels meaningfully like a product, not just a prototype
 
 ## What Is Intentionally Deferred

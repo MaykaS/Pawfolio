@@ -28,6 +28,7 @@ It no longer feels like a loose prototype with charm. It feels like a real early
 - backup and restore are real
 - onboarding recovery is a strong trust move
 - photos being included in backup matters a lot
+- health documents now make the trust model feel more grounded in real life, not only structured fields
 
 ### Emotional tone
 
@@ -56,6 +57,14 @@ Restore works, but the product should keep getting better at reassuring users th
 - the backup exists
 - the restore happened
 - what came back is what they expected
+
+### Care proof and follow-through
+
+The next quality bar is no longer just "was this logged?" It is:
+
+- is the proof attached
+- is the next step obvious
+- can PawPal coordinate the gap without becoming noisy
 
 ### Main-shell maintainability
 

@@ -2132,9 +2132,11 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
   }
 
   const recordMissingNextStep = records.find((record) => {
-    if (!hasCareRecordNextStepGap(record)) return false;
-    if (!record.nextDueDate) return record.type === "Medication";
-    return !hasReminderCoverageForDate(reminders, record, record.nextDueDate);
+    if (record.type === "Medication") return hasCareRecordNextStepGap(record);
+    if ((record.type === "Vaccine" || record.type === "Vet visit") && record.nextDueDate) {
+      return !hasReminderCoverageForDate(reminders, record, record.nextDueDate);
+    }
+    return hasCareRecordNextStepGap(record);
   });
   if (recordMissingNextStep) {
     candidates.push({

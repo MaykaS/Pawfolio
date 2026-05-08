@@ -1117,6 +1117,77 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   opacity: 0.9;
 }
 
+.care-proof-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.care-history-support {
+  margin-top: 4px;
+}
+
+.care-doc-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.care-doc-pill {
+  align-items: center;
+  background: rgba(248, 226, 216, 0.55);
+  border-radius: 12px;
+  color: var(--text);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.care-doc-pill strong {
+  font-size: 13px;
+  min-width: 0;
+}
+
+.care-doc-pill span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.health-docs-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.health-docs-toolbar {
+  display: grid;
+  gap: 10px;
+}
+
+.health-docs-toolbar-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.health-docs-toolbar-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.health-doc-item {
+  align-items: center;
+}
+
+.health-doc-actions {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
 .care-history {
   margin-bottom: 12px;
 }
