@@ -1159,33 +1159,82 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 
 .health-docs-panel {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .health-docs-toolbar {
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  padding: 12px;
+}
+
+.health-docs-summary {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.health-docs-summary p:last-child {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  margin-top: 2px;
 }
 
 .health-docs-toolbar-row {
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .health-docs-toolbar-row .input {
   flex: 1;
   min-width: 0;
+  padding-inline: 12px;
 }
 
 .health-doc-item {
-  align-items: center;
+  align-items: flex-start;
+}
+
+.health-doc-title {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  overflow: hidden;
 }
 
 .health-doc-actions {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  justify-items: end;
+  margin-top: 8px;
+}
+
+.health-doc-upload-btn {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  padding-inline: 12px;
+}
+
+.health-doc-chip-row {
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.health-doc-chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.health-doc-chip-row .choice-chip {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding-inline: 11px;
 }
 
 .care-history {

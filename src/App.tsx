@@ -6,10 +6,12 @@ import {
   ChevronRight,
   ChevronLeft,
   Download,
+  Eye,
   Heart,
   HeartPulse,
   Home,
   ImagePlus,
+  Link2,
   NotebookPen,
   PawPrint,
   Pencil,
@@ -442,7 +444,7 @@ export default function App() {
     }
     if (item.action.type === "open_health_docs") {
       setTab("care");
-      setCareTabIntent("Health docs");
+      setCareTabIntent("Docs");
       return;
     }
     if (item.action.type === "open_today") {
@@ -1551,7 +1553,7 @@ function CareScreen({
     { label: "Vaccines", types: ["Vaccine"] },
     { label: "Vet visits", types: ["Vet visit", "Allergy", "Health note"] },
     { label: "Weight", types: ["Weight"] },
-    { label: "Health docs", types: [] as string[] },
+    { label: "Docs", types: [] as string[] },
   ];
   const [activeCareTab, setActiveCareTab] = useState(careTabs[0].label);
   useEffect(() => {
@@ -1601,7 +1603,7 @@ function CareScreen({
         medicationStatuses={medicationStatuses}
         insights={coachInsights}
       />
-      {activeCareTab === "Health docs" ? (
+      {activeCareTab === "Docs" ? (
         <HealthDocsPanel
           docs={healthDocs}
           records={records}
@@ -1724,15 +1726,7 @@ function CareHistoryPanel({
     );
   }
 
-  if (activeTab === "Health docs") {
-    const linkedCount = healthDocs.filter((doc) => doc.linkedCareRecordId).length;
-    return (
-      <section className="care-history card">
-        <p className="label no-margin">Health docs</p>
-        <p>{healthDocs.length || 0} files saved. {linkedCount} already linked to care records.</p>
-      </section>
-    );
-  }
+  if (activeTab === "Docs") return null;
 
   return (
     <section className="care-history card">
@@ -1762,6 +1756,7 @@ function HealthDocsPanel({
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<HealthDocCategory | "All">("All");
   const [linkFilter, setLinkFilter] = useState<"all" | "linked" | "unlinked">("all");
+  const linkedCount = docs.filter((doc) => doc.linkedCareRecordId).length;
   const linkedRecords = useMemo(() => new Map(records.map((record) => [record.id, record])), [records]);
   const filtered = useMemo(() => {
     const lowered = query.trim().toLowerCase();
@@ -1787,15 +1782,22 @@ function HealthDocsPanel({
   return (
     <section className="health-docs-panel">
       <section className="card health-docs-toolbar">
+        <div className="health-docs-summary">
+          <div>
+            <p className="label no-margin">Health docs</p>
+            <p>{docs.length} saved{docs.length ? ` • ${linkedCount} linked` : ""}</p>
+          </div>
+        </div>
         <div className="health-docs-toolbar-row">
           <input
             className="input"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search docs, vaccine names, clinic, or date"
+            placeholder="Search docs, vet, vaccine"
           />
-          <label className="btn btn-secondary upload-btn">
-            Upload
+          <label className="btn btn-secondary upload-btn health-doc-upload-btn">
+            <Plus size={15} />
+            <span>Upload</span>
             <input
               type="file"
               accept="image/*,application/pdf"
@@ -1808,7 +1810,7 @@ function HealthDocsPanel({
             />
           </label>
         </div>
-        <div className="choice-chip-row">
+        <div className="choice-chip-row health-doc-chip-row">
           {(["All", "Vaccine", "Vet visit", "Medication", "Other"] as const).map((value) => (
             <button
               key={value}
@@ -1820,7 +1822,7 @@ function HealthDocsPanel({
             </button>
           ))}
         </div>
-        <div className="choice-chip-row">
+        <div className="choice-chip-row health-doc-chip-row">
           {([
             { value: "all", label: "All docs" },
             { value: "linked", label: "Linked" },
@@ -1854,17 +1856,25 @@ function HealthDocsPanel({
                     {doc.linkedCareRecordId ? "Linked" : "Unlinked"}
                   </span>
                 </div>
-                <h2>{doc.title}</h2>
+                <h2 className="health-doc-title">{doc.title}</h2>
                 <p>Uploaded {prettyDate(doc.uploadedAt.slice(0, 10))}</p>
-                {linkedRecord && <p className="care-support">{linkedRecord.title} - {linkedRecord.type} - {prettyDate(linkedRecord.date)}</p>}
-              </div>
-              <div className="health-doc-actions">
-                <button className="tiny-btn" type="button" onClick={() => void onOpenDoc(doc.assetRef)}>View</button>
-                <button className="tiny-btn" type="button" onClick={() => void onDownloadDoc(doc.assetRef, doc.fileName)}>Download</button>
-                {doc.linkedCareRecordId && (
-                  <button className="tiny-btn" type="button" onClick={() => onOpenLinkedRecord(doc.linkedCareRecordId!)}>Record</button>
-                )}
-                <button className="tiny-btn danger" type="button" onClick={() => void onDeleteDoc(doc)}>Delete</button>
+                {linkedRecord && <p className="care-support">{linkedRecord.title} • {prettyDate(linkedRecord.date)}</p>}
+                <div className="health-doc-actions">
+                  <button className="tiny-btn" type="button" aria-label={`View ${doc.title}`} title="View" onClick={() => void onOpenDoc(doc.assetRef)}>
+                    <Eye size={14} />
+                  </button>
+                  <button className="tiny-btn" type="button" aria-label={`Download ${doc.title}`} title="Download" onClick={() => void onDownloadDoc(doc.assetRef, doc.fileName)}>
+                    <Download size={14} />
+                  </button>
+                  {doc.linkedCareRecordId && (
+                    <button className="tiny-btn" type="button" aria-label={`Open linked record for ${doc.title}`} title="Open record" onClick={() => onOpenLinkedRecord(doc.linkedCareRecordId!)}>
+                      <Link2 size={14} />
+                    </button>
+                  )}
+                  <button className="tiny-btn danger" type="button" aria-label={`Delete ${doc.title}`} title="Delete" onClick={() => void onDeleteDoc(doc)}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             </article>
           );
