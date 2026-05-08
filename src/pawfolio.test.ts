@@ -6,6 +6,7 @@ import {
   buildPawPalFeed,
   buildPawPalDigest,
   buildPawPalPlannerPrompt,
+  buildMedicalSummary,
   buildProofModeSections,
   buildTodayAttentionItems,
   buildGoogleCalendarEvent,
@@ -1281,6 +1282,44 @@ describe("pawfolio helpers", () => {
       title: "Simplicity trio",
       statusLabel: "No document saved",
     });
+  });
+
+  it("builds a concise medical summary from care records and docs", () => {
+    const records: CareRecord[] = [
+      { id: "rabies", type: "Vaccine", title: "Rabies", date: "2026-05-01", note: "", nextDueDate: "2028-07-01" },
+      { id: "lyme", type: "Vaccine", title: "Lyme", date: "2026-05-08", note: "", nextDueDate: "2026-05-20" },
+      { id: "visit", type: "Vet visit", title: "Spring checkup", date: "2026-05-03", note: "", clinic: "Westside Vet" },
+      { id: "med", type: "Medication", title: "Simplicity trio", date: "2026-05-04", note: "", startDate: "2026-05-04", nextDueDate: "2026-06-04", doseAmount: "1", doseUnit: "tablet", frequencyType: "monthly", frequencyInterval: 1 },
+      { id: "weight", type: "Weight", title: "72", date: "2026-05-07", note: "", weightValue: "72", weightUnit: "lb" },
+      { id: "allergy", type: "Allergy", title: "Chicken sensitivity", date: "2026-05-02", note: "" },
+    ];
+    const docs: HealthDoc[] = [
+      {
+        id: "doc-rabies",
+        title: "Rabies certificate",
+        fileName: "rabies.pdf",
+        mimeType: "application/pdf",
+        assetRef: "pawfolio-doc:rabies",
+        linkedCareRecordId: "rabies",
+        category: "Vaccine",
+        uploadedAt: "2026-05-01T12:00:00.000Z",
+      },
+    ];
+
+    const summary = buildMedicalSummary(records, docs, new Date("2026-05-08T12:00:00"));
+
+    expect(summary.activeMedications.map((record) => record.id)).toEqual(["med"]);
+    expect(summary.latestWeight?.id).toBe("weight");
+    expect(summary.latestVetVisit?.id).toBe("visit");
+    expect(summary.allergyNotes.map((record) => record.id)).toEqual(["allergy"]);
+    expect(summary.vaccineSnapshot).toEqual({
+      total: 2,
+      current: 1,
+      dueSoon: 1,
+      overdue: 0,
+      missingProof: 1,
+    });
+    expect(summary.keyDocs[0].doc.id).toBe("doc-rabies");
   });
 
   it("opens proof and next-step PawPal threads for incomplete serious care records", () => {

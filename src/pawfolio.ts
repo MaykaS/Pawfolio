@@ -129,6 +129,24 @@ export type ProofModeSection = {
   items: ProofModeItem[];
 };
 
+export type MedicalSummary = {
+  activeMedications: CareRecord[];
+  latestWeight?: CareRecord;
+  latestVetVisit?: CareRecord;
+  allergyNotes: CareRecord[];
+  vaccineSnapshot: {
+    total: number;
+    current: number;
+    dueSoon: number;
+    overdue: number;
+    missingProof: number;
+  };
+  keyDocs: Array<{
+    doc: HealthDoc;
+    record?: CareRecord;
+  }>;
+};
+
 export type CareEvent = {
   id: string;
   type: SharedCareType;
@@ -1899,6 +1917,50 @@ export function buildProofModeSections(records: CareRecord[], docs: HealthDoc[])
       items: medicationItems,
     },
   ];
+}
+
+export function buildMedicalSummary(records: CareRecord[], docs: HealthDoc[], now = new Date()): MedicalSummary {
+  const sortedRecords = sortCareRecordsNewestFirst(records);
+  const activeMedications = sortedRecords.filter((record) => (
+    record.type === "Medication" && ["Active", "Upcoming"].includes(medicationPlanStatus(record, now))
+  )).slice(0, 3);
+  const latestWeight = sortedRecords.find((record) => record.type === "Weight");
+  const latestVetVisit = sortedRecords.find((record) => record.type === "Vet visit");
+  const allergyNotes = sortedRecords.filter((record) => record.type === "Allergy" || record.type === "Health note").slice(0, 3);
+  const vaccineRecords = sortedRecords.filter((record) => record.type === "Vaccine");
+  const vaccineSnapshot = vaccineRecords.reduce((summary, record) => {
+    summary.total += 1;
+    const status = careStatus(record, now);
+    if (status === "OK") summary.current += 1;
+    if (status === "Due soon") summary.dueSoon += 1;
+    if (status === "Overdue") summary.overdue += 1;
+    if (hasCareRecordProofGap(record, docs)) summary.missingProof += 1;
+    return summary;
+  }, {
+    total: 0,
+    current: 0,
+    dueSoon: 0,
+    overdue: 0,
+    missingProof: 0,
+  });
+  const recordsById = new Map(records.map((record) => [record.id, record]));
+  const keyDocs = sortHealthDocs(
+    docs.filter((doc) => doc.category === "Vaccine" || doc.category === "Vet visit" || doc.category === "Medication"),
+  )
+    .slice(0, 4)
+    .map((doc) => ({
+      doc,
+      record: doc.linkedCareRecordId ? recordsById.get(doc.linkedCareRecordId) : undefined,
+    }));
+
+  return {
+    activeMedications,
+    latestWeight,
+    latestVetVisit,
+    allergyNotes,
+    vaccineSnapshot,
+    keyDocs,
+  };
 }
 
 export function getNotificationGroups(

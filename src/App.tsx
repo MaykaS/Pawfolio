@@ -54,6 +54,7 @@ import {
   buildPawPalDigest,
   buildPawPalPlannerPrompt,
   buildProofModeSections,
+  buildMedicalSummary,
   buildTodayAttentionItems,
   canUseBrowserNotifications,
   candidateCareRecordsForHealthDoc,
@@ -1600,6 +1601,7 @@ function CareScreen({
   onTabIntentConsumed: () => void;
 }) {
   const careTabs = [
+    { label: "Summary", types: [] as string[] },
     { label: "Meds", types: ["Medication"] },
     { label: "Vaccines", types: ["Vaccine"] },
     { label: "Vet visits", types: ["Vet visit", "Allergy", "Health note"] },
@@ -1624,6 +1626,7 @@ function CareScreen({
     .map((record) => medicationPlanStatus(record));
   const coachInsights = routineCoachInsights(tasks, taskHistory, reminders, records);
   const proofSections = useMemo(() => buildProofModeSections(records, healthDocs), [records, healthDocs]);
+  const medicalSummary = useMemo(() => buildMedicalSummary(records, healthDocs), [records, healthDocs]);
 
   return (
     <section className="screen">
@@ -1657,7 +1660,17 @@ function CareScreen({
         medicationStatuses={medicationStatuses}
         insights={coachInsights}
       />
-      {activeCareTab === "Proof" ? (
+      {activeCareTab === "Summary" ? (
+        <MedicalSummaryPanel
+          summary={medicalSummary}
+          onOpenRecord={(recordId) => {
+            const record = records.find((item) => item.id === recordId);
+            if (record) setSelectedRecord(record);
+          }}
+          onOpenDoc={onOpenDoc}
+          onDownloadDoc={onDownloadDoc}
+        />
+      ) : activeCareTab === "Proof" ? (
         <ProofModePanel
           sections={proofSections}
           onOpenRecord={(recordId) => {
@@ -1813,12 +1826,111 @@ function CareHistoryPanel({
     );
   }
 
-  if (activeTab === "Docs" || activeTab === "Proof") return null;
+  if (activeTab === "Docs" || activeTab === "Proof" || activeTab === "Summary") return null;
 
   return (
     <section className="care-history card">
       <p className="label no-margin">Routine Coach</p>
       <p>{insights[0]}</p>
+    </section>
+  );
+}
+
+function MedicalSummaryPanel({
+  summary,
+  onOpenRecord,
+  onOpenDoc,
+  onDownloadDoc,
+}: {
+  summary: ReturnType<typeof buildMedicalSummary>;
+  onOpenRecord: (recordId: string) => void;
+  onOpenDoc: (assetRef: string) => Promise<void>;
+  onDownloadDoc: (assetRef: string, fileName: string) => Promise<void>;
+}) {
+  return (
+    <section className="medical-summary-panel">
+      <section className="card medical-summary-hero">
+        <p className="label no-margin">Medical summary</p>
+        <div className="mini-metrics">
+          <span><strong>{summary.activeMedications.length}</strong> active meds</span>
+          <span><strong>{summary.vaccineSnapshot.current}</strong> current vaccines</span>
+          <span><strong>{summary.vaccineSnapshot.dueSoon + summary.vaccineSnapshot.overdue}</strong> needing follow-up</span>
+          <span><strong>{summary.keyDocs.length}</strong> key docs</span>
+        </div>
+      </section>
+      <section className="card medical-summary-card">
+        <div className="detail-head-row">
+          <p className="label no-margin">Current meds</p>
+          <span className={summary.activeMedications.length ? "badge badge-green" : "badge badge-gray"}>{summary.activeMedications.length || 0}</span>
+        </div>
+        {summary.activeMedications.length === 0 ? (
+          <p>No active medication plans right now.</p>
+        ) : (
+          <div className="medical-summary-list">
+            {summary.activeMedications.map((record) => (
+              <button className="medical-summary-item" type="button" key={record.id} onClick={() => onOpenRecord(record.id)}>
+                <strong>{record.title}</strong>
+                <span>{careRecordSummary(record)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+      <section className="card medical-summary-card">
+        <p className="label no-margin">At a glance</p>
+        <div className="detail-grid">
+          <div className="detail-row">
+            <span>Latest weight</span>
+            <strong>{summary.latestWeight ? `${summary.latestWeight.weightValue || summary.latestWeight.title}${summary.latestWeight.weightUnit ? ` ${summary.latestWeight.weightUnit}` : ""}` : "Not logged yet"}</strong>
+          </div>
+          <div className="detail-row">
+            <span>Recent vet visit</span>
+            <strong>{summary.latestVetVisit ? `${summary.latestVetVisit.title} • ${prettyDate(summary.latestVetVisit.date)}` : "No visit saved yet"}</strong>
+          </div>
+          <div className="detail-row">
+            <span>Vaccine proof gaps</span>
+            <strong>{summary.vaccineSnapshot.missingProof ? `${summary.vaccineSnapshot.missingProof} missing` : "Covered"}</strong>
+          </div>
+          <div className="detail-row">
+            <span>Allergies & notes</span>
+            <strong>{summary.allergyNotes.length ? `${summary.allergyNotes.length} saved` : "None saved"}</strong>
+          </div>
+        </div>
+      </section>
+      <section className="card medical-summary-card">
+        <div className="detail-head-row">
+          <p className="label no-margin">Key docs</p>
+          <span className={summary.keyDocs.length ? "badge badge-green" : "badge badge-gray"}>{summary.keyDocs.length || 0}</span>
+        </div>
+        {summary.keyDocs.length === 0 ? (
+          <p>No key health docs saved yet.</p>
+        ) : (
+          <div className="detail-doc-list">
+            {summary.keyDocs.map(({ doc, record }) => (
+              <article className="detail-doc-item" key={doc.id}>
+                <div>
+                  <h3>{doc.title}</h3>
+                  <p>{doc.category} • Uploaded {prettyDate(doc.uploadedAt.slice(0, 10))}</p>
+                  {record ? <p className="care-support">{record.title} • {prettyDate(record.date)}</p> : null}
+                </div>
+                <div className="health-doc-actions">
+                  <button className="tiny-btn" type="button" title="View" onClick={() => void onOpenDoc(doc.assetRef)}>
+                    <Eye size={14} />
+                  </button>
+                  <button className="tiny-btn" type="button" title="Download" onClick={() => void onDownloadDoc(doc.assetRef, doc.fileName)}>
+                    <Download size={14} />
+                  </button>
+                  {record ? (
+                    <button className="tiny-btn" type="button" title="Open record" onClick={() => onOpenRecord(record.id)}>
+                      <Link2 size={14} />
+                    </button>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
     </section>
   );
 }
