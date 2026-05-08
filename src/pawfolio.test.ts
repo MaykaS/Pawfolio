@@ -81,6 +81,7 @@ import {
   withReminderRecurrence,
   withTaskTime,
   canUseBrowserNotifications,
+  candidateCareRecordsForHealthDoc,
   collectPhotoRefs,
   compareTasksByTime,
   defaultReminderLeadMinutes,
@@ -1217,6 +1218,18 @@ describe("pawfolio helpers", () => {
         linkedCareRecordId: undefined,
       },
     ]);
+  });
+
+  it("filters and sorts candidate care records for doc relinking", () => {
+    const records: CareRecord[] = [
+      { id: "med-old", type: "Medication", title: "Old med", date: "2026-05-01", note: "" },
+      { id: "vet", type: "Vet visit", title: "Clinic visit", date: "2026-05-03", note: "" },
+      { id: "med-new", type: "Medication", title: "Current med", date: "2026-05-08", note: "" },
+    ];
+
+    expect(candidateCareRecordsForHealthDoc(records, "Medication").map((record) => record.id)).toEqual(["med-new", "med-old"]);
+    expect(candidateCareRecordsForHealthDoc(records, "Vet visit").map((record) => record.id)).toEqual(["vet"]);
+    expect(candidateCareRecordsForHealthDoc(records, "Other").map((record) => record.id)).toEqual(["med-new", "vet", "med-old"]);
   });
 
   it("builds proof mode sections for fast health document retrieval", () => {

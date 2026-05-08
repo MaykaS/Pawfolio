@@ -1352,6 +1352,13 @@ export function deleteHealthDocFromState(docs: HealthDoc[], docId: string) {
   return sortHealthDocs(docs.filter((doc) => doc.id !== docId));
 }
 
+export function candidateCareRecordsForHealthDoc(records: CareRecord[], category: HealthDocCategory) {
+  const matching = records.filter((record) => (
+    category === "Other" ? true : careRecordDocCategory(record.type) === category
+  ));
+  return sortCareRecordsNewestFirst(matching);
+}
+
 export function visibleReminders(state: Pick<PawfolioState, "reminders" | "careEvents">) {
   return [...state.reminders, ...state.careEvents.map(careEventToReminder)];
 }

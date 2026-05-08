@@ -56,7 +56,7 @@ import {
   buildProofModeSections,
   buildTodayAttentionItems,
   canUseBrowserNotifications,
-  careRecordDocCategory,
+  candidateCareRecordsForHealthDoc,
   careRecordSummary,
   careStatus,
   careEmptyState,
@@ -2034,10 +2034,7 @@ function HealthDocEditSheet({
   const [title, setTitle] = useState(doc.title);
   const [category, setCategory] = useState<HealthDocCategory>(doc.category);
   const [linkedCareRecordId, setLinkedCareRecordId] = useState(doc.linkedCareRecordId || "");
-  const candidateRecords = records.filter((record) => {
-    if (category === "Other") return true;
-    return careRecordDocCategory(record.type) === category;
-  });
+  const candidateRecords = candidateCareRecordsForHealthDoc(records, category);
 
   return (
     <Sheet title="Edit health doc" onClose={onClose}>
@@ -2054,6 +2051,10 @@ function HealthDocEditSheet({
         <Field label="Title">
           <input className="input" value={title} onChange={(event) => setTitle(event.target.value)} />
         </Field>
+        <div className="doc-edit-file-row">
+          <span className="label no-margin">File</span>
+          <strong>{doc.fileName}</strong>
+        </div>
         <Field label="Category">
           <select className="input" value={category} onChange={(event) => setCategory(event.target.value as HealthDocCategory)}>
             {(["Vaccine", "Vet visit", "Medication", "Other"] as HealthDocCategory[]).map((option) => (
@@ -2071,7 +2072,15 @@ function HealthDocEditSheet({
             ))}
           </select>
         </Field>
-        <button className="btn btn-primary">Save health doc</button>
+        <p className="settings-note">Link this document to the right record so proof and follow-up stay easy to trust later.</p>
+        <div className="sheet-actions-row">
+          {linkedCareRecordId ? (
+            <button className="btn btn-ghost" type="button" onClick={() => setLinkedCareRecordId("")}>
+              Unlink
+            </button>
+          ) : <span />}
+          <button className="btn btn-primary">Save health doc</button>
+        </div>
       </form>
     </Sheet>
   );
@@ -2161,7 +2170,7 @@ function HealthDocsPanel({
               className={typeFilter === value ? "choice-chip active" : "choice-chip"}
               onClick={() => setTypeFilter(value)}
             >
-              {value}
+              {value === "Vet visit" ? "Vet" : value === "Medication" ? "Meds" : value}
             </button>
           ))}
         </div>
@@ -2200,7 +2209,7 @@ function HealthDocsPanel({
                   </span>
                 </div>
                 <h2 className="health-doc-title">{doc.title}</h2>
-                <p>Uploaded {prettyDate(doc.uploadedAt.slice(0, 10))}</p>
+                <p className="health-doc-meta-line">Uploaded {prettyDate(doc.uploadedAt.slice(0, 10))}</p>
                 {linkedRecord && <p className="care-support">{linkedRecord.title} • {prettyDate(linkedRecord.date)}</p>}
                 <div className="health-doc-actions">
                   <button className="tiny-btn" type="button" aria-label={`View ${doc.title}`} title="View" onClick={() => void onOpenDoc(doc.assetRef)}>

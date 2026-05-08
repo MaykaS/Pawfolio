@@ -1296,6 +1296,10 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   margin-top: 8px;
 }
 
+.health-doc-meta-line {
+  margin-top: 2px;
+}
+
 .health-doc-upload-btn {
   align-items: center;
   display: inline-flex;
@@ -1305,21 +1309,18 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 }
 
 .health-doc-chip-row {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .health-doc-chip-row .choice-chip {
+  flex: 0 1 auto;
   font-size: 11px;
   min-height: 32px;
-  overflow-wrap: anywhere;
-  padding-inline: 8px;
-  white-space: normal;
-}
-
-.health-docs-toolbar .health-doc-chip-row + .health-doc-chip-row {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 100%;
+  padding-inline: 10px;
+  white-space: nowrap;
 }
 
 .care-detail-sheet {
@@ -1391,14 +1392,25 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   line-height: 1.4;
 }
 
-@media (max-width: 380px) {
-  .health-doc-chip-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+.doc-edit-file-row {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 12px;
+}
 
-  .health-docs-toolbar .health-doc-chip-row + .health-doc-chip-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+.doc-edit-file-row strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.sheet-actions-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 12px;
 }
 
 .care-history {
