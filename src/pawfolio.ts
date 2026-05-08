@@ -283,7 +283,7 @@ export type CoachSuggestionAction =
   | { type: "open_diary" }
   | { type: "open_care"; recordId?: string }
   | { type: "open_health_docs"; docId?: string }
-  | { type: "open_reminder" }
+  | { type: "open_reminder"; recordId?: string }
   | { type: "open_calendar" }
   | { type: "open_profile" }
   | { type: "export_data" };
@@ -1605,6 +1605,13 @@ export function notificationLeadLabel(reminder: Pick<Reminder, "notifyLeadMinute
   return reminderLeadOptions.find((option) => option.value === minutes)?.label || `${minutes} min before`;
 }
 
+export function reminderTypeForCareRecord(record: CareRecord) {
+  if (record.type === "Vet visit") return "Vet";
+  if (record.type === "Vaccine") return "Vaccine";
+  if (record.type === "Medication") return "Medication";
+  return "Other";
+}
+
 export type PushStatusInput = {
   configured: boolean;
   supported: boolean;
@@ -2266,8 +2273,8 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
       title: "Save the vaccine proof",
       body: `${vaccineWithoutProof.title} is logged, but the certificate is still missing.`,
       reason: "You have the care event, but not the proof that usually matters later for boarding, travel, or the vet desk.",
-      actionLabel: "Open health docs",
-      action: { type: "open_health_docs" },
+      actionLabel: "Review vaccine",
+      action: { type: "open_care", recordId: vaccineWithoutProof.id },
     });
   }
 
@@ -2295,6 +2302,11 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
     return hasCareRecordNextStepGap(record);
   });
   if (recordMissingNextStep) {
+    const needsReminderCoverage = Boolean(
+      (recordMissingNextStep.type === "Vaccine" || recordMissingNextStep.type === "Vet visit")
+      && recordMissingNextStep.nextDueDate
+      && !hasReminderCoverageForDate(reminders, recordMissingNextStep, recordMissingNextStep.nextDueDate),
+    );
     candidates.push({
       id: `pawpal-thread-next-step-${recordMissingNextStep.id}`,
       type: "care_missing_next_step",
@@ -2304,8 +2316,10 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
         ? `${recordMissingNextStep.title} has a follow-up date, but nothing is carrying that next step yet.`
         : `${recordMissingNextStep.title} still needs a next due or refill step to stay easy to trust.`,
       reason: "The event is saved, but the next action after it is still too easy to lose.",
-      actionLabel: "Review care",
-      action: { type: "open_care", recordId: recordMissingNextStep.id },
+      actionLabel: needsReminderCoverage ? "Add reminder" : "Review care",
+      action: needsReminderCoverage
+        ? { type: "open_reminder", recordId: recordMissingNextStep.id }
+        : { type: "open_care", recordId: recordMissingNextStep.id },
     });
   }
 
@@ -2318,7 +2332,7 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
       title: "A health doc still needs a home",
       body: `${unattachedDoc.title} is saved, but it is not linked to a care record yet.`,
       reason: "The paperwork is here, but PawPal cannot use it well until it belongs to the right record.",
-      actionLabel: "Open health docs",
+      actionLabel: "Link doc",
       action: { type: "open_health_docs", docId: unattachedDoc.id },
     });
   }

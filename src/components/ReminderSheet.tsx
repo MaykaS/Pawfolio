@@ -55,25 +55,29 @@ export function ReminderSheet({
   onSave,
   renderLeadChips,
 }: {
-  mode: { mode: "create"; date?: string } | { mode: "edit"; reminder: Reminder };
+  mode: { mode: "create"; date?: string; draft?: Partial<Reminder> } | { mode: "edit"; reminder: Reminder };
   deviceTimeZone: string;
   onClose: () => void;
   onSave: (reminder: Reminder) => void;
   renderLeadChips: (value: number, onChange: (value: number) => void) => React.ReactNode;
 }) {
   const existing = mode.mode === "edit" ? mode.reminder : undefined;
+  const draft = mode.mode === "create" ? mode.draft : undefined;
   const [reminder, setReminder] = useState<ReminderDraft>({
-    title: existing?.title || "",
-    type: existing?.type || "Vet",
-    date: existing?.date || (mode.mode === "create" ? mode.date : undefined) || new Date().toISOString().slice(0, 10),
-    time: existing?.time || "",
-    note: existing?.note || "",
-    recurrence: existing?.recurrence || ("none" as ReminderRecurrence),
-    notifyLeadMinutes: existing?.notifyLeadMinutes ?? defaultReminderLeadMinutes(existing?.type || "Vet"),
+    title: existing?.title || draft?.title || "",
+    type: existing?.type || draft?.type || "Vet",
+    date: existing?.date || draft?.date || (mode.mode === "create" ? mode.date : undefined) || new Date().toISOString().slice(0, 10),
+    time: existing?.time || draft?.time || "",
+    note: existing?.note || draft?.note || "",
+    recurrence: existing?.recurrence || draft?.recurrence || ("none" as ReminderRecurrence),
+    notifyLeadMinutes:
+      existing?.notifyLeadMinutes
+      ?? draft?.notifyLeadMinutes
+      ?? defaultReminderLeadMinutes(existing?.type || draft?.type || "Vet"),
   });
   const [timeZoneSheetOpen, setTimeZoneSheetOpen] = useState(false);
-  const [timeZoneMode, setTimeZoneMode] = useState<"device" | "custom">(existing?.timeZone ? "custom" : "device");
-  const [timeZoneDraft, setTimeZoneDraft] = useState(existing?.timeZone || deviceTimeZone);
+  const [timeZoneMode, setTimeZoneMode] = useState<"device" | "custom">(existing?.timeZone || draft?.timeZone ? "custom" : "device");
+  const [timeZoneDraft, setTimeZoneDraft] = useState(existing?.timeZone || draft?.timeZone || deviceTimeZone);
   const [timeZoneError, setTimeZoneError] = useState("");
   const timeZoneOptions = useMemo(
     () => availableTimeZones(timeZoneDraft || deviceTimeZone),

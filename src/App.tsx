@@ -94,6 +94,7 @@ import {
   notificationPermissionStatus,
   pushStatusDetail,
   pushStatusLabel,
+  reminderTypeForCareRecord,
   reminderLeadOptions,
   prettyDate,
   recurrenceLabel,
@@ -176,7 +177,7 @@ import {
 
 type TaskMode = { mode: "create" } | { mode: "edit"; task: DailyTask };
 type MemoryMode = { mode: "create" } | { mode: "edit"; entry: DiaryEntry };
-type ReminderMode = { mode: "create"; date?: string } | { mode: "edit"; reminder: Reminder };
+type ReminderMode = { mode: "create"; date?: string; draft?: Partial<Reminder> } | { mode: "edit"; reminder: Reminder };
 type HealthDocEditMode = { doc: HealthDoc };
 type BackupPayload = { app: "Pawfolio"; version: number; exportedAt: string; state: PawfolioState; photos?: PhotoRecord[]; docs?: HealthDocRecord[] };
 
@@ -450,8 +451,13 @@ export default function App() {
       return;
     }
     if (item.action.type === "open_health_docs") {
+      const action = item.action;
       setTab("care");
       setCareTabIntent("Docs");
+      if (action.docId) {
+        const doc = state.healthDocs.find((entry) => entry.id === action.docId);
+        if (doc) setHealthDocEditMode({ doc });
+      }
       return;
     }
     if (item.action.type === "open_today") {
@@ -463,8 +469,21 @@ export default function App() {
       return;
     }
     if (item.action.type === "open_reminder") {
+      const action = item.action;
       setTab("calendar");
-      setReminderMode({ mode: "create" });
+      const record = action.recordId ? careRecords.find((entry) => entry.id === action.recordId) : undefined;
+      setReminderMode({
+        mode: "create",
+        date: record?.nextDueDate || record?.date,
+        draft: record
+          ? {
+              title: record.title,
+              type: reminderTypeForCareRecord(record),
+              date: record.nextDueDate || record.date,
+              note: record.note || "",
+            }
+          : undefined,
+      });
       return;
     }
     if (item.action.type === "open_calendar") {

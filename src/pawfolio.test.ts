@@ -9,6 +9,7 @@ import {
   buildProofModeSections,
   buildTodayAttentionItems,
   buildGoogleCalendarEvent,
+  candidateCareRecordsForHealthDoc,
   bottomNavTabs,
   careEmptyState,
   careRecordNextStepStatus,
@@ -53,6 +54,7 @@ import {
   recurrenceLabel,
   reminderCompletionStatus,
   reminderLeadOptions,
+  reminderTypeForCareRecord,
   reminderTypes,
   safeSetLocalStorage,
   saveCareRecordToState,
@@ -81,7 +83,6 @@ import {
   withReminderRecurrence,
   withTaskTime,
   canUseBrowserNotifications,
-  candidateCareRecordsForHealthDoc,
   collectPhotoRefs,
   compareTasksByTime,
   defaultReminderLeadMinutes,
@@ -1309,6 +1310,23 @@ describe("pawfolio helpers", () => {
     expect(threadIds).toContain("pawpal-thread-unattached-doc-doc-free");
   });
 
+  it("opens a prefilled reminder flow when follow-up coverage is missing", () => {
+    const state = normalizeState({
+      care: [
+        { id: "lyme-1", type: "Vaccine", title: "Lyme 1", date: "2026-04-17", note: "", nextDueDate: "2026-05-08" },
+      ],
+      diary: [],
+      reminders: [],
+    });
+
+    expect(
+      buildPawPalFeed(state, new Date("2026-04-22T12:00:00")).find((thread) => thread.id === "pawpal-thread-next-step-lyme-1"),
+    ).toMatchObject({
+      actionLabel: "Add reminder",
+      action: { type: "open_reminder", recordId: "lyme-1" },
+    });
+  });
+
   it("opens softer PawPal threads for memory gaps, weight drift, and near-future care follow-up", () => {
     const state = normalizeState({
       tasks: [
@@ -1534,6 +1552,12 @@ describe("pawfolio helpers", () => {
 
     expect(buildPawPalFeed(state, new Date("2026-04-29T12:00:00")).map((thread) => thread.id)).toContain("pawpal-thread-upcoming-reminders");
     expect(buildPawPalPlannerPrompt(state, new Date("2026-04-29T12:00:00")).id).not.toBe("pawpal-prompt-plan");
+  });
+
+  it("maps care records to the right reminder types for coordinator actions", () => {
+    expect(reminderTypeForCareRecord({ id: "vax", type: "Vaccine", title: "Rabies", date: "2026-05-01", note: "" })).toBe("Vaccine");
+    expect(reminderTypeForCareRecord({ id: "visit", type: "Vet visit", title: "Checkup", date: "2026-05-01", note: "" })).toBe("Vet");
+    expect(reminderTypeForCareRecord({ id: "med", type: "Medication", title: "Heartgard", date: "2026-05-01", note: "" })).toBe("Medication");
   });
 
   it("estimates data URL size and catches localStorage save failures", () => {
