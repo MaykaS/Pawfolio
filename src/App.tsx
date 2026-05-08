@@ -28,6 +28,13 @@ import {
   pushConfigured,
 } from "./cloud";
 import {
+  deleteHealthDocFromStore,
+  loadHealthDocRecordFromStore,
+  saveHealthDocRecordToStore,
+  saveHealthDocToStore,
+  type HealthDocRecord,
+} from "./docStore";
+import {
   deletePhotoFromStore,
   loadPhotoFromStore,
   loadPhotoRecordFromStore,
@@ -51,9 +58,11 @@ import {
   careEmptyState,
   cloudBackupStatusLabel,
   cloudUploadDetail,
+  collectHealthDocRefs,
   collectPhotoRefs,
   deleteCalendarItemFromState,
   deleteCareItemFromState,
+  deleteHealthDocFromState,
   dismissCoachSuggestion,
   diaryEntryPhotos,
   daysTogether,
@@ -66,8 +75,11 @@ import {
   getUpcomingReminder,
   getUpcomingReminders,
   getUpcomingCalendarItems,
+  healthDocTitleFromFileName,
+  healthDocsForCareRecord,
   initialState,
   isStoredPhotoRef,
+  linkHealthDocsToCareRecord,
   limitDiaryPhotos,
   medicationConsistency,
   medicationPlanStatus,
@@ -104,6 +116,7 @@ import {
   normalizeTaskSchedule,
   tasksForDate,
   todayISO,
+  upsertHealthDocs,
   weekdayOptions,
   withTaskTime,
   visibleCareRecords,
@@ -112,6 +125,8 @@ import {
   wellnessSummary,
   weightTrendPlot,
   weightTrendSeries,
+  careRecordNextStepStatus,
+  careRecordProofStatus,
   type CareRecord,
   type CareRegion,
   type CoachSettings,
@@ -123,6 +138,8 @@ import {
   type DiaryEntry,
   type DogAvatar,
   type DogProfile,
+  type HealthDoc,
+  type HealthDocCategory,
   type PawfolioNotificationStatus,
   type PawfolioState,
   type Reminder,
@@ -153,7 +170,7 @@ import {
 type TaskMode = { mode: "create" } | { mode: "edit"; task: DailyTask };
 type MemoryMode = { mode: "create" } | { mode: "edit"; entry: DiaryEntry };
 type ReminderMode = { mode: "create"; date?: string } | { mode: "edit"; reminder: Reminder };
-type BackupPayload = { app: "Pawfolio"; version: number; exportedAt: string; state: PawfolioState; photos?: PhotoRecord[] };
+type BackupPayload = { app: "Pawfolio"; version: number; exportedAt: string; state: PawfolioState; photos?: PhotoRecord[]; docs?: HealthDocRecord[] };
 
 function loadState(): PawfolioState {
   try {
@@ -225,6 +242,32 @@ async function readCompressedImage(
   }
 }
 
+async function openStoredHealthDoc(assetRef: string) {
+  const record = await loadHealthDocRecordFromStore(assetRef);
+  if (!record?.dataUrl) return;
+  window.open(record.dataUrl, "_blank", "noopener,noreferrer");
+}
+
+async function downloadStoredHealthDoc(assetRef: string, fileName: string) {
+  const record = await loadHealthDocRecordFromStore(assetRef);
+  if (!record?.dataUrl) return;
+  const link = document.createElement("a");
+  link.href = record.dataUrl;
+  link.download = fileName || record.fileName || "pawfolio-health-doc";
+  link.click();
+}
+
+function healthDocTypeLabel(doc: HealthDoc) {
+  return doc.category;
+}
+
+function badgeClassForTone(tone: "green" | "amber" | "coral" | "gray") {
+  if (tone === "green") return "badge badge-green";
+  if (tone === "amber") return "badge badge-amber";
+  if (tone === "coral") return "badge badge-red";
+  return "badge badge-gray";
+}
+
 function countTasks(tasks: DailyTask[], pattern: RegExp) {
   return tasks.filter((task) => pattern.test(task.title) && task.done).length;
 }
@@ -282,6 +325,7 @@ export default function App() {
   const [selectedMemory, setSelectedMemory] = useState<DiaryEntry | null>(null);
   const [saveError, setSaveError] = useState("");
   const [pushDiagnosticsOpen, setPushDiagnosticsOpen] = useState(false);
+  const [careTabIntent, setCareTabIntent] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -392,7 +436,13 @@ export default function App() {
       const action = item.action;
       const record = careRecords.find((item) => item.id === action.recordId);
       setTab("care");
+      setCareTabIntent(record ? (record.type === "Medication" ? "Meds" : record.type === "Vaccine" ? "Vaccines" : record.type === "Vet visit" || record.type === "Allergy" || record.type === "Health note" ? "Vet visits" : "Weight") : null);
       if (record) setCareMode({ mode: "edit", record });
+      return;
+    }
+    if (item.action.type === "open_health_docs") {
+      setTab("care");
+      setCareTabIntent("Health docs");
       return;
     }
     if (item.action.type === "open_today") {
@@ -425,12 +475,16 @@ export default function App() {
     const photos = (
       await Promise.all(collectPhotoRefs(state).map((ref) => loadPhotoRecordFromStore(ref)))
     ).filter(Boolean) as PhotoRecord[];
+    const docs = (
+      await Promise.all(collectHealthDocRefs(state).map((ref) => loadHealthDocRecordFromStore(ref)))
+    ).filter(Boolean) as HealthDocRecord[];
     const payload: BackupPayload = {
       app: "Pawfolio",
       version: 2,
       exportedAt: new Date().toISOString(),
       state,
       photos,
+      docs,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -452,12 +506,51 @@ export default function App() {
           ),
         );
       }
+      if ("docs" in parsed && parsed.docs?.length) {
+        await Promise.all(
+          parsed.docs.map((doc) =>
+            saveHealthDocRecordToStore({ ...doc, createdAt: doc.createdAt || new Date().toISOString() }),
+          ),
+        );
+      }
       const importedState = "state" in parsed && parsed.state ? parsed.state : parsed;
       setState(normalizeState(importedState as Partial<PawfolioState>));
       setSaveError("");
     } catch {
       setSaveError("Pawfolio could not import that file. Choose a Pawfolio backup JSON file.");
     }
+  };
+
+  const uploadHealthDocs = async (
+    files: File[],
+    options: { linkedCareRecordId?: string; category?: HealthDocCategory } = {},
+  ) => {
+    const nextDocs = await Promise.all(files.map(async (file) => {
+      const assetRef = await saveHealthDocToStore(file);
+      return {
+        id: `health-doc-${crypto.randomUUID()}`,
+        title: healthDocTitleFromFileName(file.name),
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        assetRef,
+        linkedCareRecordId: options.linkedCareRecordId,
+        category: options.category || "Other",
+        uploadedAt: new Date().toISOString(),
+      } satisfies HealthDoc;
+    }));
+    setState((current) => ({
+      ...current,
+      healthDocs: upsertHealthDocs(current.healthDocs, nextDocs),
+    }));
+    return nextDocs;
+  };
+
+  const deleteHealthDoc = async (doc: HealthDoc) => {
+    await deleteHealthDocFromStore(doc.assetRef).catch(() => undefined);
+    setState((current) => ({
+      ...current,
+      healthDocs: deleteHealthDocFromState(current.healthDocs, doc.id),
+    }));
   };
 
   if (!state.profile) {
@@ -559,6 +652,8 @@ export default function App() {
         <CareScreen
           profile={state.profile}
           records={careRecords}
+          healthDocs={state.healthDocs}
+          initialTab={careTabIntent}
           taskHistory={state.taskHistory}
           tasks={state.tasks}
           reminders={calendarItems}
@@ -567,6 +662,17 @@ export default function App() {
           onDelete={(id) =>
             setState((current) => deleteCareItemFromState(current, id))
           }
+          onUploadDocs={uploadHealthDocs}
+          onDeleteDoc={deleteHealthDoc}
+          onOpenDoc={openStoredHealthDoc}
+          onDownloadDoc={downloadStoredHealthDoc}
+          onOpenLinkedRecord={(recordId) => {
+            const record = careRecords.find((item) => item.id === recordId);
+            if (!record) return;
+            setCareTabIntent(record.type === "Medication" ? "Meds" : record.type === "Vaccine" ? "Vaccines" : record.type === "Vet visit" || record.type === "Allergy" || record.type === "Health note" ? "Vet visits" : "Weight");
+            setCareMode({ mode: "edit", record });
+          }}
+          onTabIntentConsumed={() => setCareTabIntent(null)}
         />
       )}
 
@@ -743,12 +849,26 @@ export default function App() {
           <CareSheet
             mode={careMode}
             onClose={() => setCareMode(null)}
+            existingDocs={
+              careMode.mode === "edit"
+                ? healthDocsForCareRecord(state.healthDocs, careMode.record.id)
+                : []
+            }
+            onUploadDocs={uploadHealthDocs}
             renderLeadChips={(value, onChange) => (
               <ReminderLeadChips value={value} onChange={onChange} />
             )}
             validate={validateCareRecord}
-            onSave={(record) => {
-              setState((current) => saveCareRecordToState(current, record));
+            onSave={(record, attachedDocIds) => {
+              setState((current) => {
+                const saved = saveCareRecordToState(current, record);
+                return attachedDocIds.length
+                  ? {
+                      ...saved,
+                      healthDocs: linkHealthDocsToCareRecord(saved.healthDocs, attachedDocIds, record),
+                    }
+                  : saved;
+              });
               setCareMode(null);
             }}
           />
@@ -1394,29 +1514,51 @@ function MemoryDetailSheet({
 function CareScreen({
   profile,
   records,
+  healthDocs,
+  initialTab,
   taskHistory,
   tasks,
   reminders,
   onOpenCare,
   onEdit,
   onDelete,
+  onUploadDocs,
+  onDeleteDoc,
+  onOpenDoc,
+  onDownloadDoc,
+  onOpenLinkedRecord,
+  onTabIntentConsumed,
 }: {
   profile: DogProfile;
   records: CareRecord[];
+  healthDocs: HealthDoc[];
+  initialTab: string | null;
   taskHistory: PawfolioState["taskHistory"];
   tasks: DailyTask[];
   reminders: Reminder[];
   onOpenCare: () => void;
   onEdit: (record: CareRecord) => void;
   onDelete: (id: string) => void;
+  onUploadDocs: (files: File[], options?: { linkedCareRecordId?: string; category?: HealthDocCategory }) => Promise<HealthDoc[]>;
+  onDeleteDoc: (doc: HealthDoc) => Promise<void>;
+  onOpenDoc: (assetRef: string) => Promise<void>;
+  onDownloadDoc: (assetRef: string, fileName: string) => Promise<void>;
+  onOpenLinkedRecord: (recordId: string) => void;
+  onTabIntentConsumed: () => void;
 }) {
   const careTabs = [
     { label: "Meds", types: ["Medication"] },
     { label: "Vaccines", types: ["Vaccine"] },
     { label: "Vet visits", types: ["Vet visit", "Allergy", "Health note"] },
     { label: "Weight", types: ["Weight"] },
+    { label: "Health docs", types: [] as string[] },
   ];
   const [activeCareTab, setActiveCareTab] = useState(careTabs[0].label);
+  useEffect(() => {
+    if (!initialTab) return;
+    setActiveCareTab(initialTab);
+    onTabIntentConsumed();
+  }, [initialTab, onTabIntentConsumed]);
   const activeTypes = careTabs.find((tabItem) => tabItem.label === activeCareTab)?.types || [];
   const filteredRecords = records.filter((record) => activeTypes.includes(record.type));
   const empty = careEmptyState(activeCareTab);
@@ -1453,12 +1595,23 @@ function CareScreen({
       <CareHistoryPanel
         activeTab={activeCareTab}
         records={filteredRecords}
+        healthDocs={healthDocs}
         weights={weights}
         meds={meds}
         medicationStatuses={medicationStatuses}
         insights={coachInsights}
       />
-      {filteredRecords.length === 0 ? (
+      {activeCareTab === "Health docs" ? (
+        <HealthDocsPanel
+          docs={healthDocs}
+          records={records}
+          onUploadDocs={onUploadDocs}
+          onDeleteDoc={onDeleteDoc}
+          onOpenDoc={onOpenDoc}
+          onDownloadDoc={onDownloadDoc}
+          onOpenLinkedRecord={onOpenLinkedRecord}
+        />
+      ) : filteredRecords.length === 0 ? (
         <EmptyState
           title={empty.title}
           text={empty.text}
@@ -1492,6 +1645,14 @@ function CareScreen({
                 )}
                 <h2>{record.title}</h2>
                 <p>{careRecordSummary(record)}</p>
+                <div className="care-proof-grid">
+                  <span className={badgeClassForTone(careRecordProofStatus(record, healthDocs).tone)}>
+                    {careRecordProofStatus(record, healthDocs).label}
+                  </span>
+                  <span className={badgeClassForTone(careRecordNextStepStatus(record).tone)}>
+                    {careRecordNextStepStatus(record).label}
+                  </span>
+                </div>
                 {supportDetail && <p className="care-support">{supportDetail}</p>}
               </div>
               <CardActions onEdit={() => onEdit(record)} onDelete={() => onDelete(record.id)} />
@@ -1506,6 +1667,7 @@ function CareScreen({
 function CareHistoryPanel({
   activeTab,
   records,
+  healthDocs,
   weights,
   meds,
   medicationStatuses,
@@ -1513,6 +1675,7 @@ function CareHistoryPanel({
 }: {
   activeTab: string;
   records: CareRecord[];
+  healthDocs: HealthDoc[];
   weights: ReturnType<typeof weightTrendSeries>;
   meds: ReturnType<typeof medicationConsistency>;
   medicationStatuses: ReturnType<typeof medicationPlanStatus>[];
@@ -1551,10 +1714,22 @@ function CareHistoryPanel({
   }
 
   if (activeTab === "Vaccines" || activeTab === "Vet visits") {
+    const docsAttached = records.filter((record) => healthDocsForCareRecord(healthDocs, record.id).length > 0).length;
     return (
       <section className="care-history card">
         <p className="label no-margin">{activeTab === "Vaccines" ? "Vaccine follow-ups" : "Visit follow-ups"}</p>
         <p>{records.filter((record) => record.nextDueDate).length || 0} records have a next date saved.</p>
+        <p className="care-history-support">{docsAttached} records already have proof attached.</p>
+      </section>
+    );
+  }
+
+  if (activeTab === "Health docs") {
+    const linkedCount = healthDocs.filter((doc) => doc.linkedCareRecordId).length;
+    return (
+      <section className="care-history card">
+        <p className="label no-margin">Health docs</p>
+        <p>{healthDocs.length || 0} files saved. {linkedCount} already linked to care records.</p>
       </section>
     );
   }
@@ -1563,6 +1738,138 @@ function CareHistoryPanel({
     <section className="care-history card">
       <p className="label no-margin">Routine Coach</p>
       <p>{insights[0]}</p>
+    </section>
+  );
+}
+
+function HealthDocsPanel({
+  docs,
+  records,
+  onUploadDocs,
+  onDeleteDoc,
+  onOpenDoc,
+  onDownloadDoc,
+  onOpenLinkedRecord,
+}: {
+  docs: HealthDoc[];
+  records: CareRecord[];
+  onUploadDocs: (files: File[], options?: { linkedCareRecordId?: string; category?: HealthDocCategory }) => Promise<HealthDoc[]>;
+  onDeleteDoc: (doc: HealthDoc) => Promise<void>;
+  onOpenDoc: (assetRef: string) => Promise<void>;
+  onDownloadDoc: (assetRef: string, fileName: string) => Promise<void>;
+  onOpenLinkedRecord: (recordId: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<HealthDocCategory | "All">("All");
+  const [linkFilter, setLinkFilter] = useState<"all" | "linked" | "unlinked">("all");
+  const linkedRecords = useMemo(() => new Map(records.map((record) => [record.id, record])), [records]);
+  const filtered = useMemo(() => {
+    const lowered = query.trim().toLowerCase();
+    return docs.filter((doc) => {
+      if (typeFilter !== "All" && doc.category !== typeFilter) return false;
+      if (linkFilter === "linked" && !doc.linkedCareRecordId) return false;
+      if (linkFilter === "unlinked" && doc.linkedCareRecordId) return false;
+      if (!lowered) return true;
+      const linkedRecord = doc.linkedCareRecordId ? linkedRecords.get(doc.linkedCareRecordId) : undefined;
+      const haystack = [
+        doc.title,
+        doc.fileName,
+        doc.category,
+        linkedRecord?.title,
+        linkedRecord?.clinic,
+        linkedRecord?.vetName,
+        linkedRecord?.date,
+      ].filter(Boolean).join(" ").toLowerCase();
+      return haystack.includes(lowered);
+    });
+  }, [docs, linkFilter, linkedRecords, query, typeFilter]);
+
+  return (
+    <section className="health-docs-panel">
+      <section className="card health-docs-toolbar">
+        <div className="health-docs-toolbar-row">
+          <input
+            className="input"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search docs, vaccine names, clinic, or date"
+          />
+          <label className="btn btn-secondary upload-btn">
+            Upload
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              onChange={(event) => {
+                const files = [...(event.target.files || [])];
+                if (files.length) void onUploadDocs(files, { category: "Other" });
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+        </div>
+        <div className="choice-chip-row">
+          {(["All", "Vaccine", "Vet visit", "Medication", "Other"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              className={typeFilter === value ? "choice-chip active" : "choice-chip"}
+              onClick={() => setTypeFilter(value)}
+            >
+              {value}
+            </button>
+          ))}
+        </div>
+        <div className="choice-chip-row">
+          {([
+            { value: "all", label: "All docs" },
+            { value: "linked", label: "Linked" },
+            { value: "unlinked", label: "Unlinked" },
+          ] as const).map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={linkFilter === option.value ? "choice-chip active" : "choice-chip"}
+              onClick={() => setLinkFilter(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </section>
+      {filtered.length === 0 ? (
+        <EmptyState title="No health docs yet" text="Upload a vaccine certificate, visit summary, or medication paperwork so the proof is easy to find later." />
+      ) : (
+        filtered.map((doc) => {
+          const linkedRecord = doc.linkedCareRecordId ? linkedRecords.get(doc.linkedCareRecordId) : undefined;
+          return (
+            <article className="care-item health-doc-item" key={doc.id}>
+              <div className="care-icon-wrap badge-amber">
+                {doc.mimeType === "application/pdf" ? <NotebookPen size={18} /> : <ImagePlus size={18} />}
+              </div>
+              <div className="care-copy">
+                <div className="badge-row">
+                  <span className="badge badge-amber">{healthDocTypeLabel(doc)}</span>
+                  <span className={doc.linkedCareRecordId ? "badge badge-green" : "badge badge-gray"}>
+                    {doc.linkedCareRecordId ? "Linked" : "Unlinked"}
+                  </span>
+                </div>
+                <h2>{doc.title}</h2>
+                <p>Uploaded {prettyDate(doc.uploadedAt.slice(0, 10))}</p>
+                {linkedRecord && <p className="care-support">{linkedRecord.title} - {linkedRecord.type} - {prettyDate(linkedRecord.date)}</p>}
+              </div>
+              <div className="health-doc-actions">
+                <button className="tiny-btn" type="button" onClick={() => void onOpenDoc(doc.assetRef)}>View</button>
+                <button className="tiny-btn" type="button" onClick={() => void onDownloadDoc(doc.assetRef, doc.fileName)}>Download</button>
+                {doc.linkedCareRecordId && (
+                  <button className="tiny-btn" type="button" onClick={() => onOpenLinkedRecord(doc.linkedCareRecordId!)}>Record</button>
+                )}
+                <button className="tiny-btn danger" type="button" onClick={() => void onDeleteDoc(doc)}>Delete</button>
+              </div>
+            </article>
+          );
+        })
+      )}
     </section>
   );
 }

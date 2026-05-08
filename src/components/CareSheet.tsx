@@ -1,8 +1,10 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ChangeEvent, type ReactNode } from "react";
 import {
+  careRecordDocCategory,
   careTypeToReminderType,
   careTypes,
   defaultReminderLeadMinutes,
+  healthDocTitleFromFileName,
   isSharedCareType,
   medicationDoseUnits,
   medicationFrequencyOptions,
@@ -10,6 +12,7 @@ import {
   normalizeMedicationFrequency,
   todayISO,
   type CareRecord,
+  type HealthDoc,
 } from "../pawfolio";
 import { Field, Sheet } from "./Sheet";
 
@@ -19,12 +22,16 @@ export function CareSheet({
   mode,
   onClose,
   onSave,
+  existingDocs,
+  onUploadDocs,
   renderLeadChips,
   validate,
 }: {
   mode: CareSheetMode;
   onClose: () => void;
-  onSave: (record: CareRecord) => void;
+  onSave: (record: CareRecord, attachedDocIds: string[]) => void;
+  existingDocs: HealthDoc[];
+  onUploadDocs: (files: File[], options?: { linkedCareRecordId?: string; category?: HealthDoc["category"] }) => Promise<HealthDoc[]>;
   renderLeadChips: (value: number, onChange: (value: number) => void) => ReactNode;
   validate: (record: Partial<CareRecord>) => Partial<Record<keyof CareRecord, string>>;
 }) {
@@ -54,12 +61,32 @@ export function CareSheet({
     weightUnit: normalizedExisting?.weightUnit || "lb",
     timeZone: normalizedExisting?.timeZone,
   });
+  const [attachedDocs, setAttachedDocs] = useState<HealthDoc[]>(existingDocs);
 
   const update = (key: keyof typeof record, value: string) => {
     setRecord((current) => ({ ...current, [key]: value }));
   };
   const errors = validate(record);
   const canSave = Object.keys(errors).length === 0;
+  const supportsDocs = record.type === "Medication" || record.type === "Vaccine" || record.type === "Vet visit";
+
+  const uploadDocs = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = [...(event.target.files || [])];
+    if (!files.length) return;
+    const uploaded = await onUploadDocs(files, {
+      linkedCareRecordId: existing?.id,
+      category: careRecordDocCategory(record.type),
+    });
+    setAttachedDocs((current) => {
+      const byId = new Map(current.map((doc) => [doc.id, doc]));
+      uploaded.forEach((doc) => byId.set(doc.id, {
+        ...doc,
+        title: doc.title || healthDocTitleFromFileName(doc.fileName),
+      }));
+      return [...byId.values()];
+    });
+    event.currentTarget.value = "";
+  };
 
   return (
     <Sheet title={mode.mode === "edit" ? "Edit care record" : "Add care record"} onClose={onClose}>
@@ -76,7 +103,7 @@ export function CareSheet({
           const savedRecord = record.type === "Medication"
             ? normalizeMedicationFrequency(normalizeMedicationDose(nextRecord))
             : nextRecord;
-          onSave(savedRecord);
+          onSave(savedRecord, attachedDocs.map((doc) => doc.id));
         }}
       >
         <div className="form-two">
@@ -258,6 +285,28 @@ export function CareSheet({
         {record.type === "Medication" || record.type === "Vet visit" ? null : isSharedCareType(record.type) && (
           <Field label="Reminder">
             {renderLeadChips(record.notifyLeadMinutes, (value) => setRecord((current) => ({ ...current, notifyLeadMinutes: value })))}
+          </Field>
+        )}
+        {supportsDocs && (
+          <Field label="Health documents">
+            <label className="btn btn-secondary upload-btn">
+              Upload image or PDF
+              <input type="file" accept="image/*,application/pdf" multiple onChange={uploadDocs} />
+            </label>
+            {attachedDocs.length > 0 ? (
+              <div className="care-doc-list">
+                {attachedDocs.map((doc) => (
+                  <div className="care-doc-pill" key={doc.id}>
+                    <strong>{doc.title}</strong>
+                    <span>{doc.mimeType === "application/pdf" ? "PDF" : "Image"}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="settings-note">
+                Save certificates, visit summaries, or medication paperwork so the proof stays with the record.
+              </p>
+            )}
           </Field>
         )}
         <Field label="Note">

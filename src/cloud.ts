@@ -1,4 +1,5 @@
 import { createClient, type Session } from "@supabase/supabase-js";
+import { collectSnapshotHealthDocRecords, restoreSnapshotHealthDocs, type HealthDocRecord } from "./docStore";
 import { collectSnapshotPhotoRecords, restoreSnapshotPhotos, type PhotoRecord } from "./photoStore";
 import { storageKey, type PawfolioState } from "./pawfolio";
 
@@ -86,10 +87,12 @@ export async function uploadLocalPawfolioToAccount(state: PawfolioState) {
   if (!user) throw new Error("Sign in before uploading Pawfolio.");
 
   const photos = await collectSnapshotPhotoRecords(state);
+  const docs = await collectSnapshotHealthDocRecords(state);
   const payload = {
     user_id: user.id,
     state,
     photos,
+    docs,
     local_storage_key: storageKey,
     updated_at: new Date().toISOString(),
   };
@@ -115,7 +118,7 @@ export async function downloadCloudPawfolioToLocal() {
 
   const { data, error } = await supabase
     .from("pawfolio_snapshots")
-    .select("state,updated_at,photos")
+    .select("state,updated_at,photos,docs")
     .eq("user_id", user.id)
     .maybeSingle();
   if (error) throw error;
@@ -124,6 +127,10 @@ export async function downloadCloudPawfolioToLocal() {
 
 export async function hydrateSnapshotPhotos(photos?: PhotoRecord[] | null) {
   await restoreSnapshotPhotos(photos || []);
+}
+
+export async function hydrateSnapshotHealthDocs(docs?: HealthDocRecord[] | null) {
+  await restoreSnapshotHealthDocs(docs || []);
 }
 
 export async function getCloudSession() {
@@ -210,5 +217,5 @@ export async function subscribeDeviceToPush(session: Session) {
 }
 
 function usesLegacySnapshotSchema(message = "") {
-  return message.includes("push_enabled") || message.includes("email_enabled");
+  return message.includes("push_enabled") || message.includes("email_enabled") || message.includes("docs");
 }

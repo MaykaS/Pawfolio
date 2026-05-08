@@ -5,6 +5,7 @@ import {
   connectGoogleCalendar,
   downloadCloudPawfolioToLocal,
   getCloudSession,
+  hydrateSnapshotHealthDocs,
   hydrateSnapshotPhotos,
   parseAuthCallbackUrl,
   signInWithGoogle,
@@ -38,6 +39,7 @@ export type RestoreSummary = {
   care: number;
   diary: number;
   photos: number;
+  docs: number;
 };
 
 type UseCloudAccountArgs = {
@@ -177,11 +179,13 @@ export function useCloudAccount({
         care: 0,
         diary: 0,
         photos: 0,
+        docs: 0,
       });
       setCloudStatus("No cloud backup was found for this account yet. You can start fresh here or try another signed-in account.");
       return false;
     }
     await hydrateSnapshotPhotos(snapshot.photos);
+    await hydrateSnapshotHealthDocs((snapshot as { docs?: unknown }).docs as never);
     const restoredState = normalizeState(snapshot.state as Partial<PawfolioState>);
     const nextState = normalizeState({
       ...restoredState,
@@ -204,6 +208,7 @@ export function useCloudAccount({
       care: nextState.care.length + nextState.careEvents.length,
       diary: nextState.diary.length,
       photos: snapshot.photos?.length || 0,
+      docs: Array.isArray((snapshot as { docs?: unknown[] }).docs) ? ((snapshot as { docs?: unknown[] }).docs?.length || 0) : 0,
     };
     setRestoreState("restored");
     setRestoreSummary(summary);
@@ -287,6 +292,7 @@ export function useCloudAccount({
                 care: 0,
                 diary: 0,
                 photos: 0,
+                docs: 0,
               });
               setCloudStatus((restoreError as Error).message);
             } finally {
@@ -462,6 +468,7 @@ export function useCloudAccount({
           care: 0,
           diary: 0,
           photos: 0,
+          docs: 0,
         });
         setCloudStatus(error.message);
       })
@@ -648,6 +655,7 @@ function restoreSummaryMessage(summary: RestoreSummary) {
   if (summary.care) restored.push(formatRestoreCount(summary.care, "care record"));
   if (summary.diary) restored.push(formatRestoreCount(summary.diary, "diary entry"));
   if (summary.photos) restored.push(formatRestoreCount(summary.photos, "photo"));
+  if (summary.docs) restored.push(formatRestoreCount(summary.docs, "health doc"));
   if (restored.length === 0) return "Restored your Pawfolio to this device.";
   return `Restored ${joinHumanList(restored)} to this device.`;
 }

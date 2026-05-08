@@ -89,6 +89,7 @@ export function restoreSummaryLabel(summary?: RestoreSummary | null) {
   if (summary.care) restored.push(formatCount(summary.care, "care record"));
   if (summary.diary) restored.push(formatCount(summary.diary, "diary entry"));
   if (summary.photos) restored.push(formatCount(summary.photos, "photo"));
+  if (summary.docs) restored.push(formatCount(summary.docs, "health doc"));
   if (restored.length === 0) return "Restored your Pawfolio to this device.";
   return `Restored ${joinHumanList(restored)}.`;
 }

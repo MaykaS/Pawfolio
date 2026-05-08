@@ -81,6 +81,19 @@ export type CareRecord = {
   timeZone?: string;
 };
 
+export type HealthDocCategory = "Vaccine" | "Vet visit" | "Medication" | "Other";
+
+export type HealthDoc = {
+  id: string;
+  title: string;
+  fileName: string;
+  mimeType: string;
+  assetRef: string;
+  linkedCareRecordId?: string;
+  category: HealthDocCategory;
+  uploadedAt: string;
+};
+
 export type SharedCareType = "Medication" | "Vaccine" | "Vet visit";
 export type ReminderRecurrence = "none" | "daily" | "weekly" | "monthly" | "yearly";
 export type MedicationDoseUnit = "tablet" | "chew" | "capsule" | "mL" | "drops" | "scoop" | "other";
@@ -193,6 +206,10 @@ export type PawPalMemory = {
 export type PawPalThreadType =
   | "incomplete_medication"
   | "vaccine_missing_next_date"
+  | "vaccine_missing_proof"
+  | "vet_visit_missing_proof"
+  | "care_missing_next_step"
+  | "unattached_health_doc"
   | "no_upcoming_reminders"
   | "repeated_missed_walks"
   | "routine_drift"
@@ -243,6 +260,7 @@ export type CoachSuggestionAction =
   | { type: "open_today" }
   | { type: "open_diary" }
   | { type: "open_care"; recordId?: string }
+  | { type: "open_health_docs"; docId?: string }
   | { type: "open_reminder" }
   | { type: "open_calendar" }
   | { type: "open_profile" }
@@ -269,6 +287,7 @@ export type PawfolioState = {
   diary: DiaryEntry[];
   care: CareRecord[];
   careEvents: CareEvent[];
+  healthDocs: HealthDoc[];
   reminders: Reminder[];
   reminderHistory: ReminderHistory;
   notificationPreferences: NotificationPreferences;
@@ -282,8 +301,9 @@ export type PawfolioState = {
 };
 
 export const storageKey = "pawfolio-local-v1";
-export const currentSchemaVersion = 3;
+export const currentSchemaVersion = 4;
 export const photoRefPrefix = "pawfolio-photo:";
+export const healthDocRefPrefix = "pawfolio-doc:";
 export const maxDiaryPhotos = 6;
 const anytimeSortMinutes = 24 * 60 + 1;
 
@@ -304,6 +324,7 @@ export const initialState: PawfolioState = {
   diary: [],
   care: [],
   careEvents: [],
+  healthDocs: [],
   reminders: [],
   reminderHistory: {},
   notificationPreferences: {
@@ -1184,6 +1205,7 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
     diary: sortDiaryEntries((base.diary || []).map(withDiaryPhotos)),
     care: normalizedCare.filter((record) => !isSharedCareType(record.type)),
     careEvents,
+    healthDocs: sortHealthDocs(base.healthDocs || []),
     reminders: normalizedReminders.filter((reminder) => !reminderTypeToCareType(reminder.type)),
     reminderHistory: base.reminderHistory || {},
     notificationPreferences: {
@@ -1232,6 +1254,71 @@ export function visibleCareRecords(state: Pick<PawfolioState, "care" | "careEven
   return [...state.care, ...state.careEvents.map(careEventToCareRecord)];
 }
 
+export function sortHealthDocs(docs: HealthDoc[]) {
+  return [...docs]
+    .filter((doc) => Boolean(doc?.id && doc?.assetRef))
+    .sort((a, b) => (b.uploadedAt || "").localeCompare(a.uploadedAt || "") || a.title.localeCompare(b.title));
+}
+
+export function isStoredHealthDocRef(ref?: string) {
+  return Boolean(ref?.startsWith(healthDocRefPrefix));
+}
+
+export function healthDocTitleFromFileName(fileName: string) {
+  return fileName.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim() || fileName;
+}
+
+export function careRecordDocCategory(type: string): HealthDocCategory {
+  if (type === "Vaccine") return "Vaccine";
+  if (type === "Vet visit") return "Vet visit";
+  if (type === "Medication") return "Medication";
+  return "Other";
+}
+
+export function healthDocsForCareRecord(docs: HealthDoc[], recordId?: string) {
+  if (!recordId) return [];
+  return sortHealthDocs(docs.filter((doc) => doc.linkedCareRecordId === recordId));
+}
+
+export function linkHealthDocsToCareRecord(
+  docs: HealthDoc[],
+  docIds: string[],
+  record: Pick<CareRecord, "id" | "type">,
+) {
+  const category = careRecordDocCategory(record.type);
+  const linkedIds = new Set(docIds);
+  return sortHealthDocs(docs.map((doc) => (
+    linkedIds.has(doc.id)
+      ? {
+          ...doc,
+          linkedCareRecordId: record.id,
+          category,
+        }
+      : doc
+  )));
+}
+
+export function unlinkHealthDocsFromCareRecord(docs: HealthDoc[], recordId: string) {
+  return sortHealthDocs(docs.map((doc) => (
+    doc.linkedCareRecordId === recordId
+      ? {
+          ...doc,
+          linkedCareRecordId: undefined,
+        }
+      : doc
+  )));
+}
+
+export function upsertHealthDocs(docs: HealthDoc[], nextDocs: HealthDoc[]) {
+  const byId = new Map(docs.map((doc) => [doc.id, doc]));
+  nextDocs.forEach((doc) => byId.set(doc.id, doc));
+  return sortHealthDocs([...byId.values()]);
+}
+
+export function deleteHealthDocFromState(docs: HealthDoc[], docId: string) {
+  return sortHealthDocs(docs.filter((doc) => doc.id !== docId));
+}
+
 export function visibleReminders(state: Pick<PawfolioState, "reminders" | "careEvents">) {
   return [...state.reminders, ...state.careEvents.map(careEventToReminder)];
 }
@@ -1274,6 +1361,7 @@ export function deleteCareItemFromState(state: PawfolioState, id: string): Pawfo
     ...state,
     care: state.care.filter((record) => record.id !== id),
     careEvents: state.careEvents.filter((event) => event.id !== id),
+    healthDocs: unlinkHealthDocsFromCareRecord(state.healthDocs, id),
   };
 }
 
@@ -1572,6 +1660,65 @@ export function medicationPlanSupportDetail(record: CareRecord) {
   if (record.adherenceNotes) parts.push(record.adherenceNotes);
   if (record.note) parts.push(record.note);
   return parts.join(" - ");
+}
+
+export function careRecordProofStatus(record: CareRecord, docs: HealthDoc[]) {
+  const attached = healthDocsForCareRecord(docs, record.id);
+  if (record.type === "Vaccine") {
+    return attached.length
+      ? { label: attached.length === 1 ? "Certificate attached" : `${attached.length} certificates attached`, tone: "green" as const }
+      : { label: "No certificate saved", tone: "amber" as const };
+  }
+  if (record.type === "Vet visit") {
+    return attached.length
+      ? { label: attached.length === 1 ? "Visit summary attached" : `${attached.length} visit docs attached`, tone: "green" as const }
+      : { label: "No visit summary attached", tone: "amber" as const };
+  }
+  if (record.type === "Medication") {
+    return attached.length
+      ? { label: attached.length === 1 ? "Document attached" : `${attached.length} documents attached`, tone: "green" as const }
+      : { label: "No document saved", tone: "gray" as const };
+  }
+  return attached.length
+    ? { label: attached.length === 1 ? "Document attached" : `${attached.length} documents attached`, tone: "green" as const }
+    : { label: "No document saved", tone: "gray" as const };
+}
+
+export function careRecordNextStepStatus(record: CareRecord) {
+  if (record.type === "Vaccine") {
+    return record.nextDueDate
+      ? { label: `Next due ${prettyDate(record.nextDueDate)}`, tone: "green" as const }
+      : { label: "Next due missing", tone: "amber" as const };
+  }
+  if (record.type === "Vet visit") {
+    return record.nextDueDate
+      ? { label: `Follow-up due ${prettyDate(record.nextDueDate)}`, tone: "green" as const }
+      : { label: "No follow-up saved", tone: "amber" as const };
+  }
+  if (record.type === "Medication") {
+    if (record.nextDueDate) return { label: `Next ${prettyDate(record.nextDueDate)}`, tone: "green" as const };
+    if (record.refillDate) return { label: `Refill ${prettyDate(record.refillDate)}`, tone: "green" as const };
+    const status = medicationPlanStatus(record);
+    if (status === "Ended") return { label: "Plan ended", tone: "gray" as const };
+    if (status === "Needs review") return { label: "Plan details need review", tone: "amber" as const };
+    return { label: "No next step saved", tone: "amber" as const };
+  }
+  return record.nextDueDate
+    ? { label: `Next ${prettyDate(record.nextDueDate)}`, tone: "green" as const }
+    : { label: "No next step saved", tone: "gray" as const };
+}
+
+export function hasCareRecordProofGap(record: CareRecord, docs: HealthDoc[]) {
+  if (record.type !== "Vaccine" && record.type !== "Vet visit") return false;
+  return healthDocsForCareRecord(docs, record.id).length === 0;
+}
+
+export function hasCareRecordNextStepGap(record: CareRecord) {
+  if (record.type === "Vaccine" || record.type === "Vet visit") return !record.nextDueDate;
+  if (record.type === "Medication") {
+    return medicationPlanStatus(record) !== "Ended" && !record.nextDueDate && !record.refillDate;
+  }
+  return false;
 }
 
 export function careRecordSummary(record: CareRecord) {
@@ -2442,6 +2589,10 @@ export function collectPhotoRefs(state: Pick<PawfolioState, "profile" | "diary">
     });
   });
   return [...refs];
+}
+
+export function collectHealthDocRefs(state: Pick<PawfolioState, "healthDocs">) {
+  return [...new Set(state.healthDocs.map((doc) => doc.assetRef).filter(isStoredHealthDocRef))];
 }
 
 export function eventsForMonth(reminders: Reminder[], visibleMonth: Date) {

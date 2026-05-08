@@ -14,6 +14,7 @@ const restoredSummary: RestoreSummary = {
   care: 2,
   diary: 1,
   photos: 4,
+  docs: 2,
 };
 
 describe("trust copy helpers", () => {

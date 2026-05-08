@@ -5,6 +5,7 @@ create table if not exists public.pawfolio_snapshots (
   user_id uuid primary key references auth.users(id) on delete cascade,
   state jsonb not null,
   photos jsonb not null default '[]'::jsonb,
+  docs jsonb not null default '[]'::jsonb,
   push_enabled boolean not null default false,
   email_enabled boolean not null default false,
   local_storage_key text not null default 'pawfolio-local-v1',
@@ -13,6 +14,7 @@ create table if not exists public.pawfolio_snapshots (
 );
 
 alter table public.pawfolio_snapshots add column if not exists photos jsonb not null default '[]'::jsonb;
+alter table public.pawfolio_snapshots add column if not exists docs jsonb not null default '[]'::jsonb;
 alter table public.pawfolio_snapshots add column if not exists push_enabled boolean not null default false;
 alter table public.pawfolio_snapshots add column if not exists email_enabled boolean not null default false;
 
