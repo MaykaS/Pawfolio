@@ -26,6 +26,11 @@ export type DogProfile = {
   personalityTags?: string[];
   photo?: string;
   avatar: DogAvatar;
+  primaryVetClinic?: string;
+  primaryVetName?: string;
+  primaryVetPhone?: string;
+  primaryVetEmail?: string;
+  primaryVetAddress?: string;
 };
 
 export type DailyTask = {
@@ -111,28 +116,6 @@ export type TodayTaskGroups = {
   overdue: DailyTask[];
   dueLater: DailyTask[];
   completed: DailyTask[];
-};
-
-export type ProofModeSectionId = "vaccines" | "vet" | "medications";
-
-export type ProofModeItem = {
-  id: string;
-  title: string;
-  meta: string;
-  support: string;
-  statusLabel: string;
-  statusTone: "green" | "amber" | "gray";
-  recordId: string;
-  docId?: string;
-  fileName?: string;
-  assetRef?: string;
-};
-
-export type ProofModeSection = {
-  id: ProofModeSectionId;
-  title: string;
-  description: string;
-  items: ProofModeItem[];
 };
 
 export type MedicalSummary = {
@@ -1265,7 +1248,15 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
     ...base,
     schemaVersion: currentSchemaVersion,
     profile: base.profile
-      ? { ...base.profile, personalityTags: base.profile.personalityTags?.length ? base.profile.personalityTags : ["Playful", "Energetic", "Food-motivated"] }
+      ? {
+        ...base.profile,
+        personalityTags: base.profile.personalityTags?.length ? base.profile.personalityTags : ["Playful", "Energetic", "Food-motivated"],
+        primaryVetClinic: base.profile.primaryVetClinic || "",
+        primaryVetName: base.profile.primaryVetName || "",
+        primaryVetPhone: base.profile.primaryVetPhone || "",
+        primaryVetEmail: base.profile.primaryVetEmail || "",
+        primaryVetAddress: base.profile.primaryVetAddress || "",
+      }
       : undefined,
     tasks: sortTasksByTime((base.tasks?.length ? base.tasks : defaultTasks).map(withTaskTime).map((task) => ({ ...task, done: false }))),
     taskHistory,
@@ -1825,118 +1816,6 @@ export function careRecordSummary(record: CareRecord) {
 
 function sortCareRecordsNewestFirst(records: CareRecord[]) {
   return [...records].sort((a, b) => `${b.date} ${b.title}`.localeCompare(`${a.date} ${a.title}`));
-}
-
-function proofItemToneFromLabel(label: string): "green" | "amber" | "gray" {
-  if (/missing|no /i.test(label)) return "amber";
-  if (/attached|saved|ready|active|upcoming/i.test(label)) return "green";
-  return "gray";
-}
-
-function vaccineProofPriority(record: CareRecord, docs: HealthDoc[]) {
-  let score = 0;
-  if (/rab/i.test(record.title)) score += 4;
-  if (healthDocsForCareRecord(docs, record.id).length > 0) score += 2;
-  if (record.nextDueDate) score += 1;
-  return score;
-}
-
-function proofMetaLine(record: CareRecord, doc?: HealthDoc) {
-  if (doc) return `${prettyDate(record.date)} • ${doc.title}`;
-  return `${prettyDate(record.date)} • ${record.type}`;
-}
-
-function proofSupportLine(record: CareRecord, doc: HealthDoc | undefined, fallback: string) {
-  if (doc) return `${fallback} • Ready to open fast`;
-  return fallback;
-}
-
-export function buildProofModeSections(records: CareRecord[], docs: HealthDoc[]): ProofModeSection[] {
-  const vaccineItems = sortCareRecordsNewestFirst(records.filter((record) => record.type === "Vaccine"))
-    .sort((a, b) => vaccineProofPriority(b, docs) - vaccineProofPriority(a, docs) || `${b.date} ${b.title}`.localeCompare(`${a.date} ${a.title}`))
-    .slice(0, 4)
-    .map((record) => {
-      const linkedDoc = healthDocsForCareRecord(docs, record.id)[0];
-      const proof = careRecordProofStatus(record, docs);
-      const nextStep = careRecordNextStepStatus(record);
-      return {
-        id: `proof-vaccine-${record.id}`,
-        title: record.title,
-        meta: proofMetaLine(record, linkedDoc),
-        support: proofSupportLine(record, linkedDoc, nextStep.label),
-        statusLabel: linkedDoc ? "Certificate ready" : proof.label,
-        statusTone: linkedDoc ? "green" : proofItemToneFromLabel(proof.label),
-        recordId: record.id,
-        docId: linkedDoc?.id,
-        fileName: linkedDoc?.fileName,
-        assetRef: linkedDoc?.assetRef,
-      } satisfies ProofModeItem;
-    });
-
-  const vetItems = sortCareRecordsNewestFirst(records.filter((record) => record.type === "Vet visit"))
-    .slice(0, 4)
-    .map((record) => {
-      const linkedDoc = healthDocsForCareRecord(docs, record.id)[0];
-      const proof = careRecordProofStatus(record, docs);
-      const nextStep = careRecordNextStepStatus(record);
-      return {
-        id: `proof-vet-${record.id}`,
-        title: record.title,
-        meta: proofMetaLine(record, linkedDoc),
-        support: proofSupportLine(record, linkedDoc, nextStep.label),
-        statusLabel: linkedDoc ? "Visit summary ready" : proof.label,
-        statusTone: linkedDoc ? "green" : proofItemToneFromLabel(proof.label),
-        recordId: record.id,
-        docId: linkedDoc?.id,
-        fileName: linkedDoc?.fileName,
-        assetRef: linkedDoc?.assetRef,
-      } satisfies ProofModeItem;
-    });
-
-  const medicationItems = sortCareRecordsNewestFirst(
-    records.filter((record) => record.type === "Medication" && medicationPlanStatus(record) !== "Ended"),
-  )
-    .sort((a, b) => medicationPlanStatus(a).localeCompare(medicationPlanStatus(b)) || `${b.date} ${b.title}`.localeCompare(`${a.date} ${a.title}`))
-    .slice(0, 4)
-    .map((record) => {
-      const linkedDoc = healthDocsForCareRecord(docs, record.id)[0];
-      const proof = careRecordProofStatus(record, docs);
-      const nextStep = careRecordNextStepStatus(record);
-      const planStatus = medicationPlanStatus(record);
-      return {
-        id: `proof-med-${record.id}`,
-        title: record.title,
-        meta: linkedDoc ? `${planStatus} • ${linkedDoc.title}` : `${planStatus} • ${prettyDate(record.date)}`,
-        support: proofSupportLine(record, linkedDoc, nextStep.label),
-        statusLabel: linkedDoc ? "Medication doc ready" : proof.label,
-        statusTone: linkedDoc ? "green" : proofItemToneFromLabel(proof.label),
-        recordId: record.id,
-        docId: linkedDoc?.id,
-        fileName: linkedDoc?.fileName,
-        assetRef: linkedDoc?.assetRef,
-      } satisfies ProofModeItem;
-    });
-
-  return [
-    {
-      id: "vaccines",
-      title: "Vaccine proof",
-      description: "Fast access to the vaccine records most likely to be asked for.",
-      items: vaccineItems,
-    },
-    {
-      id: "vet",
-      title: "Latest vet docs",
-      description: "Recent visit summaries and follow-up paperwork in one place.",
-      items: vetItems,
-    },
-    {
-      id: "medications",
-      title: "Current meds",
-      description: "Active medication records and any paperwork that goes with them.",
-      items: medicationItems,
-    },
-  ];
 }
 
 export function buildMedicalSummary(records: CareRecord[], docs: HealthDoc[], now = new Date()): MedicalSummary {

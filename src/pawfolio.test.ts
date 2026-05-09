@@ -7,7 +7,6 @@ import {
   buildPawPalDigest,
   buildPawPalPlannerPrompt,
   buildMedicalSummary,
-  buildProofModeSections,
   buildTodayAttentionItems,
   buildGoogleCalendarEvent,
   candidateCareRecordsForHealthDoc,
@@ -177,6 +176,26 @@ describe("pawfolio helpers", () => {
     });
 
     expect(tasksForDate(normalized.tasks, normalized.taskHistory, todayISO()).find((task) => task.id === "morning-walk")?.done).toBe(true);
+  });
+
+  it("normalizes primary vet profile fields for older saved profiles", () => {
+    const normalized = normalizeState({
+      ...initialState,
+      profile: {
+        name: "Dylan",
+        breed: "Great Pyrenees",
+        birthday: "2022-01-01",
+        weight: "36 kg",
+        personality: "",
+        avatar: initialState.profile?.avatar || { fur: "#fff7df", ears: "floppy", spot: "none", accessory: "none" },
+      },
+    });
+
+    expect(normalized.profile?.primaryVetClinic).toBe("");
+    expect(normalized.profile?.primaryVetName).toBe("");
+    expect(normalized.profile?.primaryVetPhone).toBe("");
+    expect(normalized.profile?.primaryVetEmail).toBe("");
+    expect(normalized.profile?.primaryVetAddress).toBe("");
   });
 
   it("sorts daily tasks by structured time and keeps anytime tasks last", () => {
@@ -1232,56 +1251,6 @@ describe("pawfolio helpers", () => {
     expect(candidateCareRecordsForHealthDoc(records, "Medication").map((record) => record.id)).toEqual(["med-new", "med-old"]);
     expect(candidateCareRecordsForHealthDoc(records, "Vet visit").map((record) => record.id)).toEqual(["vet"]);
     expect(candidateCareRecordsForHealthDoc(records, "Other").map((record) => record.id)).toEqual(["med-new", "vet", "med-old"]);
-  });
-
-  it("builds proof mode sections for fast health document retrieval", () => {
-    const records: CareRecord[] = [
-      { id: "rabies", type: "Vaccine", title: "Rabies", date: "2026-05-01", note: "", nextDueDate: "2028-07-01" },
-      { id: "lyme", type: "Vaccine", title: "Lyme", date: "2026-05-08", note: "", nextDueDate: "2027-05-08" },
-      { id: "visit", type: "Vet visit", title: "Spring checkup", date: "2026-05-03", note: "", clinic: "Westside Vet", nextDueDate: "2026-05-22" },
-      { id: "med", type: "Medication", title: "Simplicity trio", date: "2026-05-04", note: "", startDate: "2026-05-04", nextDueDate: "2026-06-04", doseAmount: "1", doseUnit: "tablet", frequencyType: "monthly", frequencyInterval: 1 },
-    ];
-    const docs: HealthDoc[] = [
-      {
-        id: "doc-rabies",
-        title: "Rabies certificate",
-        fileName: "rabies.pdf",
-        mimeType: "application/pdf",
-        assetRef: "pawfolio-doc:rabies",
-        linkedCareRecordId: "rabies",
-        category: "Vaccine",
-        uploadedAt: "2026-05-01T12:00:00.000Z",
-      },
-      {
-        id: "doc-visit",
-        title: "Visit summary",
-        fileName: "visit.pdf",
-        mimeType: "application/pdf",
-        assetRef: "pawfolio-doc:visit",
-        linkedCareRecordId: "visit",
-        category: "Vet visit",
-        uploadedAt: "2026-05-03T12:00:00.000Z",
-      },
-    ];
-
-    const sections = buildProofModeSections(records, docs);
-
-    expect(sections.map((section) => section.id)).toEqual(["vaccines", "vet", "medications"]);
-    expect(sections[0].items[0]).toMatchObject({
-      title: "Rabies",
-      statusLabel: "Certificate ready",
-      docId: "doc-rabies",
-    });
-    expect(sections[0].items.some((item) => item.title === "Lyme" && item.statusLabel === "No certificate")).toBe(true);
-    expect(sections[1].items[0]).toMatchObject({
-      title: "Spring checkup",
-      statusLabel: "Visit summary ready",
-      docId: "doc-visit",
-    });
-    expect(sections[2].items[0]).toMatchObject({
-      title: "Simplicity trio",
-      statusLabel: "No documents",
-    });
   });
 
   it("builds a concise medical summary from care records and docs", () => {
