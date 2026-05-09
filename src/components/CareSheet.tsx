@@ -16,7 +16,7 @@ import {
 } from "../pawfolio";
 import { Field, Sheet } from "./Sheet";
 
-export type CareSheetMode = { mode: "create"; presetType?: CareRecord["type"] } | { mode: "edit"; record: CareRecord };
+export type CareSheetMode = { mode: "create"; presetType?: CareRecord["type"]; draft?: Partial<CareRecord> } | { mode: "edit"; record: CareRecord };
 
 export function CareSheet({
   mode,
@@ -38,29 +38,30 @@ export function CareSheet({
   const existing = mode.mode === "edit" ? mode.record : undefined;
   const normalizedExisting = existing ? normalizeMedicationFrequency(normalizeMedicationDose(existing)) : undefined;
   const presetType = mode.mode === "create" ? mode.presetType : undefined;
+  const draft = mode.mode === "create" ? mode.draft : undefined;
   const [record, setRecord] = useState({
-    type: normalizedExisting?.type || presetType || "Weight",
-    title: normalizedExisting?.title || "",
-    date: normalizedExisting?.date || todayISO(),
-    startDate: normalizedExisting?.startDate || "",
-    endDate: normalizedExisting?.endDate || "",
-    adherenceNotes: normalizedExisting?.adherenceNotes || "",
-    nextDueDate: normalizedExisting?.nextDueDate || "",
-    note: normalizedExisting?.note || "",
-    dose: normalizedExisting?.dose || "",
-    doseAmount: normalizedExisting?.doseAmount || "",
-    doseUnit: normalizedExisting?.doseUnit || "chew",
-    frequency: normalizedExisting?.frequency || "",
-    frequencyType: normalizedExisting?.frequencyType || "monthly",
-    frequencyInterval: normalizedExisting?.frequencyInterval || 1,
-    refillDate: normalizedExisting?.refillDate || "",
-    notifyLeadMinutes: normalizedExisting?.notifyLeadMinutes ?? defaultReminderLeadMinutes(normalizedExisting?.type || "Weight"),
-    clinic: normalizedExisting?.clinic || "",
-    vetName: normalizedExisting?.vetName || "",
-    reason: normalizedExisting?.reason || "",
-    weightValue: normalizedExisting?.weightValue || "",
-    weightUnit: normalizedExisting?.weightUnit || "lb",
-    timeZone: normalizedExisting?.timeZone,
+    type: normalizedExisting?.type || draft?.type || presetType || "Weight",
+    title: normalizedExisting?.title || draft?.title || "",
+    date: normalizedExisting?.date || draft?.date || todayISO(),
+    startDate: normalizedExisting?.startDate || draft?.startDate || "",
+    endDate: normalizedExisting?.endDate || draft?.endDate || "",
+    adherenceNotes: normalizedExisting?.adherenceNotes || draft?.adherenceNotes || "",
+    nextDueDate: normalizedExisting?.nextDueDate || draft?.nextDueDate || "",
+    note: normalizedExisting?.note || draft?.note || "",
+    dose: normalizedExisting?.dose || draft?.dose || "",
+    doseAmount: normalizedExisting?.doseAmount || draft?.doseAmount || "",
+    doseUnit: normalizedExisting?.doseUnit || draft?.doseUnit || "chew",
+    frequency: normalizedExisting?.frequency || draft?.frequency || "",
+    frequencyType: normalizedExisting?.frequencyType || draft?.frequencyType || "monthly",
+    frequencyInterval: normalizedExisting?.frequencyInterval || draft?.frequencyInterval || 1,
+    refillDate: normalizedExisting?.refillDate || draft?.refillDate || "",
+    notifyLeadMinutes: normalizedExisting?.notifyLeadMinutes ?? draft?.notifyLeadMinutes ?? defaultReminderLeadMinutes((normalizedExisting?.type || draft?.type || "Weight") as CareRecord["type"]),
+    clinic: normalizedExisting?.clinic || draft?.clinic || "",
+    vetName: normalizedExisting?.vetName || draft?.vetName || "",
+    reason: normalizedExisting?.reason || draft?.reason || "",
+    weightValue: normalizedExisting?.weightValue || draft?.weightValue || "",
+    weightUnit: normalizedExisting?.weightUnit || draft?.weightUnit || "lb",
+    timeZone: normalizedExisting?.timeZone || draft?.timeZone,
   });
   const [attachedDocs, setAttachedDocs] = useState<HealthDoc[]>(existingDocs);
 
@@ -243,16 +244,16 @@ export function CareSheet({
                 {errors.endDate && <span className="field-error">{errors.endDate}</span>}
               </Field>
             </div>
-            <div className="form-two">
-              <Field label="Refill / next dose">
-                <input className="input" type="date" value={record.refillDate} onChange={(event) => update("refillDate", event.target.value)} />
-              </Field>
-              <Field label="Reminder">
-                <div className="reminder-lead-inline">
+            <Field label="Refill / next dose">
+              <input className="input" type="date" value={record.refillDate} onChange={(event) => update("refillDate", event.target.value)} />
+            </Field>
+            {record.refillDate ? (
+              <Field label="Reminder timing">
+                <div className="care-reminder-wrap">
                   {renderLeadChips(record.notifyLeadMinutes, (value) => setRecord((current) => ({ ...current, notifyLeadMinutes: value })))}
                 </div>
               </Field>
-            </div>
+            ) : null}
             <Field label="Missed dose / reaction notes">
               <textarea
                 className="input"
@@ -264,10 +265,19 @@ export function CareSheet({
           </>
         )}
         {record.type === "Vaccine" && (
-          <Field label="Next due date">
-            <input className="input" type="date" value={record.nextDueDate} onChange={(event) => update("nextDueDate", event.target.value)} />
-            {errors.nextDueDate && <span className="field-error">{errors.nextDueDate}</span>}
-          </Field>
+          <>
+            <Field label="Next due date">
+              <input className="input" type="date" value={record.nextDueDate} onChange={(event) => update("nextDueDate", event.target.value)} />
+              {errors.nextDueDate && <span className="field-error">{errors.nextDueDate}</span>}
+            </Field>
+            {record.nextDueDate ? (
+              <Field label="Reminder timing">
+                <div className="care-reminder-wrap">
+                  {renderLeadChips(record.notifyLeadMinutes, (value) => setRecord((current) => ({ ...current, notifyLeadMinutes: value })))}
+                </div>
+              </Field>
+            ) : null}
+          </>
         )}
         {record.type === "Vet visit" && (
           <>
@@ -284,21 +294,21 @@ export function CareSheet({
               <input className="input" value={record.reason} onChange={(event) => update("reason", event.target.value)} placeholder="Annual checkup" />
               {errors.title && <span className="field-error">{errors.title}</span>}
             </Field>
-            <div className="form-two">
-              <Field label="Follow-up date">
-                <input className="input" type="date" value={record.nextDueDate} onChange={(event) => update("nextDueDate", event.target.value)} />
-              </Field>
-              <Field label="Reminder">
-                <div className="reminder-lead-inline">
+            <Field label="Follow-up date">
+              <input className="input" type="date" value={record.nextDueDate} onChange={(event) => update("nextDueDate", event.target.value)} />
+            </Field>
+            {record.nextDueDate ? (
+              <Field label="Reminder timing">
+                <div className="care-reminder-wrap">
                   {renderLeadChips(record.notifyLeadMinutes, (value) => setRecord((current) => ({ ...current, notifyLeadMinutes: value })))}
                 </div>
               </Field>
-            </div>
+            ) : null}
           </>
         )}
-        {record.type === "Medication" || record.type === "Vet visit" ? null : isSharedCareType(record.type) && (
+        {record.type === "Medication" || record.type === "Vet visit" || record.type === "Vaccine" ? null : isSharedCareType(record.type) && (
           <Field label="Reminder">
-            <div className="reminder-lead-inline">
+            <div className="care-reminder-wrap">
               {renderLeadChips(record.notifyLeadMinutes, (value) => setRecord((current) => ({ ...current, notifyLeadMinutes: value })))}
             </div>
           </Field>

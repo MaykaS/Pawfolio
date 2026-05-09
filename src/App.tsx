@@ -132,6 +132,7 @@ import {
   weightTrendSeries,
   careRecordNextStepStatus,
   careRecordProofStatus,
+  careRecordVisibleStatusTags,
   type CareRecord,
   type CareRegion,
   type CoachSettings,
@@ -714,6 +715,21 @@ export default function App() {
             setProfileEditIntent("primaryVet");
             setTab("profile");
           }}
+          onLogVaccineDone={(record) =>
+            setCareMode({
+              mode: "create",
+              presetType: "Vaccine",
+              draft: {
+                type: "Vaccine",
+                title: record.title,
+                date: todayISO(),
+                clinic: record.clinic,
+                vetName: record.vetName,
+                reason: record.reason,
+                notifyLeadMinutes: record.notifyLeadMinutes,
+                timeZone: record.timeZone,
+              },
+            })}
           onTabIntentConsumed={() => setCareTabIntent(null)}
         />
       )}
@@ -1383,7 +1399,7 @@ function PawPalScreen({
   onDone: (id: string) => void;
 }) {
   const groups = [
-    { label: "Open threads", types: ["incomplete_medication", "vaccine_missing_next_date", "vaccine_missing_proof", "vet_visit_missing_proof", "care_missing_next_step", "stale_backup", "unattached_health_doc"] as PawPalThread["type"][] },
+    { label: "Open threads", types: ["incomplete_medication", "vaccine_missing_next_date", "care_missing_next_step", "stale_backup", "unattached_health_doc"] as PawPalThread["type"][] },
     { label: "Patterns", types: ["repeated_missed_walks", "routine_drift"] as PawPalThread["type"][] },
     { label: "Looking ahead", types: ["no_upcoming_reminders", "care_follow_up", "weight_checkin", "no_recent_memory", "seasonal_care_nudge"] as PawPalThread["type"][] },
   ] as const;
@@ -1585,6 +1601,7 @@ function CareScreen({
   onEditDoc,
   onOpenLinkedRecord,
   onOpenPrimaryVetEdit,
+  onLogVaccineDone,
   onTabIntentConsumed,
 }: {
   profile: DogProfile;
@@ -1605,6 +1622,7 @@ function CareScreen({
   onEditDoc: (doc: HealthDoc) => void;
   onOpenLinkedRecord: (recordId: string) => void;
   onOpenPrimaryVetEdit: () => void;
+  onLogVaccineDone: (record: CareRecord) => void;
   onTabIntentConsumed: () => void;
 }) {
   const careTabs = [
@@ -1667,8 +1685,6 @@ function CareScreen({
             const record = records.find((item) => item.id === recordId);
             if (record) setSelectedRecord(record);
           }}
-          onOpenDoc={onOpenDoc}
-          onDownloadDoc={onDownloadDoc}
         />
       ) : activeCareTab === "Docs" ? (
         <HealthDocsPanel
@@ -1690,6 +1706,8 @@ function CareScreen({
         filteredRecords.map((record) => {
           const planStatus = record.type === "Medication" ? medicationPlanStatus(record) : undefined;
           const supportDetail = record.type === "Medication" ? medicationPlanSupportDetail(record) : "";
+          const visibleTags = careRecordVisibleStatusTags(record, healthDocs);
+          const vaccineNeedsDone = record.type === "Vaccine" && record.nextDueDate && careStatus(record) !== "OK";
 
           return (
             <article className="care-item" key={record.id}>
@@ -1709,24 +1727,32 @@ function CareScreen({
                   )}
                   <h2>{record.title}</h2>
                   <p>{careRecordSummary(record)}</p>
-                  <div className="care-proof-grid">
-                    <span className={textStatusClassForTone(careRecordProofStatus(record, healthDocs).tone)}>
-                      {careRecordProofStatus(record, healthDocs).label}
-                    </span>
-                    <span className={textStatusClassForTone(careRecordNextStepStatus(record).tone)}>
-                      {careRecordNextStepStatus(record).label}
-                    </span>
-                  </div>
+                  {visibleTags.length ? (
+                    <div className="care-proof-grid">
+                      {visibleTags.map((tag) => (
+                        <span className={textStatusClassForTone(tag.tone)} key={`${record.id}-${tag.label}`}>
+                          {tag.label}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   {supportDetail && <p className="care-support">{supportDetail}</p>}
                 </div>
               </button>
-              <OverflowActions
-                label={`${record.title} actions`}
-                items={[
-                  { label: "Edit", onClick: () => onEdit(record) },
-                  { label: "Delete", onClick: () => onDelete(record.id), danger: true },
-                ]}
-              />
+              <div className="care-item-side">
+                {vaccineNeedsDone ? (
+                  <button className="mini-done-btn" type="button" onClick={() => onLogVaccineDone(record)}>
+                    Done
+                  </button>
+                ) : null}
+                <OverflowActions
+                  label={`${record.title} actions`}
+                  items={[
+                    { label: "Edit", onClick: () => onEdit(record) },
+                    { label: "Delete", onClick: () => onDelete(record.id), danger: true },
+                  ]}
+                />
+              </div>
             </article>
           );
         })
@@ -1749,6 +1775,10 @@ function CareScreen({
           onDownloadDoc={onDownloadDoc}
           onEditDoc={onEditDoc}
           onUnlinkDoc={(doc) => onUpdateDoc(doc.id, { linkedCareRecordId: undefined })}
+          onLogVaccineDone={() => {
+            setSelectedRecord(null);
+            onLogVaccineDone(selectedRecord);
+          }}
         />
       )}
     </section>
@@ -1796,15 +1826,11 @@ function MedicalSummaryPanel({
   summary,
   onEditPrimaryVet,
   onOpenRecord,
-  onOpenDoc,
-  onDownloadDoc,
 }: {
   profile: DogProfile;
   summary: ReturnType<typeof buildMedicalSummary>;
   onEditPrimaryVet: () => void;
   onOpenRecord: (recordId: string) => void;
-  onOpenDoc: (assetRef: string) => Promise<void>;
-  onDownloadDoc: (assetRef: string, fileName: string) => Promise<void>;
 }) {
   const hasPrimaryVet = Boolean(
     profile.primaryVetClinic || profile.primaryVetName || profile.primaryVetPhone || profile.primaryVetEmail || profile.primaryVetAddress,
@@ -1853,44 +1879,13 @@ function MedicalSummaryPanel({
 
       <section className="card medical-summary-card">
         <div className="medical-summary-head">
-          <p className="label no-margin">Key docs</p>
-          <span className="summary-count">{summary.keyDocs.length || 0}</span>
-        </div>
-        {summary.keyDocs.length === 0 ? (
-          <p>No key health docs saved yet.</p>
-        ) : (
-          <div className="detail-doc-list">
-            {summary.keyDocs.map(({ doc, record }) => (
-              <article className="detail-doc-item" key={doc.id}>
-                <div>
-                  <h3>{doc.title}</h3>
-                  <p>{doc.category} • Uploaded {prettyDate(doc.uploadedAt.slice(0, 10))}</p>
-                  {record ? <p className="care-support">{record.title} • {prettyDate(record.date)}</p> : null}
-                </div>
-                <OverflowActions
-                  label={`${doc.title} actions`}
-                  items={[
-                    { label: "View", onClick: () => void onOpenDoc(doc.assetRef) },
-                    { label: "Download", onClick: () => void onDownloadDoc(doc.assetRef, doc.fileName) },
-                    ...(record ? [{ label: "Open record", onClick: () => onOpenRecord(record.id) }] : []),
-                  ]}
-                />
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="card medical-summary-card">
-        <div className="medical-summary-head">
           <p className="label no-margin">At a glance</p>
         </div>
         <div className="detail-grid">
           <div className="detail-row"><span>Latest weight</span><strong>{summary.latestWeight ? `${summary.latestWeight.weightValue || summary.latestWeight.title}${summary.latestWeight.weightUnit ? ` ${summary.latestWeight.weightUnit}` : ""}` : "Not logged yet"}</strong></div>
-          <div className="detail-row"><span>Recent vet visit</span><strong>{summary.latestVetVisit ? `${summary.latestVetVisit.title} • ${prettyDate(summary.latestVetVisit.date)}` : "No visit saved yet"}</strong></div>
-          <div className="detail-row"><span>Vaccines</span><strong>{summary.vaccineSnapshot.current || summary.vaccineSnapshot.total ? `${summary.vaccineSnapshot.current} current` : "No vaccines saved"}</strong></div>
-          <div className="detail-row"><span>Proof gaps</span><strong>{summary.vaccineSnapshot.missingProof ? `${summary.vaccineSnapshot.missingProof} missing` : "Covered"}</strong></div>
-          <div className="detail-row"><span>Follow-up</span><strong>{summary.vaccineSnapshot.dueSoon + summary.vaccineSnapshot.overdue ? `${summary.vaccineSnapshot.dueSoon + summary.vaccineSnapshot.overdue} pending` : "Clear"}</strong></div>
+          <div className="detail-row"><span>Recent vet visit</span><strong>{summary.latestVetVisit ? `${summary.latestVetVisit.title} â€¢ ${prettyDate(summary.latestVetVisit.date)}` : "No visit saved yet"}</strong></div>
+          <div className="detail-row"><span>Vaccines</span><strong>{summary.vaccineSnapshot.total ? `${summary.vaccineSnapshot.current} current of ${summary.vaccineSnapshot.total}` : "No vaccines saved"}</strong></div>
+          <div className="detail-row"><span>Need follow-up</span><strong>{summary.vaccineSnapshot.dueSoon + summary.vaccineSnapshot.overdue ? `${summary.vaccineSnapshot.dueSoon + summary.vaccineSnapshot.overdue} pending` : "Clear"}</strong></div>
           <div className="detail-row"><span>Allergies & notes</span><strong>{summary.allergyNotes.length ? `${summary.allergyNotes.length} saved` : "None saved"}</strong></div>
         </div>
       </section>
@@ -1908,6 +1903,7 @@ function CareDetailSheet({
   onDownloadDoc,
   onEditDoc,
   onUnlinkDoc,
+  onLogVaccineDone,
 }: {
   record: CareRecord;
   linkedReminder?: Reminder;
@@ -1919,9 +1915,15 @@ function CareDetailSheet({
   onDownloadDoc: (assetRef: string, fileName: string) => Promise<void>;
   onEditDoc: (doc: HealthDoc) => void;
   onUnlinkDoc: (doc: HealthDoc) => void;
+  onLogVaccineDone: () => void;
 }) {
   const proof = careRecordProofStatus(record, docs);
   const nextStep = careRecordNextStepStatus(record);
+  const visibleTags = [
+    ...(docs.length ? [proof] : []),
+    ...(!/^No (next step|next date|follow-up)$/i.test(nextStep.label) ? [nextStep] : []),
+  ];
+  const vaccineNeedsDone = record.type === "Vaccine" && record.nextDueDate && careStatus(record) !== "OK";
   const reminderDetail = linkedReminder
     ? `${linkedReminder.type}${linkedReminder.time ? ` â€¢ ${linkedReminder.time}` : ""}${linkedReminder.recurrence !== "none" ? ` â€¢ ${recurrenceLabel(linkedReminder.recurrence)}` : ""}`
     : "";
@@ -1942,11 +1944,19 @@ function CareDetailSheet({
       <div className="care-detail-sheet">
         <div className="entry-head">
           <div className="badge-row">
-            <span className={textStatusClassForTone(proof.tone)}>{proof.label}</span>
-            <span className={textStatusClassForTone(nextStep.tone)}>{nextStep.label}</span>
+            {visibleTags.map((tag) => (
+              <span className={textStatusClassForTone(tag.tone)} key={`${record.id}-${tag.label}`}>
+                {tag.label}
+              </span>
+            ))}
           </div>
           <CardActions onEdit={onEdit} onDelete={onDelete} />
         </div>
+        {vaccineNeedsDone ? (
+          <button className="btn btn-secondary" type="button" onClick={onLogVaccineDone}>
+            Mark this vaccine done
+          </button>
+        ) : null}
         <section className="card care-detail-card">
           <div className="detail-grid">
             {summaryRows.map((row) => (
@@ -2198,26 +2208,30 @@ function HealthDocsPanel({
               <div className="care-icon-wrap badge-amber">
                 {doc.mimeType === "application/pdf" ? <NotebookPen size={18} /> : <ImagePlus size={18} />}
               </div>
-              <div className="care-copy">
-                <div className="badge-row">
-                  <span className="badge badge-amber">{healthDocTypeLabel(doc)}</span>
-                  <span className={doc.linkedCareRecordId ? "badge badge-green" : "badge badge-gray"}>
-                    {doc.linkedCareRecordId ? "Linked" : "Unlinked"}
-                  </span>
+              <div className="care-copy health-doc-copy">
+                <div className="health-doc-head">
+                  <div className="badge-row health-doc-badges">
+                    <span className="badge badge-amber">{healthDocTypeLabel(doc)}</span>
+                    <span className={doc.linkedCareRecordId ? "badge badge-green" : "badge badge-gray"}>
+                      {doc.linkedCareRecordId ? "Linked" : "Unlinked"}
+                    </span>
+                  </div>
+                  <OverflowActions
+                    label={`${doc.title} actions`}
+                    items={[
+                      { label: "View", onClick: () => void onOpenDoc(doc.assetRef) },
+                      { label: "Download", onClick: () => void onDownloadDoc(doc.assetRef, doc.fileName) },
+                      ...(doc.linkedCareRecordId ? [{ label: "Open record", onClick: () => onOpenLinkedRecord(doc.linkedCareRecordId!) }] : []),
+                      { label: "Edit", onClick: () => onEditDoc(doc) },
+                      { label: "Delete", onClick: () => void onDeleteDoc(doc), danger: true },
+                    ]}
+                  />
                 </div>
-                <h2 className="health-doc-title">{doc.title}</h2>
-                <p className="health-doc-meta-line">Uploaded {prettyDate(doc.uploadedAt.slice(0, 10))}</p>
-                {linkedRecord && <p className="care-support">{linkedRecord.title} â€¢ {prettyDate(linkedRecord.date)}</p>}
-                <OverflowActions
-                  label={`${doc.title} actions`}
-                  items={[
-                    { label: "View", onClick: () => void onOpenDoc(doc.assetRef) },
-                    { label: "Download", onClick: () => void onDownloadDoc(doc.assetRef, doc.fileName) },
-                    ...(doc.linkedCareRecordId ? [{ label: "Open record", onClick: () => onOpenLinkedRecord(doc.linkedCareRecordId!) }] : []),
-                    { label: "Edit", onClick: () => onEditDoc(doc) },
-                    { label: "Delete", onClick: () => void onDeleteDoc(doc), danger: true },
-                  ]}
-                />
+                <div className="health-doc-body">
+                  <h2 className="health-doc-title">{doc.title}</h2>
+                  <p className="health-doc-meta-line">Uploaded {prettyDate(doc.uploadedAt.slice(0, 10))}</p>
+                  {linkedRecord && <p className="care-support">{linkedRecord.title} â€¢ {prettyDate(linkedRecord.date)}</p>}
+                </div>
               </div>
             </article>
           );
@@ -3679,4 +3693,6 @@ function BottomNav({ active, onChange }: { active: Tab; onChange: (tab: Tab) => 
     </nav>
   );
 }
+
+
 

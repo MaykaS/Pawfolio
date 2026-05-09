@@ -1789,6 +1789,17 @@ export function careRecordNextStepStatus(record: CareRecord) {
     : { label: "No next step", tone: "gray" as const };
 }
 
+export function careRecordVisibleStatusTags(record: CareRecord, docs: HealthDoc[]) {
+  const tags: Array<{ label: string; tone: "green" | "amber" | "coral" | "gray" }> = [];
+  const proof = careRecordProofStatus(record, docs);
+  const nextStep = careRecordNextStepStatus(record);
+
+  if (proof.tone === "green") tags.push(proof);
+  if (!/^No (next step|next date|follow-up)$/i.test(nextStep.label)) tags.push(nextStep);
+
+  return tags;
+}
+
 export function hasCareRecordProofGap(record: CareRecord, docs: HealthDoc[]) {
   if (record.type !== "Vaccine" && record.type !== "Vet visit") return false;
   return healthDocsForCareRecord(docs, record.id).length === 0;
@@ -2227,36 +2238,6 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
       reason: "The vaccine is logged, but its follow-up timing is still open.",
       actionLabel: "Review vaccine",
       action: { type: "open_care", recordId: vaccineWithoutNext.id },
-    });
-  }
-
-  const vaccineWithoutProof = records.find((record) => record.type === "Vaccine" && hasCareRecordProofGap(record, docs));
-  if (vaccineWithoutProof) {
-    candidates.push({
-      id: `pawpal-thread-vaccine-proof-${vaccineWithoutProof.id}`,
-      type: "vaccine_missing_proof",
-      priority: 84,
-      title: "Save the vaccine proof",
-      body: `${vaccineWithoutProof.title} is logged, but the certificate is still missing.`,
-      reason: "You have the care event, but not the proof that usually matters later for boarding, travel, or the vet desk.",
-      actionLabel: "Review vaccine",
-      action: { type: "open_care", recordId: vaccineWithoutProof.id },
-    });
-  }
-
-  const vetWithoutProof = records.find(
-    (record) => record.type === "Vet visit" && !record.note.trim() && hasCareRecordProofGap(record, docs),
-  );
-  if (vetWithoutProof) {
-    candidates.push({
-      id: `pawpal-thread-vet-proof-${vetWithoutProof.id}`,
-      type: "vet_visit_missing_proof",
-      priority: 80,
-      title: "Capture the visit proof",
-      body: `${vetWithoutProof.title} does not have notes or a document attached yet.`,
-      reason: "PawPal wants the visit to be useful later, not only logged on the day it happened.",
-      actionLabel: "Review visit",
-      action: { type: "open_care", recordId: vetWithoutProof.id },
     });
   }
 

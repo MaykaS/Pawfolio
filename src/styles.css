@@ -1125,6 +1125,14 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   min-width: 0;
 }
 
+.care-item-side {
+  align-items: flex-end;
+  display: grid;
+  flex-shrink: 0;
+  gap: 8px;
+  justify-items: end;
+}
+
 .care-support {
   margin-top: 4px;
   opacity: 0.9;
@@ -1277,6 +1285,28 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   align-items: flex-start;
 }
 
+.health-doc-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.health-doc-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.health-doc-badges {
+  flex: 1;
+  min-width: 0;
+}
+
+.health-doc-body {
+  display: grid;
+  gap: 2px;
+}
+
 .health-doc-title {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -1316,6 +1346,10 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   max-width: 100%;
   padding-inline: 10px;
   white-space: nowrap;
+}
+
+.health-doc-item .overflow-actions {
+  align-self: start;
 }
 
 .care-detail-sheet {
@@ -2519,15 +2553,6 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   gap: 7px;
 }
 
-.reminder-lead-inline {
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.reminder-lead-inline::-webkit-scrollbar {
-  display: none;
-}
-
 .reminder-lead-inline .choice-chip-row,
 .reminder-lead-row {
   flex-wrap: nowrap;
@@ -2569,6 +2594,14 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   font-size: 11px;
   min-height: 31px;
   padding: 6px 9px;
+}
+
+.care-reminder-wrap .reminder-lead-row {
+  flex-wrap: wrap;
+}
+
+.care-reminder-wrap .reminder-lead-row .choice-chip {
+  white-space: normal;
 }
 
 .interval-control {

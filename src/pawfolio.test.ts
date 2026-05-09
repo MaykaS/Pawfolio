@@ -1291,7 +1291,7 @@ describe("pawfolio helpers", () => {
     expect(summary.keyDocs[0].doc.id).toBe("doc-rabies");
   });
 
-  it("opens proof and next-step PawPal threads for incomplete serious care records", () => {
+  it("opens next-step and unattached-doc PawPal threads for incomplete serious care records", () => {
     const state = normalizeState({
       care: [
         { id: "lyme-1", type: "Vaccine", title: "Lyme 1", date: "2026-04-17", note: "", nextDueDate: "2026-05-08" },
@@ -1312,9 +1312,7 @@ describe("pawfolio helpers", () => {
     });
 
     const threadIds = buildPawPalFeed(state, new Date("2026-04-22T12:00:00")).map((thread) => thread.id);
-    expect(threadIds).toContain("pawpal-thread-vaccine-proof-lyme-1");
     expect(threadIds).toContain("pawpal-thread-next-step-lyme-1");
-    expect(threadIds).toContain("pawpal-thread-vet-proof-vet-1");
     expect(threadIds).toContain("pawpal-thread-unattached-doc-doc-free");
   });
 
