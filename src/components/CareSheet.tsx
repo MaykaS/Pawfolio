@@ -16,7 +16,9 @@ import {
 } from "../pawfolio";
 import { Field, Sheet } from "./Sheet";
 
-export type CareSheetMode = { mode: "create"; presetType?: CareRecord["type"]; draft?: Partial<CareRecord> } | { mode: "edit"; record: CareRecord };
+export type CareSheetMode =
+  | { mode: "create"; presetType?: CareRecord["type"]; draft?: Partial<CareRecord>; supersedeRecordId?: string }
+  | { mode: "edit"; record: CareRecord };
 
 export function CareSheet({
   mode,
@@ -168,13 +170,15 @@ export function CareSheet({
           <>
             <Field label="Dose">
               <div className="dose-builder">
-                <input
-                  className="input dose-amount"
-                  inputMode="decimal"
-                  value={record.doseAmount}
-                  onChange={(event) => update("doseAmount", event.target.value)}
-                  placeholder="1"
-                />
+                <div className="dose-input-row">
+                  <input
+                    className="input dose-amount"
+                    inputMode="decimal"
+                    value={record.doseAmount}
+                    onChange={(event) => update("doseAmount", event.target.value)}
+                    placeholder="1"
+                  />
+                </div>
                 <div className="choice-chip-row unit-chip-row">
                   {medicationDoseUnits.map((unit) => (
                     <button

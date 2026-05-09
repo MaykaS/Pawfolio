@@ -80,6 +80,7 @@ import {
   weightTrendSeries,
   routineCoachInsights,
   withCareSchedule,
+  withNextOccurrence,
   withReminderRecurrence,
   withTaskTime,
   canUseBrowserNotifications,
@@ -1564,6 +1565,50 @@ describe("pawfolio helpers", () => {
     expect(reminderTypeForCareRecord({ id: "vax", type: "Vaccine", title: "Rabies", date: "2026-05-01", note: "" })).toBe("Vaccine");
     expect(reminderTypeForCareRecord({ id: "visit", type: "Vet visit", title: "Checkup", date: "2026-05-01", note: "" })).toBe("Vet");
     expect(reminderTypeForCareRecord({ id: "med", type: "Medication", title: "Heartgard", date: "2026-05-01", note: "" })).toBe("Medication");
+  });
+
+  it("advances recurring calendar items after the current occurrence is done while keeping one-off future items visible", () => {
+    const oneOff: Reminder = {
+      id: "vax",
+      title: "Rabies",
+      type: "Vaccine",
+      date: "2026-05-23",
+      time: "",
+      note: "",
+      recurrence: "none",
+    };
+    const monthly: Reminder = {
+      id: "med",
+      title: "Simplicity trio",
+      type: "Medication",
+      date: "2026-05-13",
+      time: "",
+      note: "",
+      recurrence: "monthly",
+    };
+    const reminderHistory = setReminderCompletionForDate({}, "2026-05-13", "med", "done");
+
+    expect(withNextOccurrence(monthly, new Date("2026-05-09T12:00:00"), reminderHistory).date).toBe("2026-06-13");
+    expect(getUpcomingCalendarItems([oneOff, monthly], new Date("2026-05-09T12:00:00"), reminderHistory).map((item) => item.date)).toEqual([
+      "2026-05-23",
+      "2026-06-13",
+    ]);
+  });
+
+  it("treats historical vaccine doses as completed history instead of overdue", () => {
+    const records: CareRecord[] = [
+      { id: "old-lyme", type: "Vaccine", title: "Lyme", date: "2026-04-17", note: "", nextDueDate: "", completionState: "historical" },
+      { id: "new-lyme", type: "Vaccine", title: "Lyme", date: "2026-05-09", note: "", nextDueDate: "2027-05-09" },
+    ];
+
+    expect(careStatus(records[0], new Date("2026-05-09T12:00:00"))).toBe("Completed");
+    expect(buildMedicalSummary(records, [], new Date("2026-05-09T12:00:00")).vaccineSnapshot).toEqual({
+      total: 1,
+      current: 1,
+      dueSoon: 0,
+      overdue: 0,
+      missingProof: 1,
+    });
   });
 
   it("estimates data URL size and catches localStorage save failures", () => {

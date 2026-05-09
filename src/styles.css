@@ -2540,11 +2540,19 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
 .dose-builder,
 .frequency-builder {
   display: grid;
-  gap: 9px;
+  gap: 7px;
+}
+
+.dose-input-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
 }
 
 .dose-amount {
-  max-width: 128px;
+  max-width: 112px;
+  min-height: 46px;
+  padding-block: 11px;
 }
 
 .choice-chip-row {

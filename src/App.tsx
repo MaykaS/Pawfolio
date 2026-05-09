@@ -123,6 +123,7 @@ import {
   updateHealthDocById,
   upsertHealthDocs,
   weekdayOptions,
+  withNextOccurrence,
   withTaskTime,
   visibleCareRecords,
   visibleReminders,
@@ -694,6 +695,7 @@ export default function App() {
           taskHistory={state.taskHistory}
           tasks={state.tasks}
           reminders={calendarItems}
+          reminderHistory={state.reminderHistory}
           onOpenCare={() => setCareMode({ mode: "create" })}
           onEdit={(record) => setCareMode({ mode: "edit", record })}
           onDelete={(id) =>
@@ -719,6 +721,7 @@ export default function App() {
             setCareMode({
               mode: "create",
               presetType: "Vaccine",
+              supersedeRecordId: record.id,
               draft: {
                 type: "Vaccine",
                 title: record.title,
@@ -730,6 +733,12 @@ export default function App() {
                 timeZone: record.timeZone,
               },
             })}
+          onCompleteReminder={(reminder, status) =>
+            setState((current) => ({
+              ...current,
+              reminderHistory: setReminderCompletionForDate(current.reminderHistory, reminder.date, reminder.id, status),
+            }))
+          }
           onTabIntentConsumed={() => setCareTabIntent(null)}
         />
       )}
@@ -921,7 +930,18 @@ export default function App() {
             validate={validateCareRecord}
             onSave={(record, attachedDocIds) => {
               setState((current) => {
-                const saved = saveCareRecordToState(current, record);
+                let saved = saveCareRecordToState(current, record);
+                if (careMode.mode === "create" && careMode.supersedeRecordId && record.type === "Vaccine") {
+                  const previousDose = visibleCareRecords(current).find((item) => item.id === careMode.supersedeRecordId);
+                  if (previousDose) {
+                    saved = saveCareRecordToState(saved, {
+                      ...previousDose,
+                      completionState: "historical",
+                      nextDueDate: "",
+                      notifyLeadMinutes: undefined,
+                    });
+                  }
+                }
                 return attachedDocIds.length
                   ? {
                       ...saved,
@@ -1590,6 +1610,7 @@ function CareScreen({
   taskHistory,
   tasks,
   reminders,
+  reminderHistory,
   onOpenCare,
   onEdit,
   onDelete,
@@ -1602,6 +1623,7 @@ function CareScreen({
   onOpenLinkedRecord,
   onOpenPrimaryVetEdit,
   onLogVaccineDone,
+  onCompleteReminder,
   onTabIntentConsumed,
 }: {
   profile: DogProfile;
@@ -1611,6 +1633,7 @@ function CareScreen({
   taskHistory: PawfolioState["taskHistory"];
   tasks: DailyTask[];
   reminders: Reminder[];
+  reminderHistory: PawfolioState["reminderHistory"];
   onOpenCare: () => void;
   onEdit: (record: CareRecord) => void;
   onDelete: (id: string) => void;
@@ -1623,6 +1646,7 @@ function CareScreen({
   onOpenLinkedRecord: (recordId: string) => void;
   onOpenPrimaryVetEdit: () => void;
   onLogVaccineDone: (record: CareRecord) => void;
+  onCompleteReminder: (reminder: Reminder, status?: ReminderCompletionStatus) => void;
   onTabIntentConsumed: () => void;
 }) {
   const careTabs = [
@@ -1704,10 +1728,30 @@ function CareScreen({
         />
       ) : (
         filteredRecords.map((record) => {
+          const now = new Date();
+          const linkedReminder = reminders.find((reminder) => reminder.id === record.id);
+          const medicationOccurrence = record.type === "Medication" && linkedReminder
+            ? withNextOccurrence(linkedReminder, now, reminderHistory)
+            : undefined;
           const planStatus = record.type === "Medication" ? medicationPlanStatus(record) : undefined;
           const supportDetail = record.type === "Medication" ? medicationPlanSupportDetail(record) : "";
           const visibleTags = careRecordVisibleStatusTags(record, healthDocs);
+          if (
+            record.type === "Medication"
+            && medicationOccurrence?.date
+            && !record.nextDueDate
+            && !record.refillDate
+          ) {
+            visibleTags.push({ label: `Due ${prettyDate(medicationOccurrence.date)}`, tone: "green" });
+          }
           const vaccineNeedsDone = record.type === "Vaccine" && record.nextDueDate && careStatus(record) !== "OK";
+          const medicationNeedsDone = Boolean(
+            record.type === "Medication"
+            && linkedReminder?.recurrence === "monthly"
+            && medicationOccurrence?.date
+            && new Date(`${medicationOccurrence.date}T00:00`).getFullYear() === now.getFullYear()
+            && new Date(`${medicationOccurrence.date}T00:00`).getMonth() === now.getMonth(),
+          );
 
           return (
             <article className="care-item" key={record.id}>
@@ -1742,6 +1786,10 @@ function CareScreen({
               <div className="care-item-side">
                 {vaccineNeedsDone ? (
                   <button className="mini-done-btn" type="button" onClick={() => onLogVaccineDone(record)}>
+                    Done
+                  </button>
+                ) : medicationNeedsDone && medicationOccurrence ? (
+                  <button className="mini-done-btn" type="button" onClick={() => onCompleteReminder(medicationOccurrence, "done")}>
                     Done
                   </button>
                 ) : null}
@@ -2320,7 +2368,7 @@ function CalendarScreen({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const monthEvents = eventsForMonth(reminders, visibleMonth);
-  const upcoming = getUpcomingCalendarItems(reminders, new Date());
+  const upcoming = getUpcomingCalendarItems(reminders, new Date(), reminderHistory);
   const visibleUpcoming = showAllUpcoming ? upcoming : upcoming.slice(0, 3);
   const isCurrentMonth = monthKey(visibleMonth) === monthKey(currentMonth);
   const selectedDateEvents = selectedDate ? eventsForDate(reminders, selectedDate) : [];
@@ -2814,7 +2862,6 @@ function ProfileScreen({
           icon={<HeartPulse size={16} />}
           label="Wellness"
           value={wellness.label}
-          detail={wellness.detail}
           tone={wellness.tone}
         />
         <StatCard icon={<Heart size={16} />} label="Days together" value={daysTogether(profile.birthday)} />

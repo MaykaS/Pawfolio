@@ -65,6 +65,7 @@ export type CareRecord = {
   type: string;
   title: string;
   date: string;
+  completionState?: "historical";
   startDate?: string;
   endDate?: string;
   adherenceNotes?: string;
@@ -142,6 +143,7 @@ export type CareEvent = {
   title: string;
   date: string;
   time: string;
+  completionState?: "historical";
   startDate?: string;
   endDate?: string;
   adherenceNotes?: string;
@@ -817,6 +819,7 @@ export function limitDiaryPhotos(photos: string[]) {
 export function withCareSchedule(record: CareRecord): CareRecord {
   const scheduled = {
     ...record,
+    completionState: record.completionState,
     nextDueDate: record.nextDueDate || "",
     startDate: record.startDate || "",
     endDate: record.endDate || "",
@@ -847,6 +850,7 @@ export function withCareSchedule(record: CareRecord): CareRecord {
 export function withCareEventSchedule(event: Omit<CareEvent, "recurrence"> & { recurrence?: ReminderRecurrence }): CareEvent {
   const scheduled = {
     ...event,
+    completionState: event.completionState,
     nextDueDate: event.nextDueDate || "",
     recurrence: event.recurrence || "none",
     notifyLeadMinutes:
@@ -1060,6 +1064,7 @@ export function careRecordToEvent(record: CareRecord): CareEvent {
     title: scheduled.title,
     date: scheduled.date,
     time: "",
+    completionState: scheduled.completionState,
     note: scheduled.note,
     startDate: scheduled.startDate || "",
     endDate: scheduled.endDate || "",
@@ -1116,6 +1121,7 @@ export function careEventToCareRecord(event: CareEvent): CareRecord {
     type: event.type,
     title: event.title,
     date: event.date,
+    completionState: event.completionState,
     note: event.note,
     startDate: event.startDate || "",
     endDate: event.endDate || "",
@@ -1164,6 +1170,7 @@ function mergeCareEvent(events: CareEvent[], event: CareEvent) {
   if (existingIndex === -1) return [...events, normalized];
 
   const optionalFields: (keyof CareEvent)[] = [
+    "completionState",
     "nextDueDate",
     "startDate",
     "endDate",
@@ -1577,9 +1584,14 @@ export function getUpcomingReminders(
 export function getUpcomingCalendarItems(
   reminders: Reminder[],
   now = new Date(),
+  reminderHistory: ReminderHistory = {},
 ) {
   return reminders
-    .map((reminder) => withNextCalendarOccurrence(reminder, now))
+    .map((reminder) => (
+      reminder.recurrence === "none"
+        ? withNextCalendarOccurrence(reminder, now)
+        : withNextOccurrence(reminder, now, reminderHistory)
+    ))
     .filter((reminder) => isFutureOrToday(reminder.date, now))
     .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
 }
@@ -1766,6 +1778,9 @@ export function careRecordProofStatus(record: CareRecord, docs: HealthDoc[]) {
 }
 
 export function careRecordNextStepStatus(record: CareRecord) {
+  if (record.completionState === "historical") {
+    return { label: "Previous dose", tone: "gray" as const };
+  }
   if (record.type === "Vaccine") {
     return record.nextDueDate
       ? { label: `Due ${prettyDate(record.nextDueDate)}`, tone: "green" as const }
@@ -1791,6 +1806,7 @@ export function careRecordNextStepStatus(record: CareRecord) {
 
 export function careRecordVisibleStatusTags(record: CareRecord, docs: HealthDoc[]) {
   const tags: Array<{ label: string; tone: "green" | "amber" | "coral" | "gray" }> = [];
+  if (record.completionState === "historical") return tags;
   const proof = careRecordProofStatus(record, docs);
   const nextStep = careRecordNextStepStatus(record);
 
@@ -1837,7 +1853,7 @@ export function buildMedicalSummary(records: CareRecord[], docs: HealthDoc[], no
   const latestWeight = sortedRecords.find((record) => record.type === "Weight");
   const latestVetVisit = sortedRecords.find((record) => record.type === "Vet visit");
   const allergyNotes = sortedRecords.filter((record) => record.type === "Allergy" || record.type === "Health note").slice(0, 3);
-  const vaccineRecords = sortedRecords.filter((record) => record.type === "Vaccine");
+  const vaccineRecords = sortedRecords.filter((record) => record.type === "Vaccine" && record.completionState !== "historical");
   const vaccineSnapshot = vaccineRecords.reduce((summary, record) => {
     summary.total += 1;
     const status = careStatus(record, now);
@@ -2850,6 +2866,7 @@ export function recurrenceLabel(recurrence: ReminderRecurrence) {
 }
 
 export function careStatus(record: CareRecord, now = new Date()) {
+  if (record.completionState === "historical") return "Completed";
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   if (record.nextDueDate) {
     const due = new Date(`${record.nextDueDate}T00:00`);
