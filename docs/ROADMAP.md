@@ -2,12 +2,12 @@
 
 ## Current Stage
 
-Pawfolio has moved past “prototype with ideas” and into “product with a credible trust model.”
+Pawfolio has moved past prototype energy and into product hardening.
 
-The current roadmap should protect that progress:
+The roadmap now needs to protect what already works:
 
-- strengthen what already works
-- validate it in realistic use
+- strengthen trust
+- improve real-life usability
 - widen scope only where the product has earned it
 
 ## Phase 1: Product Foundation
@@ -15,12 +15,11 @@ The current roadmap should protect that progress:
 Delivered:
 
 - dog onboarding and profile editing
-- Today, Diary, Care, Calendar, and Profile surfaces
+- Today, Diary, Care, Calendar, PawPal, and Profile surfaces
 - routine tasks with structured times and flexible schedules
-- reminders with recurrence and lead times
+- reminders with recurrence, lead times, and completion history
 - shared care/calendar records
 - photo-backed diary
-- PawPal companion layer
 - local-first persistence
 
 ## Phase 2: Trust Foundation
@@ -32,53 +31,71 @@ Delivered:
 - signed-in auto-sync
 - restore from latest cloud backup
 - restore-first onboarding
-- photo backup/restore
+- photo backup and restore
+- health document backup and restore
 - phone push subscription save
 - trust-center style Profile account surface
 
-## Phase 3: Active Integrations
+## Phase 3: Real Care Coordination
 
 Current:
 
 - Google Calendar connect and one-way sync
-- backend reminder delivery foundations
-- deferred email plumbing kept out of the active product path
+- searchable health documents linked to care
+- Care Summary with primary vet, meds, and at-a-glance status
+- per-occurrence medication completion behavior
+- historical vaccine dose behavior after completion
+- PawPal as a calmer care coordinator instead of a same-day alert list
 
 Success standard for this phase:
 
-- calendar sync is dependable
-- reminder timing stays consistent
-- account and backup states feel understandable without technical knowledge
+- care history feels dependable
+- Calendar behavior feels predictable
+- health documents are fast to find
+- PawPal feels useful without becoming noisy
 
 ## Near-Term Focus
 
 ### 1. Calendar confidence
 
 - validate create, update, and delete sync behavior
-- improve failure messages and sync feedback
+- keep sync feedback concrete
 - keep time zone behavior elegant and predictable
 
-### 2. Cross-device confidence
+### 2. Care detail seriousness
 
-- keep validating upload, restore, and fresh-device recovery
-- verify photo restore in realistic browser/device flows
-- tighten restore success, empty, and failure messaging
+- keep strengthening medication, vaccine, and vet detail views
+- make next steps and historical state feel clearer
+- keep care records useful over time, not just on entry day
 
-### 3. Product polish
+### 3. Health document polish
+
+- tighten doc editing, linking, and retrieval flows
+- keep the docs experience calm on mobile
+- preserve the “find the paperwork fast” product value
+
+### 4. PawPal usefulness refinement
+
+- keep PawPal anchored as a care coordinator
+- improve precision of follow-through suggestions
+- make sure it earns its place through useful actions, not chatter
+
+### 5. Product polish and maintainability
 
 - continue shrinking `App.tsx`
-- keep trust code explicit and test-backed
+- keep high-risk flows test-backed
 - reduce ambiguous or hidden system behavior
 
-### 4. Care seriousness
+## Parked For Later
 
-- richer care metadata where it adds real value
-- clearer follow-up and history states
-- stronger “real life admin” feeling without making the app heavy
+- basic phone back/native-feel controls
+- richer routing/deep-link behavior
+
+These are worthwhile, but they are not the highest-leverage product move right now.
 
 ## Later Phases
 
-### Phase 4: Multi-User And Multi-Pet
+### Phase 4: Multi-Pet And Shared Care
 
 - multiple pets
 - shared caregiver access

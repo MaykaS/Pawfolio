@@ -2,15 +2,16 @@
 
 ## Architectural Direction
 
-Pawfolio is built as a mobile-first web app with local-first behavior, an installable PWA shell, and a private signed-in cloud backup layer.
+Pawfolio is a mobile-first web app with local-first behavior, an installable PWA shell, and a private signed-in cloud backup layer.
 
-That is the right architecture for the current stage because it keeps iteration fast while still supporting real trust features:
+That remains the right architecture for the current stage because it keeps iteration fast while still supporting real trust features:
 
 - backup
 - restore
 - Google sign-in
 - Google Calendar sync
 - push foundations
+- document storage
 
 ## Stack
 
@@ -26,15 +27,24 @@ That is the right architecture for the current stage because it keeps iteration 
 
 ## Product Mental Model
 
-Pawfolio currently uses a simple, explicit state model:
+Pawfolio keeps a simple, explicit state model:
 
-- this phone/browser is the working copy
+- this phone or browser is the working copy
 - cloud is the private backup layer
 - restore pulls the latest backup back onto the current device
 
 This is intentionally not yet a fully normalized multi-device sync architecture.
 
-## Profile Summary Model
+## Current UX Structure
+
+The main surfaces have distinct jobs:
+
+- **Today** for same-day urgency and routine completion
+- **Diary** for memories
+- **Care** for the source of record
+- **Calendar** for chronology and reminder management
+- **PawPal** for follow-through and planning
+- **Profile** for identity, integrations, and trust
 
 The top Profile row is intentionally lightweight:
 
@@ -42,7 +52,7 @@ The top Profile row is intentionally lightweight:
 - Wellness
 - Days together
 
-The Wellness card is a 7-day care/routine balance signal, not a medical score. It looks only at tracked routine history plus current care/reminder pressure, and it falls back conservatively while the app is still learning a newer routine.
+Wellness is a derived care/routine signal, not a medical score. In the shipped UI it renders as a calm label only, without supporting copy under the stat.
 
 ## Current Data Shape
 
@@ -62,16 +72,31 @@ Primary product entities:
 - photo records
 - health document records
 
-Photos and health documents live in IndexedDB locally and are included in cloud snapshot backup/restore.
+Photos and health documents live in IndexedDB locally and are included in cloud snapshot backup and restore.
 
-Routine tasks are now schedule-aware rather than implicitly daily. A task can be:
+Routine tasks are schedule-aware rather than implicitly daily. A task can be:
 
 - every day
 - every other day
 - every N days from a chosen start date
 - specific weekdays
 
-Done state still stays tied to each occurrence date through `taskHistory`.
+Done state stays tied to each occurrence date through `taskHistory`.
+
+## Care and Calendar Model
+
+Medications, vaccines, and vet visits remain shared care/calendar entities.
+
+Important current behavior:
+
+- Care is the source of record
+- shared care records generate reminder-facing calendar behavior
+- Calendar Upcoming is true chronology, not just unresolved items
+- recurring medication completion is tracked per occurrence through reminder history
+- recurring monthly medication plans stay active after one occurrence is marked done
+- vaccine completion creates the new dose while older doses remain visible as completed history
+
+Documents are first-class and searchable, but they are not treated as mandatory completeness for every care record by default.
 
 ## Cloud Model
 
@@ -92,7 +117,7 @@ This is a pragmatic intermediate architecture. It gives the app real trust witho
 
 ## Notification Model
 
-Pawfolio now has layered reminder delivery:
+Pawfolio uses layered reminder delivery:
 
 - in-app attention and grouped reminders
 - local near-term notification scheduling
@@ -102,37 +127,18 @@ Pawfolio now has layered reminder delivery:
 
 That layered design is intentional. The saved device can alert locally, and scheduled reminders can also come through the cloud delivery path without pretending one mechanism does everything.
 
-The cron path now also mirrors push/email eligibility onto snapshot metadata so scheduled sends do not have to inspect every stored snapshot before they even know whether delivery is possible.
-
-Missed routine-task nudges are intentionally conservative: a task can generate one reminder exactly one hour after its scheduled time, and it does not keep repeating after that occurrence.
+Missed routine-task nudges are intentionally conservative: one reminder exactly one hour after the scheduled time, once only for that task occurrence.
 
 ## Companion Model
 
-Pawfolio now keeps two distinct helper surfaces:
+Pawfolio keeps two distinct helper surfaces:
 
 - **Today needs attention** for same-day urgency
-- **PawPal** for longer-running follow-through threads
+- **PawPal** for longer-running follow-through and planning
 
-Today is intentionally short-lived and operational. PawPal is intentionally calmer and stateful: it remembers unresolved care threads, supports snooze/resolved states, and always shows a digest even when nothing urgent is happening. Normal signed-in app open should land on Today unless the user explicitly navigates elsewhere in-session.
+Today is intentionally short-lived and operational. PawPal is calmer and stateful: it remembers unresolved threads, supports snooze/resolved states, and always shows a digest plus one next-useful prompt.
 
-PawPal also now carries a separate planner prompt layer. Threads remain persistent follow-through; the planner prompt is ephemeral and always offers one calm next-useful action even when no major thread is open.
-
-Current PawPal thread coverage includes both hard gaps and softer follow-through:
-
-- incomplete medication details
-- vaccine missing next due date
-- vaccine missing proof
-- vet visit missing proof
-- care record missing next step
-- unattached health document
-- no upcoming reminders
-- repeated missed walks
-- broader routine drift
-- stale backup
-- no recent memory
-- stale weight check-in
-- near-future care follow-up
-- seasonal and regional care nudges
+Current PawPal coverage is deliberately local and rule-based. It focuses on care coordination, planning gaps, and follow-through rather than chat behavior.
 
 ## Calendar Model
 
@@ -142,23 +148,18 @@ Google Calendar is currently one-way:
 
 The product does not attempt bidirectional calendar editing yet.
 
-Timed reminder sync now creates normal 30-minute calendar events by default, while all-day reminders stay all-day.
+Timed reminder sync creates normal 30-minute calendar events by default, while all-day reminders stay all-day.
 
-Per-reminder scheduling now resolves time zone in this order:
+Per-reminder scheduling resolves time zone in this order:
 
 1. reminder-level override
 2. current device/default time zone
 
 That keeps travel cases possible without making time zone a heavy global setting.
 
-Calendar chronology is now deliberately separate from notification state:
-
-- Calendar `Upcoming` shows the next real dated items in order, even if a future item is already marked done
-- Notifications and alert timing still use open-item-only reminder logic
-
 ## Trust Layer Structure
 
-Recent cleanup moved trust/account logic out of the main app shell and into focused modules:
+Recent trust cleanup moved account and trust logic out of the main app shell and into focused modules:
 
 - cloud account state
 - push state
@@ -166,13 +167,11 @@ Recent cleanup moved trust/account logic out of the main app shell and into focu
 - trust display helpers
 - extracted reminder and trust-detail sheets
 
-Recent trust cleanup also made restore outcomes more explicit:
+Restore outcomes are explicit:
 
 - restored successfully
 - no backup found
 - restore failed
-
-This is the right direction. The main app shell is still larger than ideal, but the trust surface now reads much more like a deliberately owned subsystem.
 
 ## Future Architecture Direction
 
@@ -183,5 +182,6 @@ Likely later evolution:
 3. shared caregiver access
 4. optional native shell via Expo / React Native
 5. optional richer agentic PawPal paths
+6. better phone back/native-feel controls after the current UX hardening priorities
 
 The key rule is to earn each layer in order. Pawfolio does not need a more complex architecture before the current trust model is fully proven in use.

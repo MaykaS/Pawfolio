@@ -46,11 +46,11 @@ Reason: Photos are emotionally important, and the app cannot feel trustworthy if
 
 Decision: Google Calendar is the first supported external calendar integration.
 
-Reason: It fits the Google sign-in path and solves the main “show my reminders outside the app” job without overbuilding.
+Reason: It fits the Google sign-in path and solves the “show my reminders outside the app” job without overbuilding.
 
-## 2026-04-22: Keep PawPal Local And Actionable First
+## 2026-04-22: Keep PawPal Local First
 
-Decision: PawPal begins as a local rule-based companion with one-tap actions.
+Decision: PawPal begins as a local rule-based companion before any model-backed behavior.
 
 Reason: The app can feel intelligent without sending pet-care data to a model before privacy and sync choices are mature.
 
@@ -80,15 +80,9 @@ Reason: Layering keeps the product useful while the backend path continues to ma
 
 ## 2026-04-27: Treat The Current Device As The Working Copy
 
-Decision: The Profile trust surface explicitly treats the current phone/browser as the working copy and cloud as backup.
+Decision: The product explicitly treats the current phone/browser as the working copy and cloud as backup.
 
 Reason: Users need a simple mental model before the product is a full cross-device cloud app.
-
-## 2026-04-27: Move Trust Logic Out Of The Main App Shell
-
-Decision: Cloud account, push, and trust-state behavior should live in focused hooks and helpers instead of continuing to sprawl inside `App.tsx`.
-
-Reason: The trust surface became too important to leave in an oversized, regression-prone shell.
 
 ## 2026-04-28: Put Email Reminders On Hold
 
@@ -125,3 +119,27 @@ Reason: Calendar reminders need to behave like real blocks in Google Calendar, n
 Decision: Restore should surface a clear restored / empty / failed result instead of relying mostly on timestamps and generic status text.
 
 Reason: Backup trust is weaker when users have to infer success instead of seeing what actually came back onto the device.
+
+## 2026-05-09: Treat Documents As First-Class, Not Mandatory
+
+Decision: Health documents are first-class, searchable support for care records, but they are not required completeness for every care record by default.
+
+Reason: The product needs trust and paperwork retrieval without making every record feel incomplete or scolding.
+
+## 2026-05-09: Keep Care Summary Compact
+
+Decision: Care Summary should stay focused on primary vet, current meds, and at-a-glance status instead of becoming a mini dashboard.
+
+Reason: The user needs a calm overview, not another dense surface competing with Docs and detail views.
+
+## 2026-05-09: Make Recurring Care Completion Occurrence-Based
+
+Decision: Recurring medication completion should apply to the current occurrence, while vaccine completion should preserve older doses as completed history.
+
+Reason: Real care flows need history and continuity, not records that disappear or remain incorrectly overdue.
+
+## 2026-05-09: Park Native-Feel Back Controls For Later
+
+Decision: Better phone back/native-feel controls are worth doing, but they are parked for a later UX pass.
+
+Reason: They matter, but they are not currently a higher-leverage product move than trust, care clarity, and calendar confidence.

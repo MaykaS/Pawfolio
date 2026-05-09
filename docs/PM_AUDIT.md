@@ -2,24 +2,24 @@
 
 ## Audit Date
 
-2026-04-28
+2026-05-09
 
 ## Executive Read
 
-Pawfolio is now in a good product state.
+Pawfolio now reads like a real early product with a believable wedge:
 
-It no longer feels like a loose prototype with charm. It feels like a real early product with:
+- one dog
+- real care
+- trustworthy history
+- readable next steps
 
-- a clear product shape
-- a warm but serious tone
-- a credible trust model
-- enough structure that the next mistakes would come from overgrowth, not lack of ideas
+The product is no longer suffering from "too many ideas, not enough shape." The main risk now is UX drift or overgrowth, not lack of direction.
 
 ## What Feels Strong
 
 ### Product shape
 
-- Today, Diary, Care, Calendar, Profile, and PawPal have distinct jobs.
+- Today, Diary, Care, Calendar, PawPal, and Profile have distinct jobs.
 - The app feels coherent rather than feature-stuffed.
 
 ### Trust model
@@ -27,56 +27,63 @@ It no longer feels like a loose prototype with charm. It feels like a real early
 - local working copy vs cloud backup is understandable
 - backup and restore are real
 - onboarding recovery is a strong trust move
-- photos being included in backup matters a lot
-- health documents now make the trust model feel more grounded in real life, not only structured fields
+- photos and health documents being included in backup matters a lot
+
+### Care seriousness
+
+- care detail is much stronger than before
+- documents are now a first-class support layer
+- recurring medication and vaccine completion behavior is closer to real life
 
 ### Emotional tone
 
-- the app is warm without being frivolous
+- the app is warm without becoming silly
 - Diary and profile identity add meaning beyond pure admin
 
 ### Engineering direction
 
 - trust logic is cleaner than it was
-- recent refactors moved the repo toward a more senior-owned structure
-- tests are increasingly aligned with product risk
+- tests increasingly reflect product risk
+- the repo is still shell-heavy, but the direction is good
 
 ## What Still Needs Care
 
-### Calendar lifecycle confidence
+### Calendar confidence
 
-The biggest product question now is not “can Calendar connect?” It is:
+The biggest product question is no longer "can Calendar connect?" It is:
 
 - can users trust create, update, and delete behavior every time
 - do sync results feel obvious, not mysterious
 
-### Restore reassurance
+### Health document polish
 
-Restore works, but the product should keep getting better at reassuring users that:
+The docs layer is valuable now, but it still needs polish:
 
-- the backup exists
-- the restore happened
-- what came back is what they expected
+- linking flow should stay calm on mobile
+- retrieval should stay fast under real-life pressure
+- editing and record attachment should feel obvious
 
-### Care proof and follow-through
+### PawPal usefulness
 
-The next quality bar is no longer just "was this logged?" It is:
+PawPal is better than it was, but it still has to keep earning its place.
 
-- is the proof attached
-- is the next step obvious
-- can PawPal coordinate the gap without becoming noisy
+The quality bar is:
+
+- useful coordination
+- precise follow-through
+- no decorative filler
 
 ### Main-shell maintainability
 
-The repo is healthier than before, but `App.tsx` still carries enough responsibility that continued decomposition is worth doing before the next big product layer lands.
+`App.tsx` is healthier than before, but it still carries enough responsibility that continued decomposition is worth doing before the next major product layer lands.
 
 ## PM Conclusion
 
-Pawfolio should now behave like a product entering a professional hardening phase:
+Pawfolio is now in a real product-hardening phase:
 
 - less random expansion
 - more validation
-- more precision
-- more coherence across UX, code, and docs
+- more UX precision
+- more consistency across product, code, and docs
 
 That is a good place to be.
