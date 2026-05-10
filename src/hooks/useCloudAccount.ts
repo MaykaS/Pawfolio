@@ -72,6 +72,21 @@ function cloudSyncFingerprint(state: PawfolioState) {
   });
 }
 
+function deliveryRelevantFingerprint(state: PawfolioState) {
+  return JSON.stringify({
+    tasks: state.tasks,
+    taskHistory: state.taskHistory,
+    reminders: state.reminders,
+    reminderHistory: state.reminderHistory,
+    careEvents: state.careEvents,
+    routineCoachSettings: state.routineCoachSettings,
+    notificationPreferences: {
+      push: state.notificationPreferences.push,
+      inApp: state.notificationPreferences.inApp,
+    },
+  });
+}
+
 function sessionWithProvider(session: Session) {
   return session as Session & {
     provider_token?: string;
@@ -133,6 +148,7 @@ export function useCloudAccount({
   const cloudSyncTimer = useRef<number | null>(null);
   const lastUploadedFingerprint = useRef("");
   const lastCalendarSyncedFingerprint = useRef("");
+  const lastDeliveryRelevantFingerprint = useRef("");
 
   const finalizeGoogleCalendarConnection = useCallback(
     async (nextSession: Session | null) => {
@@ -333,6 +349,9 @@ export function useCloudAccount({
     const syncFingerprint = cloudSyncFingerprint(state);
     if (syncFingerprint === lastUploadedFingerprint.current) return undefined;
     if (cloudSyncTimer.current) window.clearTimeout(cloudSyncTimer.current);
+    const deliveryFingerprint = deliveryRelevantFingerprint(state);
+    const deliveryRelevantChanged = deliveryFingerprint !== lastDeliveryRelevantFingerprint.current;
+    lastDeliveryRelevantFingerprint.current = deliveryFingerprint;
 
     cloudSyncTimer.current = window.setTimeout(() => {
       uploadLocalPawfolioToAccount(state)
@@ -384,7 +403,7 @@ export function useCloudAccount({
         .catch(() => {
           setBackupState("failed");
         });
-    }, 1200);
+    }, deliveryRelevantChanged ? 150 : 1200);
 
     return () => {
       if (cloudSyncTimer.current) window.clearTimeout(cloudSyncTimer.current);

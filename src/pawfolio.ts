@@ -1232,7 +1232,7 @@ export function normalizeState(state: Partial<PawfolioState> | null | undefined)
   const coachSettings = {
     ...initialState.coachSettings,
     ...(base.coachSettings || {}),
-    enabled: base.coachSettings?.enabled ?? legacyCoach.enabled,
+    enabled: state?.coachSettings?.enabled ?? state?.routineCoachSettings?.enabled ?? legacyCoach.enabled,
   };
   const normalizedCare = (base.care || []).map(withCareSchedule);
   const normalizedReminders = (base.reminders || []).map(withReminderNotification);

@@ -124,4 +124,50 @@ describe("delivery candidates", () => {
 
     expect(candidates.find((item) => item?.itemId === "walk")).toBeUndefined();
   });
+
+  it("does not create a missed-task nudge when the task is already marked done for today", () => {
+    const candidates = collectDueDeliveryCandidates(
+      {
+        tasks: [{ id: "snacks", title: "Snacks", time: "13:00", done: false, note: "" }],
+        taskHistory: { "2026-04-27": { snacks: true } },
+        diary: [],
+        care: [],
+        reminders: [],
+        cloudSyncMeta: {
+          deviceTimeZone: "America/New_York",
+        },
+        routineCoachSettings: {
+          enabled: true,
+          missedRoutineNudges: true,
+          missedRoutineGraceMinutes: 60,
+        },
+      },
+      new Date("2026-04-27T18:05:00Z"),
+    );
+
+    expect(candidates.find((item) => item?.itemId === "snacks")).toBeUndefined();
+  });
+
+  it("does not create missed-task nudges when routine coach is disabled", () => {
+    const candidates = collectDueDeliveryCandidates(
+      {
+        tasks: [{ id: "walk", title: "Morning walk", time: "08:00", done: false, note: "" }],
+        taskHistory: {},
+        diary: [],
+        care: [],
+        reminders: [],
+        cloudSyncMeta: {
+          deviceTimeZone: "America/New_York",
+        },
+        routineCoachSettings: {
+          enabled: false,
+          missedRoutineNudges: true,
+          missedRoutineGraceMinutes: 60,
+        },
+      },
+      new Date("2026-04-27T13:01:00Z"),
+    );
+
+    expect(candidates.find((item) => item?.itemId === "walk")).toBeUndefined();
+  });
 });

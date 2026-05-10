@@ -1,8 +1,8 @@
 import {
   effectiveReminderTimeZone,
+  missedRoutineTasks,
   normalizeState,
   resolvedScheduleTimeZone,
-  tasksForDate,
   toLocalISO,
   visibleReminders,
   type DailyTask,
@@ -128,15 +128,18 @@ function dueReminderCandidates(state: PawfolioState, now: Date): DeliveryCandida
 }
 
 function dueMissedTaskCandidates(state: PawfolioState, now: Date): DeliveryCandidate[] {
-  if (!state.routineCoachSettings?.missedRoutineNudges) return [];
+  if (!state.routineCoachSettings?.enabled || !state.routineCoachSettings?.missedRoutineNudges) return [];
   const timeZone = stateTimeZone(state);
   const localNow = wallClockDateInTimeZone(now, timeZone);
   const today = toLocalISO(localNow);
-  const todayTasks = tasksForDate(state.tasks, state.taskHistory, today);
   const graceMinutes = state.routineCoachSettings.missedRoutineGraceMinutes;
 
-  const candidates: Array<DeliveryCandidate | null> = (todayTasks as DailyTask[])
-    .filter((task) => !task.done)
+  const candidates: Array<DeliveryCandidate | null> = missedRoutineTasks(
+    state.tasks,
+    state.taskHistory,
+    localNow,
+    graceMinutes,
+  )
     .filter((task) => task.time && task.time !== "Anytime")
     .map((task) => {
       const occurrenceAt = taskMissedNudgeDate(task, today, timeZone, graceMinutes);

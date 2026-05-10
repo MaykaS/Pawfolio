@@ -511,6 +511,23 @@ describe("pawfolio helpers", () => {
     expect(normalized.routineCoachSettings.missedRoutineGraceMinutes).toBe(60);
   });
 
+  it("preserves an explicitly disabled routine coach from older saved state", () => {
+    const normalized = normalizeState({
+      tasks: [],
+      diary: [],
+      care: [],
+      reminders: [],
+      routineCoachSettings: {
+        enabled: false,
+        missedRoutineNudges: true,
+        missedRoutineGraceMinutes: 60,
+      },
+    });
+
+    expect(normalized.routineCoachSettings.enabled).toBe(false);
+    expect(normalized.coachSettings.enabled).toBe(false);
+  });
+
   it("normalizes diary galleries from legacy single photos", () => {
     const normalized = normalizeState({
       tasks: [],
