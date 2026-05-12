@@ -25,7 +25,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
   const diagnostics: {
     env: typeof env;
-    expectations: { cronSchedule: "*/5 * * * *" };
+    expectations: { deliveryScheduler: "external cron every 5 minutes" };
     user?: {
       snapshot: ReturnType<typeof snapshotSummaryFromState> | null;
       pushSubscriptions: number;
@@ -33,7 +33,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
   } = {
     env,
     expectations: {
-      cronSchedule: "*/5 * * * *",
+      deliveryScheduler: "external cron every 5 minutes",
     },
   };
 

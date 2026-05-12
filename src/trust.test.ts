@@ -101,7 +101,7 @@ describe("trust copy helpers", () => {
         cronSecret: true,
       },
       expectations: {
-        cronSchedule: "*/5 * * * *",
+        deliveryScheduler: "external cron every 5 minutes",
       },
     })).toContain("public VAPID key");
   });

@@ -29,7 +29,7 @@ export type RuntimeDiagnostics = {
     cronSecret: boolean;
   };
   expectations: {
-    cronSchedule: "*/5 * * * *";
+    deliveryScheduler: "external cron every 5 minutes";
   };
   user?: {
     snapshot: SnapshotSummary | null;
