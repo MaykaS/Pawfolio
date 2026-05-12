@@ -1,4 +1,5 @@
 import type { Session } from "@supabase/supabase-js";
+import type { RuntimeDiagnostics } from "../cloud";
 import {
   canUseBrowserNotifications,
   cloudBackupStatusLabel,
@@ -12,12 +13,16 @@ import {
   type PawfolioState,
 } from "../pawfolio";
 import type { RestoreSummary, TrustState } from "../hooks/useCloudAccount";
+import type { BackupDiagnostics, PushHealth } from "../hooks/useCloudAccount";
 import {
+  backupDiagnosticsDetail,
   googleCalendarStatusDetail,
   googleCalendarStatusLabel,
   notificationPreferencesEnabled,
   permissionLabel,
+  pushHealthDetail,
   restoreSummaryLabel,
+  runtimeDiagnosticsDetail,
   trustDetailsMessage,
 } from "../trust";
 import { Sheet } from "./Sheet";
@@ -33,6 +38,9 @@ export function TrustDetailsSheet({
   trustState,
   cloudStatus,
   restoreSummary,
+  backupDiagnostics,
+  pushHealth,
+  runtimeDiagnostics,
   integrationSettings,
   onClose,
 }: {
@@ -46,6 +54,9 @@ export function TrustDetailsSheet({
   trustState: TrustState;
   cloudStatus: string;
   restoreSummary: RestoreSummary | null;
+  backupDiagnostics: BackupDiagnostics;
+  pushHealth: PushHealth;
+  runtimeDiagnostics: RuntimeDiagnostics | null;
   integrationSettings: PawfolioState["integrationSettings"];
   onClose: () => void;
 }) {
@@ -101,8 +112,20 @@ export function TrustDetailsSheet({
           <strong>{hasPushSubscription ? "Saved for push" : "Not saved yet"}</strong>
         </div>
         <div className="diagnostic-row">
+          <span>Push health</span>
+          <strong>{pushHealthDetail(pushHealth)}</strong>
+        </div>
+        <div className="diagnostic-row">
+          <span>Saved devices</span>
+          <strong>{pushHealth.subscriptionCount}</strong>
+        </div>
+        <div className="diagnostic-row">
           <span>Last cloud upload</span>
           <strong>{prettySyncTime(cloudSyncMeta.lastUploadedAt)}</strong>
+        </div>
+        <div className="diagnostic-row">
+          <span>Backup detail</span>
+          <strong>{backupDiagnosticsDetail(backupDiagnostics)}</strong>
         </div>
         <div className="diagnostic-row">
           <span>Last restore</span>
@@ -117,6 +140,30 @@ export function TrustDetailsSheet({
             <span>Restore result</span>
             <strong>{restoreSummaryLabel(restoreSummary)}</strong>
           </div>
+        )}
+        {backupDiagnostics.snapshot && (
+          <>
+            <div className="diagnostic-row">
+              <span>Snapshot reminders</span>
+              <strong>{backupDiagnostics.snapshot.reminders}</strong>
+            </div>
+            <div className="diagnostic-row">
+              <span>Snapshot care</span>
+              <strong>{backupDiagnostics.snapshot.care}</strong>
+            </div>
+            <div className="diagnostic-row">
+              <span>Snapshot diary</span>
+              <strong>{backupDiagnostics.snapshot.diary}</strong>
+            </div>
+            <div className="diagnostic-row">
+              <span>Snapshot photos</span>
+              <strong>{backupDiagnostics.snapshot.photos}</strong>
+            </div>
+            <div className="diagnostic-row">
+              <span>Snapshot docs</span>
+              <strong>{backupDiagnostics.snapshot.docs}</strong>
+            </div>
+          </>
         )}
         <div className="diagnostic-row">
           <span>Google Calendar</span>
@@ -138,6 +185,10 @@ export function TrustDetailsSheet({
             signedIn: Boolean(session),
             lastSyncAt: googleCalendarSyncState.lastSyncAt,
           })}</strong>
+        </div>
+        <div className="diagnostic-row">
+          <span>Deployment</span>
+          <strong>{runtimeDiagnosticsDetail(runtimeDiagnostics)}</strong>
         </div>
         {cloudStatus && (
           <div className="diagnostic-row">

@@ -4,15 +4,20 @@ import {
   cleanupAuthCallbackUrl,
   connectGoogleCalendar,
   downloadCloudPawfolioToLocal,
+  fetchRuntimeDiagnostics,
   getCloudSession,
   hydrateSnapshotHealthDocs,
   hydrateSnapshotPhotos,
   parseAuthCallbackUrl,
+  snapshotSummaryFromSnapshot,
+  snapshotSummaryFromState,
   signInWithGoogle,
   subscribeDeviceToPush,
   supabase,
   syncGoogleCalendar,
   uploadLocalPawfolioToAccount,
+  type RuntimeDiagnostics,
+  type SnapshotSummary,
 } from "../cloud";
 import { normalizeState, type PawfolioNotificationStatus, type PawfolioState, type Tab } from "../pawfolio";
 
@@ -40,6 +45,28 @@ export type RestoreSummary = {
   diary: number;
   photos: number;
   docs: number;
+};
+
+export type BackupDiagnostics = {
+  snapshot: SnapshotSummary | null;
+  lastOutcome:
+    | "idle"
+    | "upload_blocked_sign_in"
+    | "upload_blocked_env"
+    | "upload_failed"
+    | "uploaded"
+    | "restore_empty"
+    | "restore_failed"
+    | "restored";
+};
+
+export type PushHealth = {
+  supported: boolean;
+  permission: PawfolioNotificationStatus;
+  hasSubscription: boolean;
+  lastRegisteredAt?: string;
+  envConfigured: boolean;
+  subscriptionCount: number;
 };
 
 type UseCloudAccountArgs = {
@@ -145,6 +172,8 @@ export function useCloudAccount({
   const [restoreSummary, setRestoreSummary] = useState<RestoreSummary | null>(null);
   const [pushState, setPushState] = useState<TrustState["push"]>("idle");
   const [calendarState, setCalendarState] = useState<TrustState["calendar"]>("disconnected");
+  const [runtimeDiagnostics, setRuntimeDiagnostics] = useState<RuntimeDiagnostics | null>(null);
+  const [backupDiagnostics, setBackupDiagnostics] = useState<BackupDiagnostics>({ snapshot: null, lastOutcome: "idle" });
   const cloudSyncTimer = useRef<number | null>(null);
   const lastUploadedFingerprint = useRef("");
   const lastCalendarSyncedFingerprint = useRef("");
@@ -188,6 +217,7 @@ export function useCloudAccount({
     const snapshot = await downloadCloudPawfolioToLocal();
     if (!snapshot?.state) {
       setRestoreState("empty");
+      setBackupDiagnostics((current) => ({ ...current, lastOutcome: "restore_empty" }));
       setRestoreSummary({
         outcome: "empty",
         profile: false,
@@ -228,6 +258,10 @@ export function useCloudAccount({
     };
     setRestoreState("restored");
     setRestoreSummary(summary);
+    setBackupDiagnostics({
+      snapshot: snapshotSummaryFromSnapshot(snapshot),
+      lastOutcome: "restored",
+    });
     setCloudStatus(restoreSummaryMessage(summary));
     return true;
   }, [setState]);
@@ -345,6 +379,25 @@ export function useCloudAccount({
   }, [applyCloudRestore, finalizeGoogleCalendarConnection, setState, setTab]);
 
   useEffect(() => {
+    let cancelled = false;
+    void fetchRuntimeDiagnostics(session)
+      .then((diagnostics) => {
+        if (cancelled) return;
+        setRuntimeDiagnostics(diagnostics);
+        setBackupDiagnostics((current) => ({
+          ...current,
+          snapshot: diagnostics.user?.snapshot ?? current.snapshot,
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) setRuntimeDiagnostics(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session, state.cloudSyncMeta.lastPushRegisteredAt, state.cloudSyncMeta.lastUploadedAt]);
+
+  useEffect(() => {
     if (!session) return undefined;
     const syncFingerprint = cloudSyncFingerprint(state);
     if (syncFingerprint === lastUploadedFingerprint.current) return undefined;
@@ -358,6 +411,10 @@ export function useCloudAccount({
         .then(() => {
           lastUploadedFingerprint.current = syncFingerprint;
           setBackupState("uploaded");
+          setBackupDiagnostics({
+            snapshot: snapshotSummaryFromState(state),
+            lastOutcome: "uploaded",
+          });
           setState((current) => ({
             ...current,
             integrationSettings: {
@@ -402,6 +459,7 @@ export function useCloudAccount({
         })
         .catch(() => {
           setBackupState("failed");
+          setBackupDiagnostics((current) => ({ ...current, lastOutcome: "upload_failed" }));
         });
     }, deliveryRelevantChanged ? 150 : 1200);
 
@@ -427,12 +485,21 @@ export function useCloudAccount({
   const uploadCloud = useCallback(() => {
     setCloudAction("uploading");
     setBackupState("uploading");
+    if (!session) {
+      setBackupDiagnostics((current) => ({ ...current, lastOutcome: "upload_blocked_sign_in" }));
+    } else if (!supabase) {
+      setBackupDiagnostics((current) => ({ ...current, lastOutcome: "upload_blocked_env" }));
+    }
     setCloudStatus("Uploading the latest Pawfolio backup...");
     const syncFingerprint = cloudSyncFingerprint(state);
     uploadLocalPawfolioToAccount(state)
       .then(async () => {
         lastUploadedFingerprint.current = syncFingerprint;
         setBackupState("uploaded");
+        setBackupDiagnostics({
+          snapshot: snapshotSummaryFromState(state),
+          lastOutcome: "uploaded",
+        });
         setState((current) => ({
           ...current,
           integrationSettings: {
@@ -468,6 +535,7 @@ export function useCloudAccount({
       })
       .catch((error: Error) => {
         setBackupState("failed");
+        setBackupDiagnostics((current) => ({ ...current, lastOutcome: "upload_failed" }));
         setCloudStatus(error.message);
       })
       .finally(() => setCloudAction("idle"));
@@ -477,6 +545,7 @@ export function useCloudAccount({
     setCloudAction("restoring");
     setRestoreState("restoring");
     if (!session) {
+      setBackupDiagnostics((current) => ({ ...current, lastOutcome: "upload_blocked_sign_in" }));
       setCloudStatus("Sign in with Google to restore from cloud.");
       signInWithGoogle({ intent: "restore" })
         .catch((error: Error) => {
@@ -490,6 +559,7 @@ export function useCloudAccount({
     applyCloudRestore()
       .catch((error: Error) => {
         setRestoreState("failed");
+        setBackupDiagnostics((current) => ({ ...current, lastOutcome: "restore_failed" }));
         setRestoreSummary({
           outcome: "failed",
           profile: false,
@@ -516,6 +586,8 @@ export function useCloudAccount({
         setSession(activeSession);
         return subscribeDeviceToPush(activeSession).then(async () => {
           await refreshPushStatus();
+          const diagnostics = await fetchRuntimeDiagnostics(activeSession).catch(() => null);
+          if (diagnostics) setRuntimeDiagnostics(diagnostics);
           setPushState("active");
           setState((current) => ({
             ...current,
@@ -666,12 +738,24 @@ export function useCloudAccount({
     state.googleCalendarSyncState.connected,
   ]);
 
+  const pushHealth = useMemo<PushHealth>(() => ({
+    supported: typeof navigator !== "undefined" && "serviceWorker" in navigator && "PushManager" in window,
+    permission: pushPermission,
+    hasSubscription: hasPushSubscription,
+    lastRegisteredAt: state.cloudSyncMeta.lastPushRegisteredAt,
+    envConfigured: Boolean(runtimeDiagnostics?.env.vapidPublic && runtimeDiagnostics.env.serverVapid),
+    subscriptionCount: runtimeDiagnostics?.user?.pushSubscriptions ?? 0,
+  }), [hasPushSubscription, pushPermission, runtimeDiagnostics, state.cloudSyncMeta.lastPushRegisteredAt]);
+
   return {
     session,
     cloudStatus,
     cloudAction,
     trustState,
     restoreSummary,
+    backupDiagnostics,
+    pushHealth,
+    runtimeDiagnostics,
     signIn,
     signOut,
     uploadCloud,

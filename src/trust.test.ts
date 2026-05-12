@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  backupDiagnosticsDetail,
   formatCalendarSyncSummary,
   notificationsSheetMessage,
+  pushHealthDetail,
   restoreStatusDetail,
   restoreSummaryLabel,
+  runtimeDiagnosticsDetail,
   trustDetailsMessage,
   googleCalendarStatusDetail,
 } from "./trust";
-import type { RestoreSummary } from "./hooks/useCloudAccount";
+import type { BackupDiagnostics, PushHealth, RestoreSummary } from "./hooks/useCloudAccount";
 
 const restoredSummary: RestoreSummary = {
   outcome: "restored",
@@ -17,6 +20,19 @@ const restoredSummary: RestoreSummary = {
   diary: 1,
   photos: 4,
   docs: 2,
+};
+
+const backupDiagnostics: BackupDiagnostics = {
+  snapshot: null,
+  lastOutcome: "uploaded",
+};
+
+const pushHealth: PushHealth = {
+  supported: true,
+  permission: "granted",
+  hasSubscription: true,
+  envConfigured: true,
+  subscriptionCount: 1,
 };
 
 describe("trust copy helpers", () => {
@@ -71,5 +87,22 @@ describe("trust copy helpers", () => {
         lastSyncSummary: { created: 2, updated: 1, deleted: 0 },
       }),
     ).toContain("2 created, 1 updated, 0 removed.");
+  });
+
+  it("describes backup, push, and runtime diagnostics concretely", () => {
+    expect(backupDiagnosticsDetail(backupDiagnostics)).toContain("successfully");
+    expect(pushHealthDetail(pushHealth)).toContain("healthy");
+    expect(runtimeDiagnosticsDetail({
+      env: {
+        supabaseClient: true,
+        vapidPublic: false,
+        serverSupabase: true,
+        serverVapid: false,
+        cronSecret: true,
+      },
+      expectations: {
+        cronSchedule: "*/5 * * * *",
+      },
+    })).toContain("public VAPID key");
   });
 });

@@ -1,7 +1,7 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import { collectSnapshotHealthDocRecords, restoreSnapshotHealthDocs, type HealthDocRecord } from "./docStore";
 import { collectSnapshotPhotoRecords, restoreSnapshotPhotos, type PhotoRecord } from "./photoStore";
-import { storageKey, type PawfolioState } from "./pawfolio";
+import { normalizeState, storageKey, type PawfolioState } from "./pawfolio";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -9,6 +9,33 @@ const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefin
 
 export const cloudConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 export const pushConfigured = Boolean(vapidPublicKey);
+
+export type SnapshotSummary = {
+  updatedAt?: string;
+  profile: boolean;
+  reminders: number;
+  care: number;
+  diary: number;
+  photos: number;
+  docs: number;
+};
+
+export type RuntimeDiagnostics = {
+  env: {
+    supabaseClient: boolean;
+    vapidPublic: boolean;
+    serverSupabase: boolean;
+    serverVapid: boolean;
+    cronSecret: boolean;
+  };
+  expectations: {
+    cronSchedule: "*/5 * * * *";
+  };
+  user?: {
+    snapshot: SnapshotSummary | null;
+    pushSubscriptions: number;
+  };
+};
 
 export const supabase = cloudConfigured
   ? createClient(supabaseUrl!, supabaseAnonKey!, {
@@ -28,6 +55,33 @@ type AuthCallbackState = {
   error: string;
   intent: string;
 };
+
+export function snapshotSummaryFromState(state: PawfolioState, extra?: { photos?: number; docs?: number; updatedAt?: string }): SnapshotSummary {
+  return {
+    updatedAt: extra?.updatedAt,
+    profile: Boolean(state.profile),
+    reminders: state.reminders.length,
+    care: state.care.length + state.careEvents.length,
+    diary: state.diary.length,
+    photos: extra?.photos ?? 0,
+    docs: extra?.docs ?? 0,
+  };
+}
+
+export function snapshotSummaryFromSnapshot(snapshot?: {
+  state?: Partial<PawfolioState> | null;
+  updated_at?: string | null;
+  photos?: unknown[] | null;
+  docs?: unknown[] | null;
+} | null): SnapshotSummary | null {
+  if (!snapshot?.state) return null;
+  const normalized = normalizeState(snapshot.state);
+  return snapshotSummaryFromState(normalized, {
+    updatedAt: snapshot.updated_at || undefined,
+    photos: snapshot.photos?.length || 0,
+    docs: snapshot.docs?.length || 0,
+  });
+}
 
 export function parseAuthCallbackUrl(input: string): AuthCallbackState {
   const url = new URL(input, "https://pawfolio.local");
@@ -123,6 +177,15 @@ export async function downloadCloudPawfolioToLocal() {
     .maybeSingle();
   if (error) throw error;
   return data;
+}
+
+export async function fetchRuntimeDiagnostics(session?: Session | null) {
+  const response = await fetch("/api/runtime-diagnostics", {
+    headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error((payload as { error?: string }).error || "Could not load runtime diagnostics.");
+  return payload as RuntimeDiagnostics;
 }
 
 export async function hydrateSnapshotPhotos(photos?: PhotoRecord[] | null) {

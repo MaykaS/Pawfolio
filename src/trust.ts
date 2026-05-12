@@ -1,7 +1,8 @@
 import type { Session } from "@supabase/supabase-js";
 import type { PawfolioState } from "./pawfolio";
 import { prettySyncTime, type CloudSyncMeta } from "./pawfolio";
-import type { RestoreSummary, TrustState } from "./hooks/useCloudAccount";
+import type { BackupDiagnostics, PushHealth, RestoreSummary, TrustState } from "./hooks/useCloudAccount";
+import type { RuntimeDiagnostics } from "./cloud";
 
 export function permissionLabel(permission: string) {
   if (permission === "granted") return "Allowed";
@@ -76,6 +77,39 @@ export function notificationPreferencesEnabled(
 
 export function notificationsSheetMessage() {
   return "Phone notifications are active from this saved device. Near-term alerts can appear here, and some scheduled reminders are also delivered from your cloud backup path.";
+}
+
+export function backupDiagnosticsDetail(backupDiagnostics: BackupDiagnostics) {
+  if (backupDiagnostics.lastOutcome === "upload_blocked_sign_in") return "Sign in before uploading this Pawfolio backup.";
+  if (backupDiagnostics.lastOutcome === "upload_blocked_env") return "Cloud backup env is missing in this deployment.";
+  if (backupDiagnostics.lastOutcome === "upload_failed") return "The latest upload did not finish cleanly.";
+  if (backupDiagnostics.lastOutcome === "uploaded") return "Latest upload finished successfully.";
+  if (backupDiagnostics.lastOutcome === "restore_empty") return "No cloud backup was found for this account.";
+  if (backupDiagnostics.lastOutcome === "restore_failed") return "Restore found a backup, but this device could not finish it cleanly.";
+  if (backupDiagnostics.lastOutcome === "restored") return "Restore completed on this device.";
+  return "Backup has not reported a recent action yet.";
+}
+
+export function pushHealthDetail(pushHealth: PushHealth) {
+  if (!pushHealth.supported) return "This browser does not support service worker push.";
+  if (!pushHealth.envConfigured) return "Push env is incomplete in this deployment.";
+  if (pushHealth.permission === "denied") return "Notifications are blocked in browser or phone settings.";
+  if (pushHealth.permission !== "granted") return "Notifications still need permission on this phone.";
+  if (!pushHealth.hasSubscription) return "Permission is granted, but this phone has not saved a push subscription yet.";
+  if (pushHealth.subscriptionCount === 0) return "This phone has a local subscription, but cloud does not show a saved device yet.";
+  return "Push looks healthy on this phone and in cloud.";
+}
+
+export function runtimeDiagnosticsDetail(runtimeDiagnostics: RuntimeDiagnostics | null) {
+  if (!runtimeDiagnostics) return "Runtime diagnostics are not available right now.";
+  const blockers: string[] = [];
+  if (!runtimeDiagnostics.env.supabaseClient) blockers.push("client Supabase env");
+  if (!runtimeDiagnostics.env.serverSupabase) blockers.push("server Supabase env");
+  if (!runtimeDiagnostics.env.vapidPublic) blockers.push("public VAPID key");
+  if (!runtimeDiagnostics.env.serverVapid) blockers.push("server VAPID keys");
+  if (!runtimeDiagnostics.env.cronSecret) blockers.push("cron secret");
+  if (blockers.length === 0) return "Deployment env looks complete for backup and push.";
+  return `Deployment is missing: ${blockers.join(", ")}.`;
 }
 
 export function restoreStatusDetail({

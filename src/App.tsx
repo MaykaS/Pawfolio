@@ -403,6 +403,9 @@ export default function App() {
     cloudAction,
     trustState,
     restoreSummary,
+    backupDiagnostics,
+    pushHealth,
+    runtimeDiagnostics,
     signIn,
     signOut,
     uploadCloud,
@@ -1010,6 +1013,9 @@ export default function App() {
           trustState={trustState}
           cloudStatus={cloudStatus}
           restoreSummary={restoreSummary}
+          backupDiagnostics={backupDiagnostics}
+          pushHealth={pushHealth}
+          runtimeDiagnostics={runtimeDiagnostics}
           integrationSettings={state.integrationSettings}
           onClose={() => setPushDiagnosticsOpen(false)}
         />
