@@ -437,6 +437,9 @@ export default function App() {
   useLocalReminderScheduling({
     reminders: calendarItems,
     reminderHistory: state.reminderHistory,
+    tasks: state.tasks,
+    taskHistory: state.taskHistory,
+    routineCoachSettings: state.routineCoachSettings,
     enabled: state.notificationPreferences.push,
   });
 
