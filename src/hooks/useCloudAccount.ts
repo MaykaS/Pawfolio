@@ -734,6 +734,7 @@ export function useCloudAccount({
         setCloudStatus(`Google Calendar synced: ${result.created} created, ${result.updated} updated, ${result.deleted} removed.`);
       })
       .catch((error: Error) => {
+        const reconnectNeeded = calendarNeedsReconnect(error.message);
         setCalendarState("sync_error");
         setCloudStatus(calendarAccessDeniedMessage(error.message));
         setState((current) => ({
@@ -742,6 +743,12 @@ export function useCloudAccount({
             ...current.integrationSettings,
             googleCalendar: "issue",
           },
+          googleCalendarSyncState: reconnectNeeded
+            ? {
+                ...current.googleCalendarSyncState,
+                connected: false,
+              }
+            : current.googleCalendarSyncState,
         }));
       })
       .finally(() => setCloudAction("idle"));
@@ -858,6 +865,9 @@ function joinHumanList(items: string[]) {
 
 function calendarAccessDeniedMessage(rawError: string) {
   const normalized = rawError.toLowerCase();
+  if (calendarNeedsReconnect(normalized)) {
+    return "Google Calendar needs to be reconnected. The saved Google access expired or was revoked. Tap Connect Google Calendar again.";
+  }
   if (
     normalized.includes("access_denied")
     || normalized.includes("developer-approved testers")
@@ -866,6 +876,13 @@ function calendarAccessDeniedMessage(rawError: string) {
     return "Google Calendar setup is still blocked in Google Cloud. Add your Google account as a test user, enable Google Calendar API, and add the calendar scope in Data Access, then try Connect Google Calendar again.";
   }
   return rawError;
+}
+
+function calendarNeedsReconnect(rawError: string) {
+  const normalized = rawError.toLowerCase();
+  return normalized.includes("expired or revoked")
+    || normalized.includes("invalid_grant")
+    || normalized.includes("needs to be reconnected");
 }
 
 function latestIsoTimestamp(a?: string, b?: string) {

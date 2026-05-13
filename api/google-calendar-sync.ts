@@ -39,109 +39,137 @@ export default async function handler(request: VercelRequest, response: VercelRe
   if (snapshotError) return sendJson(response, 500, { error: snapshotError.message });
   if (!snapshot?.state) return sendJson(response, 400, { error: "No cloud Pawfolio backup was found to sync." });
 
-  const accessToken = await resolveGoogleAccessToken(account as StoredGoogleIntegration);
-  const state = normalizeState(snapshot.state);
-  const petName = state.profile?.name || "Pawfolio";
-  const timeZone = resolvedScheduleTimeZone(state.cloudSyncMeta);
-  const reminders = visibleReminders(state);
-  const { data: links, error: linkError } = await supabase
-    .from("calendar_event_links")
-    .select("*")
-    .eq("user_id", user.id);
-  if (linkError) return sendJson(response, 500, { error: linkError.message });
+  try {
+    const accessToken = await resolveGoogleAccessToken(account as StoredGoogleIntegration);
+    const state = normalizeState(snapshot.state);
+    const petName = state.profile?.name || "Pawfolio";
+    const timeZone = resolvedScheduleTimeZone(state.cloudSyncMeta);
+    const reminders = visibleReminders(state);
+    const { data: links, error: linkError } = await supabase
+      .from("calendar_event_links")
+      .select("*")
+      .eq("user_id", user.id);
+    if (linkError) return sendJson(response, 500, { error: linkError.message });
 
-  const linksByLocalId = new Map((links || []).map((link: CalendarEventLink) => [`${link.local_item_type}:${link.local_item_id}`, link]));
-  const activeKeys = new Set<string>();
-  let synced = 0;
-  let createdCount = 0;
-  let updatedCount = 0;
+    const linksByLocalId = new Map((links || []).map((link: CalendarEventLink) => [`${link.local_item_type}:${link.local_item_id}`, link]));
+    const activeKeys = new Set<string>();
+    let synced = 0;
+    let createdCount = 0;
+    let updatedCount = 0;
 
-  for (const reminder of reminders) {
-    const body = {
-      ...buildGoogleCalendarEvent(reminder, petName, timeZone),
-      eventType: "default",
-    };
-    const key = `reminder:${reminder.id}`;
-    activeKeys.add(key);
-    const fingerprint = fingerprintEvent(body);
-    const link = linksByLocalId.get(key);
+    for (const reminder of reminders) {
+      const body = {
+        ...buildGoogleCalendarEvent(reminder, petName, timeZone),
+        eventType: "default",
+      };
+      const key = `reminder:${reminder.id}`;
+      activeKeys.add(key);
+      const fingerprint = fingerprintEvent(body);
+      const link = linksByLocalId.get(key);
 
-    if (!link) {
-      const created = await googleCalendarRequest<{ id: string }>(
-        "/calendars/primary/events",
-        accessToken,
-        {
-          method: "POST",
-          body: JSON.stringify(body),
-        },
-      );
-      await supabase.from("calendar_event_links").insert({
-        user_id: user.id,
-        local_item_type: "reminder",
-        local_item_id: reminder.id,
-        google_event_id: created.id,
-        last_synced_fingerprint: fingerprint,
-        last_synced_at: new Date().toISOString(),
-      });
-      synced += 1;
-      createdCount += 1;
-      continue;
+      if (!link) {
+        const created = await googleCalendarRequest<{ id: string }>(
+          "/calendars/primary/events",
+          accessToken,
+          {
+            method: "POST",
+            body: JSON.stringify(body),
+          },
+        );
+        await supabase.from("calendar_event_links").insert({
+          user_id: user.id,
+          local_item_type: "reminder",
+          local_item_id: reminder.id,
+          google_event_id: created.id,
+          last_synced_fingerprint: fingerprint,
+          last_synced_at: new Date().toISOString(),
+        });
+        synced += 1;
+        createdCount += 1;
+        continue;
+      }
+
+      if (link.last_synced_fingerprint !== fingerprint) {
+        await googleCalendarRequest(
+          `/calendars/primary/events/${encodeURIComponent(link.google_event_id)}`,
+          accessToken,
+          {
+            method: "PUT",
+            body: JSON.stringify(body),
+          },
+        );
+        await supabase
+          .from("calendar_event_links")
+          .update({
+            last_synced_fingerprint: fingerprint,
+            last_synced_at: new Date().toISOString(),
+          })
+          .eq("id", link.id);
+        synced += 1;
+        updatedCount += 1;
+      }
     }
 
-    if (link.last_synced_fingerprint !== fingerprint) {
+    let deleted = 0;
+    for (const link of (links || []) as CalendarEventLink[]) {
+      const key = `${link.local_item_type}:${link.local_item_id}`;
+      if (activeKeys.has(key)) continue;
       await googleCalendarRequest(
         `/calendars/primary/events/${encodeURIComponent(link.google_event_id)}`,
         accessToken,
         {
-          method: "PUT",
-          body: JSON.stringify(body),
+          method: "DELETE",
         },
-      );
-      await supabase
-        .from("calendar_event_links")
-        .update({
-          last_synced_fingerprint: fingerprint,
-          last_synced_at: new Date().toISOString(),
-        })
-        .eq("id", link.id);
-      synced += 1;
-      updatedCount += 1;
+      ).catch(() => undefined);
+      await supabase.from("calendar_event_links").delete().eq("id", link.id);
+      deleted += 1;
     }
+
+    const lastSyncAt = new Date().toISOString();
+    await supabase
+      .from("integration_accounts")
+      .update({
+        status: "connected",
+        last_synced_at: lastSyncAt,
+        last_error: null,
+        updated_at: lastSyncAt,
+      })
+      .eq("user_id", user.id)
+      .eq("provider", "google_calendar");
+
+    return sendJson(response, 200, {
+      ok: true,
+      synced,
+      created: createdCount,
+      updated: updatedCount,
+      deleted,
+      lastSyncAt,
+    });
+  } catch (error) {
+    const message = calendarSyncErrorMessage((error as Error).message);
+    await supabase
+      .from("integration_accounts")
+      .update({
+        status: requiresCalendarReconnect((error as Error).message) ? "issue" : "connected",
+        last_error: message,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id)
+      .eq("provider", "google_calendar");
+    return sendJson(response, requiresCalendarReconnect((error as Error).message) ? 400 : 500, { error: message });
   }
+}
 
-  let deleted = 0;
-  for (const link of (links || []) as CalendarEventLink[]) {
-    const key = `${link.local_item_type}:${link.local_item_id}`;
-    if (activeKeys.has(key)) continue;
-    await googleCalendarRequest(
-      `/calendars/primary/events/${encodeURIComponent(link.google_event_id)}`,
-      accessToken,
-      {
-        method: "DELETE",
-      },
-    ).catch(() => undefined);
-    await supabase.from("calendar_event_links").delete().eq("id", link.id);
-    deleted += 1;
+function requiresCalendarReconnect(message = "") {
+  const normalized = message.toLowerCase();
+  return normalized.includes("expired or revoked")
+    || normalized.includes("invalid_grant")
+    || normalized.includes("needs to be reconnected");
+}
+
+function calendarSyncErrorMessage(rawMessage: string) {
+  if (requiresCalendarReconnect(rawMessage)) {
+    return "Google Calendar needs to be reconnected. The saved Google access expired or was revoked.";
   }
-
-  const lastSyncAt = new Date().toISOString();
-  await supabase
-    .from("integration_accounts")
-    .update({
-      status: "connected",
-      last_synced_at: lastSyncAt,
-      last_error: null,
-      updated_at: lastSyncAt,
-    })
-    .eq("user_id", user.id)
-    .eq("provider", "google_calendar");
-
-  return sendJson(response, 200, {
-    ok: true,
-    synced,
-    created: createdCount,
-    updated: updatedCount,
-    deleted,
-    lastSyncAt,
-  });
+  return rawMessage;
 }
