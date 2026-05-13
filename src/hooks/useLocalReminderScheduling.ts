@@ -44,7 +44,7 @@ export function useLocalReminderScheduling({
       rescanTimer.current = null;
     }
 
-    if (!enabled || Notification.permission !== "granted") return undefined;
+    if (!enabled || typeof Notification === "undefined" || Notification.permission !== "granted") return undefined;
 
     const queueNotifications = (notifications: ScheduledLocalNotification[]) => {
       notifications.forEach((notification) => {

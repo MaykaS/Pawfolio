@@ -92,11 +92,19 @@ export function backupDiagnosticsDetail(backupDiagnostics: BackupDiagnostics) {
 
 export function pushHealthDetail(pushHealth: PushHealth) {
   if (!pushHealth.supported) return "This browser does not support service worker push.";
-  if (!pushHealth.envConfigured) return "Push env is incomplete in this deployment.";
   if (pushHealth.permission === "denied") return "Notifications are blocked in browser or phone settings.";
+  if (!pushHealth.localEnabled) return "Phone reminders are turned off on this device.";
   if (pushHealth.permission !== "granted") return "Notifications still need permission on this phone.";
-  if (!pushHealth.hasSubscription) return "Permission is granted, but this phone has not saved a push subscription yet.";
-  if (pushHealth.subscriptionCount === 0) return "This phone has a local subscription, but cloud does not show a saved device yet.";
+  if (pushHealth.localRemindersAvailable && !pushHealth.envConfigured) {
+    return "Local phone reminders are available here, but cloud push env is incomplete in this deployment.";
+  }
+  if (pushHealth.localRemindersAvailable && !pushHealth.hasSubscription) {
+    return "Local phone reminders are available here, but this phone has not been saved for cloud push yet.";
+  }
+  if (pushHealth.hasSubscription && pushHealth.subscriptionCount === 0) {
+    return "This phone has a local subscription, but cloud does not show a saved device yet.";
+  }
+  if (!pushHealth.envConfigured) return "Push env is incomplete in this deployment.";
   return "Push looks healthy on this phone and in cloud.";
 }
 
@@ -108,7 +116,9 @@ export function runtimeDiagnosticsDetail(runtimeDiagnostics: RuntimeDiagnostics 
   if (!runtimeDiagnostics.env.vapidPublic) blockers.push("public VAPID key");
   if (!runtimeDiagnostics.env.serverVapid) blockers.push("server VAPID keys");
   if (!runtimeDiagnostics.env.cronSecret) blockers.push("cron secret");
-  if (blockers.length === 0) return "Deployment env looks complete for backup and push.";
+  if (blockers.length === 0) {
+    return `Deployment env looks complete for backup and push. Scheduled delivery expects ${runtimeDiagnostics.expectations.deliveryScheduler}.`;
+  }
   return `Deployment is missing: ${blockers.join(", ")}.`;
 }
 

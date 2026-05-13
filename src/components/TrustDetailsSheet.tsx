@@ -35,6 +35,9 @@ export function TrustDetailsSheet({
   hasPushSubscription,
   cloudSyncMeta,
   googleCalendarSyncState,
+  visibleLastUploadedAt,
+  visibleLastCalendarSyncAt,
+  visibleLastCalendarSyncSummary,
   trustState,
   cloudStatus,
   restoreSummary,
@@ -51,6 +54,9 @@ export function TrustDetailsSheet({
   hasPushSubscription: boolean;
   cloudSyncMeta: CloudSyncMeta;
   googleCalendarSyncState: PawfolioState["googleCalendarSyncState"];
+  visibleLastUploadedAt?: string;
+  visibleLastCalendarSyncAt?: string;
+  visibleLastCalendarSyncSummary?: PawfolioState["googleCalendarSyncState"]["lastSyncSummary"];
   trustState: TrustState;
   cloudStatus: string;
   restoreSummary: RestoreSummary | null;
@@ -97,7 +103,7 @@ export function TrustDetailsSheet({
         </div>
         <div className="diagnostic-row">
           <span>Cloud backup</span>
-          <strong>{cloudBackupStatusLabel({ signedIn: Boolean(session), lastUploadedAt: cloudSyncMeta.lastUploadedAt })}</strong>
+          <strong>{cloudBackupStatusLabel({ signedIn: Boolean(session), lastUploadedAt: visibleLastUploadedAt || cloudSyncMeta.lastUploadedAt })}</strong>
         </div>
         <div className="diagnostic-row">
           <span>Cloud sync</span>
@@ -112,6 +118,10 @@ export function TrustDetailsSheet({
           <strong>{hasPushSubscription ? "Saved for push" : "Not saved yet"}</strong>
         </div>
         <div className="diagnostic-row">
+          <span>Local reminders</span>
+          <strong>{pushHealth.localRemindersAvailable ? "Available on this phone" : pushHealth.localEnabled ? "Needs permission" : "Turned off"}</strong>
+        </div>
+        <div className="diagnostic-row">
           <span>Push health</span>
           <strong>{pushHealthDetail(pushHealth)}</strong>
         </div>
@@ -121,7 +131,7 @@ export function TrustDetailsSheet({
         </div>
         <div className="diagnostic-row">
           <span>Last cloud upload</span>
-          <strong>{prettySyncTime(cloudSyncMeta.lastUploadedAt)}</strong>
+          <strong>{prettySyncTime(visibleLastUploadedAt || cloudSyncMeta.lastUploadedAt)}</strong>
         </div>
         <div className="diagnostic-row">
           <span>Backup detail</span>
@@ -175,7 +185,7 @@ export function TrustDetailsSheet({
         </div>
         <div className="diagnostic-row">
           <span>Last calendar sync</span>
-          <strong>{prettySyncTime(googleCalendarSyncState.lastSyncAt)}</strong>
+          <strong>{prettySyncTime(visibleLastCalendarSyncAt || googleCalendarSyncState.lastSyncAt)}</strong>
         </div>
         <div className="diagnostic-row">
           <span>Calendar detail</span>
@@ -183,8 +193,13 @@ export function TrustDetailsSheet({
             status: trustState.calendar,
             enabled: notificationPreferencesEnabled(session, integrationSettings.googleCalendar, googleCalendarSyncState.connected),
             signedIn: Boolean(session),
-            lastSyncAt: googleCalendarSyncState.lastSyncAt,
+            lastSyncAt: visibleLastCalendarSyncAt || googleCalendarSyncState.lastSyncAt,
+            lastSyncSummary: visibleLastCalendarSyncSummary || googleCalendarSyncState.lastSyncSummary,
           })}</strong>
+        </div>
+        <div className="diagnostic-row">
+          <span>Delivery scheduler</span>
+          <strong>{runtimeDiagnostics?.expectations.deliveryScheduler || "External cron every 5 minutes"}</strong>
         </div>
         <div className="diagnostic-row">
           <span>Deployment</span>

@@ -67,6 +67,8 @@ export type PushHealth = {
   lastRegisteredAt?: string;
   envConfigured: boolean;
   subscriptionCount: number;
+  localEnabled: boolean;
+  localRemindersAvailable: boolean;
 };
 
 type UseCloudAccountArgs = {
@@ -174,10 +176,26 @@ export function useCloudAccount({
   const [calendarState, setCalendarState] = useState<TrustState["calendar"]>("disconnected");
   const [runtimeDiagnostics, setRuntimeDiagnostics] = useState<RuntimeDiagnostics | null>(null);
   const [backupDiagnostics, setBackupDiagnostics] = useState<BackupDiagnostics>({ snapshot: null, lastOutcome: "idle" });
+  const [lastSuccessfulUploadAt, setLastSuccessfulUploadAt] = useState<string | undefined>(state.cloudSyncMeta.lastUploadedAt);
+  const [lastSuccessfulCalendarSyncAt, setLastSuccessfulCalendarSyncAt] = useState<string | undefined>(state.googleCalendarSyncState.lastSyncAt);
+  const [lastSuccessfulCalendarSyncSummary, setLastSuccessfulCalendarSyncSummary] = useState<PawfolioState["googleCalendarSyncState"]["lastSyncSummary"]>(
+    state.googleCalendarSyncState.lastSyncSummary,
+  );
   const cloudSyncTimer = useRef<number | null>(null);
   const lastUploadedFingerprint = useRef("");
   const lastCalendarSyncedFingerprint = useRef("");
   const lastDeliveryRelevantFingerprint = useRef("");
+
+  useEffect(() => {
+    setLastSuccessfulUploadAt((current) => latestIsoTimestamp(current, state.cloudSyncMeta.lastUploadedAt));
+  }, [state.cloudSyncMeta.lastUploadedAt]);
+
+  useEffect(() => {
+    setLastSuccessfulCalendarSyncAt((current) => latestIsoTimestamp(current, state.googleCalendarSyncState.lastSyncAt));
+    if (state.googleCalendarSyncState.lastSyncSummary) {
+      setLastSuccessfulCalendarSyncSummary((current) => current ?? state.googleCalendarSyncState.lastSyncSummary);
+    }
+  }, [state.googleCalendarSyncState.lastSyncAt, state.googleCalendarSyncState.lastSyncSummary]);
 
   const finalizeGoogleCalendarConnection = useCallback(
     async (nextSession: Session | null) => {
@@ -258,6 +276,7 @@ export function useCloudAccount({
     };
     setRestoreState("restored");
     setRestoreSummary(summary);
+    setLastSuccessfulUploadAt((current) => latestIsoTimestamp(current, nextState.cloudSyncMeta.lastUploadedAt));
     setBackupDiagnostics({
       snapshot: snapshotSummaryFromSnapshot(snapshot),
       lastOutcome: "restored",
@@ -386,7 +405,9 @@ export function useCloudAccount({
         setRuntimeDiagnostics(diagnostics);
         setBackupDiagnostics((current) => ({
           ...current,
-          snapshot: diagnostics.user?.snapshot ?? current.snapshot,
+          snapshot: shouldReplaceBackupSnapshot(current.snapshot, diagnostics.user?.snapshot, lastSuccessfulUploadAt)
+            ? diagnostics.user?.snapshot ?? current.snapshot
+            : current.snapshot,
         }));
       })
       .catch(() => {
@@ -395,7 +416,7 @@ export function useCloudAccount({
     return () => {
       cancelled = true;
     };
-  }, [session, state.cloudSyncMeta.lastPushRegisteredAt, state.cloudSyncMeta.lastUploadedAt]);
+  }, [lastSuccessfulUploadAt, session, state.cloudSyncMeta.lastPushRegisteredAt, state.cloudSyncMeta.lastUploadedAt]);
 
   useEffect(() => {
     if (!session) return undefined;
@@ -409,10 +430,12 @@ export function useCloudAccount({
     cloudSyncTimer.current = window.setTimeout(() => {
       uploadLocalPawfolioToAccount(state)
         .then(() => {
+          const uploadedAt = new Date().toISOString();
           lastUploadedFingerprint.current = syncFingerprint;
           setBackupState("uploaded");
+          setLastSuccessfulUploadAt(uploadedAt);
           setBackupDiagnostics({
-            snapshot: snapshotSummaryFromState(state),
+            snapshot: snapshotSummaryFromState(state, { updatedAt: uploadedAt }),
             lastOutcome: "uploaded",
           });
           setState((current) => ({
@@ -423,7 +446,7 @@ export function useCloudAccount({
             },
             cloudSyncMeta: {
               ...current.cloudSyncMeta,
-              lastUploadedAt: new Date().toISOString(),
+              lastUploadedAt: uploadedAt,
             },
           }));
 
@@ -433,8 +456,15 @@ export function useCloudAccount({
             syncFingerprint !== lastCalendarSyncedFingerprint.current
           ) {
             void syncGoogleCalendar(session).then((result) => {
+              const syncedAt = result.lastSyncAt || new Date().toISOString();
               lastCalendarSyncedFingerprint.current = syncFingerprint;
               setCalendarState("connected");
+              setLastSuccessfulCalendarSyncAt(syncedAt);
+              setLastSuccessfulCalendarSyncSummary({
+                created: result.created,
+                updated: result.updated,
+                deleted: result.deleted,
+              });
               setState((current) => ({
                 ...current,
                 integrationSettings: {
@@ -444,7 +474,7 @@ export function useCloudAccount({
                 googleCalendarSyncState: {
                   ...current.googleCalendarSyncState,
                   connected: true,
-                  lastSyncAt: result.lastSyncAt || new Date().toISOString(),
+                  lastSyncAt: syncedAt,
                   lastSyncSummary: {
                     created: result.created,
                     updated: result.updated,
@@ -494,10 +524,12 @@ export function useCloudAccount({
     const syncFingerprint = cloudSyncFingerprint(state);
     uploadLocalPawfolioToAccount(state)
       .then(async () => {
+        const uploadedAt = new Date().toISOString();
         lastUploadedFingerprint.current = syncFingerprint;
         setBackupState("uploaded");
+        setLastSuccessfulUploadAt(uploadedAt);
         setBackupDiagnostics({
-          snapshot: snapshotSummaryFromState(state),
+          snapshot: snapshotSummaryFromState(state, { updatedAt: uploadedAt }),
           lastOutcome: "uploaded",
         });
         setState((current) => ({
@@ -508,20 +540,27 @@ export function useCloudAccount({
           },
           cloudSyncMeta: {
             ...current.cloudSyncMeta,
-            lastUploadedAt: new Date().toISOString(),
+            lastUploadedAt: uploadedAt,
           },
         }));
 
         if (session && state.notificationPreferences.googleCalendar && state.googleCalendarSyncState.connected) {
           const result = await syncGoogleCalendar(session);
+          const syncedAt = result.lastSyncAt || new Date().toISOString();
           lastCalendarSyncedFingerprint.current = syncFingerprint;
           setCalendarState("connected");
+          setLastSuccessfulCalendarSyncAt(syncedAt);
+          setLastSuccessfulCalendarSyncSummary({
+            created: result.created,
+            updated: result.updated,
+            deleted: result.deleted,
+          });
           setState((current) => ({
             ...current,
             googleCalendarSyncState: {
               ...current.googleCalendarSyncState,
               connected: true,
-              lastSyncAt: result.lastSyncAt || new Date().toISOString(),
+              lastSyncAt: syncedAt,
               lastSyncSummary: {
                 created: result.created,
                 updated: result.updated,
@@ -644,8 +683,14 @@ export function useCloudAccount({
     const syncFingerprint = cloudSyncFingerprint(state);
     uploadLocalPawfolioToAccount(state)
       .then(async () => {
+        const uploadedAt = new Date().toISOString();
         lastUploadedFingerprint.current = syncFingerprint;
         setBackupState("uploaded");
+        setLastSuccessfulUploadAt(uploadedAt);
+        setBackupDiagnostics({
+          snapshot: snapshotSummaryFromState(state, { updatedAt: uploadedAt }),
+          lastOutcome: "uploaded",
+        });
         setState((current) => ({
           ...current,
           integrationSettings: {
@@ -654,14 +699,21 @@ export function useCloudAccount({
           },
           cloudSyncMeta: {
             ...current.cloudSyncMeta,
-            lastUploadedAt: new Date().toISOString(),
+            lastUploadedAt: uploadedAt,
           },
         }));
         return syncGoogleCalendar(session);
       })
       .then((result) => {
+        const syncedAt = result.lastSyncAt || new Date().toISOString();
         lastCalendarSyncedFingerprint.current = syncFingerprint;
         setCalendarState("connected");
+        setLastSuccessfulCalendarSyncAt(syncedAt);
+        setLastSuccessfulCalendarSyncSummary({
+          created: result.created,
+          updated: result.updated,
+          deleted: result.deleted,
+        });
         setState((current) => ({
           ...current,
           integrationSettings: {
@@ -671,7 +723,7 @@ export function useCloudAccount({
           googleCalendarSyncState: {
             ...current.googleCalendarSyncState,
             connected: true,
-            lastSyncAt: result.lastSyncAt || new Date().toISOString(),
+            lastSyncAt: syncedAt,
             lastSyncSummary: {
               created: result.created,
               updated: result.updated,
@@ -745,7 +797,20 @@ export function useCloudAccount({
     lastRegisteredAt: state.cloudSyncMeta.lastPushRegisteredAt,
     envConfigured: Boolean(runtimeDiagnostics?.env.vapidPublic && runtimeDiagnostics.env.serverVapid),
     subscriptionCount: runtimeDiagnostics?.user?.pushSubscriptions ?? 0,
-  }), [hasPushSubscription, pushPermission, runtimeDiagnostics, state.cloudSyncMeta.lastPushRegisteredAt]);
+    localEnabled: state.notificationPreferences.inApp || state.notificationPreferences.push,
+    localRemindersAvailable:
+      Boolean(state.notificationPreferences.inApp || state.notificationPreferences.push)
+      && pushPermission === "granted"
+      && typeof window !== "undefined"
+      && "Notification" in window,
+  }), [
+    hasPushSubscription,
+    pushPermission,
+    runtimeDiagnostics,
+    state.cloudSyncMeta.lastPushRegisteredAt,
+    state.notificationPreferences.inApp,
+    state.notificationPreferences.push,
+  ]);
 
   return {
     session,
@@ -756,6 +821,9 @@ export function useCloudAccount({
     backupDiagnostics,
     pushHealth,
     runtimeDiagnostics,
+    lastSuccessfulUploadAt,
+    lastSuccessfulCalendarSyncAt,
+    lastSuccessfulCalendarSyncSummary,
     signIn,
     signOut,
     uploadCloud,
@@ -798,4 +866,25 @@ function calendarAccessDeniedMessage(rawError: string) {
     return "Google Calendar setup is still blocked in Google Cloud. Add your Google account as a test user, enable Google Calendar API, and add the calendar scope in Data Access, then try Connect Google Calendar again.";
   }
   return rawError;
+}
+
+function latestIsoTimestamp(a?: string, b?: string) {
+  if (!a) return b;
+  if (!b) return a;
+  return new Date(a).getTime() >= new Date(b).getTime() ? a : b;
+}
+
+function shouldReplaceBackupSnapshot(
+  currentSnapshot: SnapshotSummary | null,
+  nextSnapshot: SnapshotSummary | null | undefined,
+  latestUploadAt?: string,
+) {
+  if (!nextSnapshot) return false;
+  if (!currentSnapshot) return true;
+  if (!latestUploadAt) return true;
+  const nextAt = nextSnapshot.updatedAt ? new Date(nextSnapshot.updatedAt).getTime() : 0;
+  const currentAt = currentSnapshot.updatedAt ? new Date(currentSnapshot.updatedAt).getTime() : 0;
+  const latestAt = new Date(latestUploadAt).getTime();
+  if (nextAt >= latestAt) return true;
+  return currentAt < latestAt && nextAt >= currentAt;
 }

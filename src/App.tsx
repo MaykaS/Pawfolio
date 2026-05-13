@@ -406,6 +406,9 @@ export default function App() {
     backupDiagnostics,
     pushHealth,
     runtimeDiagnostics,
+    lastSuccessfulUploadAt,
+    lastSuccessfulCalendarSyncAt,
+    lastSuccessfulCalendarSyncSummary,
     signIn,
     signOut,
     uploadCloud,
@@ -443,7 +446,7 @@ export default function App() {
     tasks: state.tasks,
     taskHistory: state.taskHistory,
     routineCoachSettings: state.routineCoachSettings,
-    enabled: state.notificationPreferences.push,
+    enabled: state.notificationPreferences.inApp || state.notificationPreferences.push,
   });
 
   const handleCoachAction = (item: { id: string; action: CoachSuggestionAction }) => {
@@ -780,6 +783,9 @@ export default function App() {
           integrationSettings={state.integrationSettings}
           googleCalendarSyncState={state.googleCalendarSyncState}
           cloudSyncMeta={state.cloudSyncMeta}
+          lastSuccessfulUploadAt={lastSuccessfulUploadAt}
+          lastSuccessfulCalendarSyncAt={lastSuccessfulCalendarSyncAt}
+          lastSuccessfulCalendarSyncSummary={lastSuccessfulCalendarSyncSummary}
           coachSettings={state.coachSettings}
           initialEditFocus={profileEditIntent}
           session={session}
@@ -1010,6 +1016,9 @@ export default function App() {
           hasPushSubscription={hasPushSubscription}
           cloudSyncMeta={state.cloudSyncMeta}
           googleCalendarSyncState={state.googleCalendarSyncState}
+          visibleLastUploadedAt={lastSuccessfulUploadAt || state.cloudSyncMeta.lastUploadedAt}
+          visibleLastCalendarSyncAt={lastSuccessfulCalendarSyncAt || state.googleCalendarSyncState.lastSyncAt}
+          visibleLastCalendarSyncSummary={lastSuccessfulCalendarSyncSummary || state.googleCalendarSyncState.lastSyncSummary}
           trustState={trustState}
           cloudStatus={cloudStatus}
           restoreSummary={restoreSummary}
@@ -2739,6 +2748,9 @@ function ProfileScreen({
   integrationSettings,
   googleCalendarSyncState,
   cloudSyncMeta,
+  lastSuccessfulUploadAt,
+  lastSuccessfulCalendarSyncAt,
+  lastSuccessfulCalendarSyncSummary,
   coachSettings,
   initialEditFocus,
   session,
@@ -2774,6 +2786,9 @@ function ProfileScreen({
   integrationSettings: PawfolioState["integrationSettings"];
   googleCalendarSyncState: PawfolioState["googleCalendarSyncState"];
   cloudSyncMeta: CloudSyncMeta;
+  lastSuccessfulUploadAt?: string;
+  lastSuccessfulCalendarSyncAt?: string;
+  lastSuccessfulCalendarSyncSummary?: PawfolioState["googleCalendarSyncState"]["lastSyncSummary"];
   coachSettings: CoachSettings;
   initialEditFocus?: ProfileEditFocus;
   session: Session | null;
@@ -2822,9 +2837,9 @@ function ProfileScreen({
   });
   const backupLabel = cloudBackupStatusLabel({
     signedIn: Boolean(session),
-    lastUploadedAt: cloudSyncMeta.lastUploadedAt,
+    lastUploadedAt: lastSuccessfulUploadAt || cloudSyncMeta.lastUploadedAt,
   });
-  const uploadDetail = cloudUploadDetail(cloudSyncMeta.lastUploadedAt);
+  const uploadDetail = cloudUploadDetail(lastSuccessfulUploadAt || cloudSyncMeta.lastUploadedAt);
   const restoreDetail = restoreStatusDetail({
     status: trustState.restore,
     lastRestoredAt: cloudSyncMeta.lastRestoredAt,
@@ -2979,8 +2994,8 @@ function ProfileScreen({
           status: trustState.calendar,
           enabled: notificationPreferences.googleCalendar || googleCalendarSyncState.connected,
           signedIn: Boolean(session),
-          lastSyncAt: googleCalendarSyncState.lastSyncAt,
-          lastSyncSummary: googleCalendarSyncState.lastSyncSummary,
+          lastSyncAt: lastSuccessfulCalendarSyncAt || googleCalendarSyncState.lastSyncAt,
+          lastSyncSummary: lastSuccessfulCalendarSyncSummary || googleCalendarSyncState.lastSyncSummary,
         })}
         cloudStatus={cloudStatus}
         accountDisabled={!isCloudConfigured}

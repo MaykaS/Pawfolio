@@ -33,6 +33,8 @@ const pushHealth: PushHealth = {
   hasSubscription: true,
   envConfigured: true,
   subscriptionCount: 1,
+  localEnabled: true,
+  localRemindersAvailable: true,
 };
 
 describe("trust copy helpers", () => {
@@ -104,5 +106,30 @@ describe("trust copy helpers", () => {
         deliveryScheduler: "external cron every 5 minutes",
       },
     })).toContain("public VAPID key");
+    expect(runtimeDiagnosticsDetail({
+      env: {
+        supabaseClient: true,
+        vapidPublic: true,
+        serverSupabase: true,
+        serverVapid: true,
+        cronSecret: true,
+      },
+      expectations: {
+        deliveryScheduler: "external cron every 5 minutes",
+      },
+    })).toContain("external cron every 5 minutes");
+  });
+
+  it("distinguishes local reminders from cloud push", () => {
+    expect(pushHealthDetail({
+      ...pushHealth,
+      hasSubscription: false,
+      subscriptionCount: 0,
+    })).toContain("Local phone reminders are available");
+    expect(pushHealthDetail({
+      ...pushHealth,
+      localEnabled: false,
+      localRemindersAvailable: false,
+    })).toContain("turned off");
   });
 });
