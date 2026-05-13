@@ -2,6 +2,13 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sendJson, supabaseAdmin, userFromRequest } from "./_supabase.js";
 import { normalizeState } from "../src/pawfolio.js";
 
+type SnapshotRow = {
+  state?: Record<string, unknown> | null;
+  updated_at?: string | null;
+  photos?: unknown[] | null;
+  docs?: unknown[] | null;
+};
+
 function snapshotSummaryFromState(state: ReturnType<typeof normalizeState>, extra?: { photos?: number; docs?: number; updatedAt?: string | null }) {
   return {
     updatedAt: extra?.updatedAt || undefined,
@@ -44,11 +51,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
   const supabase = supabaseAdmin();
   const [{ data: snapshot, error: snapshotError }, { count, error: subscriptionError }] = await Promise.all([
-    supabase
-      .from("pawfolio_snapshots")
-      .select("state,updated_at,photos,docs")
-      .eq("user_id", user.id)
-      .maybeSingle(),
+    selectSnapshotWithLegacyFallback(supabase, user.id),
     supabase
       .from("push_subscriptions")
       .select("id", { count: "exact", head: true })
@@ -70,4 +73,50 @@ export default async function handler(request: VercelRequest, response: VercelRe
   };
 
   return sendJson(response, 200, diagnostics);
+}
+
+async function selectSnapshotWithLegacyFallback(
+  supabase: ReturnType<typeof supabaseAdmin>,
+  userId: string,
+) {
+  const selectVariants = [
+    "state,updated_at,photos,docs",
+    "state,updated_at,photos",
+    "state,updated_at",
+  ];
+
+  let lastError: { message?: string } | null = null;
+  for (const fields of selectVariants) {
+    const result = await supabase
+      .from("pawfolio_snapshots")
+      .select(fields)
+      .eq("user_id", userId)
+      .maybeSingle<SnapshotRow>();
+
+    if (!result.error) {
+      const row = result.data;
+      return {
+        data: row
+          ? {
+              state: row.state || null,
+              updated_at: row.updated_at || null,
+              photos: Array.isArray(row.photos) ? row.photos : [],
+              docs: Array.isArray(row.docs) ? row.docs : [],
+            }
+          : null,
+        error: null,
+      };
+    }
+
+    lastError = result.error;
+    if (!usesLegacySnapshotSchema(result.error.message)) {
+      return { data: null, error: result.error };
+    }
+  }
+
+  return { data: null, error: lastError };
+}
+
+function usesLegacySnapshotSchema(message = "") {
+  return message.includes("docs") || message.includes("photos");
 }

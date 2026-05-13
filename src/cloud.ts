@@ -150,17 +150,15 @@ export async function uploadLocalPawfolioToAccount(state: PawfolioState) {
     local_storage_key: storageKey,
     updated_at: new Date().toISOString(),
   };
-  const { error } = await supabase.from("pawfolio_snapshots").upsert({
-    ...payload,
-    push_enabled: Boolean(state.notificationPreferences?.push),
-    email_enabled: Boolean(state.notificationPreferences?.email),
-  });
-  if (error && usesLegacySnapshotSchema(error.message)) {
-    const fallback = await supabase.from("pawfolio_snapshots").upsert(payload);
-    if (fallback.error) throw fallback.error;
-    return;
+  const payloadVariants = buildSnapshotUpsertPayloads(payload, state);
+  let lastError: { message?: string } | null = null;
+  for (const variant of payloadVariants) {
+    const result = await supabase.from("pawfolio_snapshots").upsert(variant);
+    if (!result.error) return;
+    lastError = result.error;
+    if (!usesLegacySnapshotSchema(result.error.message)) throw result.error;
   }
-  if (error) throw error;
+  if (lastError) throw lastError;
 }
 
 export async function downloadCloudPawfolioToLocal() {
@@ -170,13 +168,15 @@ export async function downloadCloudPawfolioToLocal() {
   const user = userData.user;
   if (!user) throw new Error("Sign in before restoring Pawfolio.");
 
-  const { data, error } = await supabase
-    .from("pawfolio_snapshots")
-    .select("state,updated_at,photos,docs")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { data, error } = await selectSnapshotWithLegacyFallback(user.id);
   if (error) throw error;
-  return data;
+  return data
+    ? {
+        ...data,
+        photos: data.photos || [],
+        docs: data.docs || [],
+      }
+    : data;
 }
 
 export async function fetchRuntimeDiagnostics(session?: Session | null) {
@@ -280,5 +280,89 @@ export async function subscribeDeviceToPush(session: Session) {
 }
 
 function usesLegacySnapshotSchema(message = "") {
-  return message.includes("push_enabled") || message.includes("email_enabled") || message.includes("docs");
+  return message.includes("push_enabled")
+    || message.includes("email_enabled")
+    || message.includes("docs")
+    || message.includes("photos");
+}
+
+type SnapshotSelectRow = {
+  state?: Partial<PawfolioState> | null;
+  updated_at?: string | null;
+  photos?: PhotoRecord[] | null;
+  docs?: HealthDocRecord[] | null;
+};
+
+async function selectSnapshotWithLegacyFallback(userId: string) {
+  const selectVariants = [
+    "state,updated_at,photos,docs",
+    "state,updated_at,photos",
+    "state,updated_at",
+  ];
+
+  let lastError: { message?: string } | null = null;
+  for (const fields of selectVariants) {
+    const result = await supabase!
+      .from("pawfolio_snapshots")
+      .select(fields)
+      .eq("user_id", userId)
+      .maybeSingle<SnapshotSelectRow>();
+    if (!result.error) {
+      return {
+        data: normalizeLegacySnapshotRow(result.data),
+        error: null,
+      };
+    }
+    lastError = result.error;
+    if (!usesLegacySnapshotSchema(result.error.message)) {
+      return { data: null, error: result.error };
+    }
+  }
+
+  return { data: null, error: lastError };
+}
+
+function normalizeLegacySnapshotRow(data: SnapshotSelectRow | null) {
+  if (!data) return null;
+  return {
+    state: data.state || null,
+    updated_at: data.updated_at || null,
+    photos: Array.isArray(data.photos) ? data.photos : [],
+    docs: Array.isArray(data.docs) ? data.docs : [],
+  };
+}
+
+function buildSnapshotUpsertPayloads(
+  payload: {
+    user_id: string;
+    state: PawfolioState;
+    photos: unknown[];
+    docs: unknown[];
+    local_storage_key: string;
+    updated_at: string;
+  },
+  state: PawfolioState,
+) {
+  const withChannels = {
+    ...payload,
+    push_enabled: Boolean(state.notificationPreferences?.push),
+    email_enabled: Boolean(state.notificationPreferences?.email),
+  };
+
+  return [
+    withChannels,
+    payload,
+    omitKeys(withChannels, ["docs"]),
+    omitKeys(payload, ["docs"]),
+    omitKeys(withChannels, ["photos", "docs"]),
+    omitKeys(payload, ["photos", "docs"]),
+  ];
+}
+
+function omitKeys<T extends Record<string, unknown>, K extends keyof T>(input: T, keys: K[]) {
+  const next = { ...input };
+  keys.forEach((key) => {
+    delete next[key];
+  });
+  return next as Omit<T, K>;
 }
