@@ -17,6 +17,7 @@ export type ScheduledLocalNotification = {
   tag: string;
   url: string;
   fireAt: Date;
+  kind: "reminder" | "task";
 };
 
 function parseTaskClock(time?: string) {
@@ -57,6 +58,7 @@ export function buildReminderNotifications(
     .filter(({ fireAt }) => isWithinLocalSchedulingWindow(fireAt, now))
     .map(({ reminder, fireAt }) => ({
       key: `pawfolio-local-alert:${reminder.id}:${reminder.date}`,
+      kind: "reminder" as const,
       title: "Pawfolio reminder",
       body: `${reminder.title} is due ${reminder.time || "today"}.`,
       tag: `pawfolio-reminder-${reminder.id}-${reminder.date}`,
@@ -86,10 +88,31 @@ export function buildMissedTaskNotifications(
     .filter(({ fireAt }) => isWithinLocalSchedulingWindow(fireAt, now))
     .map(({ task, fireAt }) => ({
       key: `pawfolio-local-task-alert:${task.id}:${today}`,
+      kind: "task" as const,
       title: "Pawfolio check-in",
       body: `Did you forget to mark ${task.title.toLowerCase()}?`,
       tag: `pawfolio-task-${task.id}-${today}`,
       url: "/?tab=today",
       fireAt,
     }));
+}
+
+export function shouldSendScheduledLocalNotification(
+  notification: ScheduledLocalNotification,
+  args: {
+    reminders: Reminder[];
+    reminderHistory: ReminderHistory;
+    tasks: DailyTask[];
+    taskHistory: TaskHistory;
+    routineCoachSettings: RoutineCoachSettings;
+  },
+  now = new Date(),
+) {
+  if (notification.kind === "reminder") {
+    return buildReminderNotifications(args.reminders, args.reminderHistory, now)
+      .some((candidate) => candidate.key === notification.key);
+  }
+
+  return buildMissedTaskNotifications(args.tasks, args.taskHistory, args.routineCoachSettings, now)
+    .some((candidate) => candidate.key === notification.key);
 }

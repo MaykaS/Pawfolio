@@ -9,6 +9,7 @@ import {
 import {
   buildMissedTaskNotifications,
   buildReminderNotifications,
+  shouldSendScheduledLocalNotification,
   type ScheduledLocalNotification,
 } from "../reminderScheduling";
 
@@ -31,6 +32,21 @@ export function useLocalReminderScheduling({
 }: UseLocalReminderSchedulingArgs) {
   const scheduledTimers = useRef<number[]>([]);
   const rescanTimer = useRef<number | null>(null);
+  const latestArgs = useRef({
+    reminders,
+    reminderHistory,
+    tasks,
+    taskHistory,
+    routineCoachSettings,
+  });
+
+  latestArgs.current = {
+    reminders,
+    reminderHistory,
+    tasks,
+    taskHistory,
+    routineCoachSettings,
+  };
 
   const clearScheduledTimers = () => {
     scheduledTimers.current.forEach((timer) => window.clearTimeout(timer));
@@ -51,6 +67,7 @@ export function useLocalReminderScheduling({
         const delay = Math.max(0, notification.fireAt.getTime() - Date.now());
         const timer = window.setTimeout(async () => {
           if (sessionStorage.getItem(notification.key) === "1") return;
+          if (!shouldSendScheduledLocalNotification(notification, latestArgs.current, new Date())) return;
           sessionStorage.setItem(notification.key, "1");
           if ("serviceWorker" in navigator) {
             const registration = await navigator.serviceWorker.ready;

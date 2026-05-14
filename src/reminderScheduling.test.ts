@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildMissedTaskNotifications, buildReminderNotifications } from "./reminderScheduling";
+import {
+  buildMissedTaskNotifications,
+  buildReminderNotifications,
+  shouldSendScheduledLocalNotification,
+} from "./reminderScheduling";
 import type { Reminder, RoutineCoachSettings } from "./pawfolio";
 
 const routineCoachSettings: RoutineCoachSettings = {
@@ -42,6 +46,24 @@ describe("local reminder scheduling helpers", () => {
     );
 
     expect(notifications).toHaveLength(1);
+  });
+
+  it("suppresses a scheduled missed-task notification if the task was marked done before it fires", () => {
+    const [notification] = buildMissedTaskNotifications(
+      [{ id: "snacks", title: "Snacks", time: "13:00", done: false, note: "" }],
+      {},
+      routineCoachSettings,
+      new Date(2026, 4, 12, 14, 0),
+    );
+
+    expect(notification).toBeDefined();
+    expect(shouldSendScheduledLocalNotification(notification!, {
+      reminders: [],
+      reminderHistory: {},
+      tasks: [{ id: "snacks", title: "Snacks", time: "13:00", done: false, note: "" }],
+      taskHistory: { "2026-05-12": { snacks: true } },
+      routineCoachSettings,
+    }, new Date(2026, 4, 12, 14, 0))).toBe(false);
   });
 
   it("builds a standard dated reminder notification inside the next-hour window", () => {
