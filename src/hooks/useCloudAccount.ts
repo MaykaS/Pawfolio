@@ -19,7 +19,7 @@ import {
   type RuntimeDiagnostics,
   type SnapshotSummary,
 } from "../cloud";
-import { normalizeState, type PawfolioNotificationStatus, type PawfolioState, type Tab } from "../pawfolio";
+import { localReminderSchedulingEnabled, normalizeState, type PawfolioNotificationStatus, type PawfolioState, type Tab } from "../pawfolio";
 
 export type CloudActionState =
   | "idle"
@@ -804,9 +804,9 @@ export function useCloudAccount({
     lastRegisteredAt: state.cloudSyncMeta.lastPushRegisteredAt,
     envConfigured: Boolean(runtimeDiagnostics?.env.vapidPublic && runtimeDiagnostics.env.serverVapid),
     subscriptionCount: runtimeDiagnostics?.user?.pushSubscriptions ?? 0,
-    localEnabled: state.notificationPreferences.inApp || state.notificationPreferences.push,
+    localEnabled: localReminderSchedulingEnabled(state.notificationPreferences),
     localRemindersAvailable:
-      Boolean(state.notificationPreferences.inApp || state.notificationPreferences.push)
+      localReminderSchedulingEnabled(state.notificationPreferences)
       && pushPermission === "granted"
       && typeof window !== "undefined"
       && "Notification" in window,
@@ -815,8 +815,7 @@ export function useCloudAccount({
     pushPermission,
     runtimeDiagnostics,
     state.cloudSyncMeta.lastPushRegisteredAt,
-    state.notificationPreferences.inApp,
-    state.notificationPreferences.push,
+    state.notificationPreferences,
   ]);
 
   return {

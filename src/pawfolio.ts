@@ -188,6 +188,10 @@ export type NotificationPreferences = {
   googleCalendar: boolean;
 };
 
+export function localReminderSchedulingEnabled(preferences: NotificationPreferences) {
+  return preferences.inApp;
+}
+
 export type IntegrationSettings = {
   googleCalendar: "off" | "needs_setup" | "connected" | "issue";
   email: "on_hold";

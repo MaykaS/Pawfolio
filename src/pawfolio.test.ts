@@ -91,6 +91,7 @@ import {
   formatTaskTime,
   getNotificationGroups,
   limitDiaryPhotos,
+  localReminderSchedulingEnabled,
   maxDiaryPhotos,
   formatMedicationDose,
   formatMedicationFrequency,
@@ -509,6 +510,22 @@ describe("pawfolio helpers", () => {
     });
 
     expect(normalized.routineCoachSettings.missedRoutineGraceMinutes).toBe(60);
+  });
+
+  it("uses only the in-app reminder channel for local scheduling", () => {
+    expect(localReminderSchedulingEnabled({
+      inApp: true,
+      push: false,
+      email: false,
+      googleCalendar: false,
+    })).toBe(true);
+
+    expect(localReminderSchedulingEnabled({
+      inApp: false,
+      push: true,
+      email: false,
+      googleCalendar: false,
+    })).toBe(false);
   });
 
   it("preserves an explicitly disabled routine coach from older saved state", () => {

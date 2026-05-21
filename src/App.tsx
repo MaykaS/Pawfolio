@@ -85,6 +85,7 @@ import {
   isStoredPhotoRef,
   linkHealthDocsToCareRecord,
   limitDiaryPhotos,
+  localReminderSchedulingEnabled,
   medicationPlanStatus,
   medicationPlanSupportDetail,
   normalizeState,
@@ -446,7 +447,7 @@ export default function App() {
     tasks: state.tasks,
     taskHistory: state.taskHistory,
     routineCoachSettings: state.routineCoachSettings,
-    enabled: state.notificationPreferences.inApp || state.notificationPreferences.push,
+    enabled: localReminderSchedulingEnabled(state.notificationPreferences),
   });
 
   const handleCoachAction = (item: { id: string; action: CoachSuggestionAction }) => {
