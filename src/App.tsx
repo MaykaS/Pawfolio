@@ -410,6 +410,7 @@ export default function App() {
     lastSuccessfulUploadAt,
     lastSuccessfulCalendarSyncAt,
     lastSuccessfulCalendarSyncSummary,
+    flushCloudStateNow,
     signIn,
     signOut,
     uploadCloud,
@@ -629,17 +630,19 @@ export default function App() {
           progress={progress}
           upcomingReminder={upcomingReminder}
           attentionItems={todayAttentionItems}
-          onToggleTask={(id) =>
-            setState((current) => ({
-              ...current,
+          onToggleTask={(id) => {
+            const nextState = {
+              ...state,
               taskHistory: setTaskDoneForDate(
-                current.taskHistory,
+                state.taskHistory,
                 today,
                 id,
-                !tasksForDate(current.tasks, current.taskHistory, today).find((task) => task.id === id)?.done,
+                !todayTasks.find((task) => task.id === id)?.done,
               ),
-            }))
-          }
+            };
+            setState(nextState);
+            void flushCloudStateNow(nextState, { quiet: true });
+          }}
           onTaskNote={(id, note) =>
             setState((current) => ({
               ...current,

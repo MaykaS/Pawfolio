@@ -80,6 +80,10 @@ type UseCloudAccountArgs = {
   refreshPushStatus: () => Promise<void>;
 };
 
+type FlushCloudOptions = {
+  quiet?: boolean;
+};
+
 function cloudSyncFingerprint(state: PawfolioState) {
   const {
     cloudSyncMeta: {
@@ -502,6 +506,38 @@ export function useCloudAccount({
     signInWithGoogle().catch((error: Error) => setCloudStatus(error.message));
   }, []);
 
+  const flushCloudStateNow = useCallback(async (nextState: PawfolioState, options: FlushCloudOptions = {}) => {
+    if (!session) return;
+    const syncFingerprint = cloudSyncFingerprint(nextState);
+    const uploadedAt = new Date().toISOString();
+    try {
+      await uploadLocalPawfolioToAccount(nextState);
+      lastUploadedFingerprint.current = syncFingerprint;
+      setBackupState("uploaded");
+      setLastSuccessfulUploadAt(uploadedAt);
+      setBackupDiagnostics({
+        snapshot: snapshotSummaryFromState(nextState, { updatedAt: uploadedAt }),
+        lastOutcome: "uploaded",
+      });
+      setState((current) => ({
+        ...current,
+        integrationSettings: {
+          ...current.integrationSettings,
+          cloudSync: "enabled",
+        },
+        cloudSyncMeta: {
+          ...current.cloudSyncMeta,
+          lastUploadedAt: uploadedAt,
+        },
+      }));
+      if (!options.quiet) setCloudStatus("Latest changes saved to your account.");
+    } catch (error) {
+      setBackupState("failed");
+      setBackupDiagnostics((current) => ({ ...current, lastOutcome: "upload_failed" }));
+      if (!options.quiet) setCloudStatus((error as Error).message);
+    }
+  }, [session, setState]);
+
   const signOut = useCallback(() => {
     supabase?.auth.signOut();
     persistCalendarTokens(null);
@@ -830,6 +866,7 @@ export function useCloudAccount({
     lastSuccessfulUploadAt,
     lastSuccessfulCalendarSyncAt,
     lastSuccessfulCalendarSyncSummary,
+    flushCloudStateNow,
     signIn,
     signOut,
     uploadCloud,
