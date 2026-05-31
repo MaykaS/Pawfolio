@@ -823,36 +823,21 @@ textarea.input { resize: none; line-height: 1.5; min-height: 92px; }
   background: var(--cream-med);
   border: 1px solid oklch(89% 0.018 60);
   border-radius: 14px;
-  display: grid;
-  gap: 5px;
-  grid-template-columns: 1fr 1fr 1fr;
+  display: flex;
+  gap: 8px;
+  align-items: center;
   padding: 5px;
 }
 
-.task-time-picker label {
-  min-width: 0;
+.task-time-picker .time-input {
+  flex: 1;
+  margin: 0;
 }
 
-.task-time-picker select {
-  appearance: none;
-  background:
-    linear-gradient(135deg, transparent 50%, var(--primary) 50%) right 9px center / 5px 5px no-repeat,
-    white;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  color: var(--text);
-  font-family: "Nunito", sans-serif;
-  font-size: 15px;
-  font-weight: 900;
-  min-height: 38px;
-  outline: none;
-  padding: 7px 24px 7px 10px;
-  width: 100%;
-}
-
-.task-time-picker select:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px oklch(58% 0.15 38 / 0.12);
+.field-help {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 6px 0 0;
 }
 
 .task-interval-row {

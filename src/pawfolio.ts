@@ -594,6 +594,12 @@ export function parseTaskTimeMinutes(time = "") {
   const normalized = time.trim();
   if (!normalized || normalized.toLowerCase() === "anytime") return undefined;
 
+  const hourOnly = normalized.match(/^(\d{1,2})$/);
+  if (hourOnly) {
+    const hours = Number(hourOnly[1]);
+    if (hours >= 0 && hours <= 23) return hours * 60;
+  }
+
   const twentyFourHour = normalized.match(/^(\d{1,2}):(\d{2})$/);
   if (twentyFourHour) {
     const hours = Number(twentyFourHour[1]);
@@ -2383,7 +2389,7 @@ function buildPawPalThreadCandidates(state: PawfolioState, now = new Date()) {
 
   const lastMemoryDate = sortDiaryEntries(state.diary)[0]?.date;
   const memoryGapDays = lastMemoryDate ? daysSince(`${lastMemoryDate}T00:00:00.000Z`, now) : Number.POSITIVE_INFINITY;
-  if (memoryGapDays >= 2) {
+  if (memoryGapDays >= 14) {
     candidates.push({
       id: "pawpal-thread-memory-gap",
       type: "no_recent_memory",
@@ -2522,20 +2528,10 @@ export function buildPawPalPlannerPrompt(state: PawfolioState, now = new Date())
   const seasonalSignal = regionalCareSignals(state.coachSettings?.careRegion || initialState.coachSettings.careRegion, season)[0]
     || breedCareSignals(state.profile)[0];
 
-  if (!threadTypes.has("unattached_health_doc") && docs.length === 0 && records.some((record) => record.type === "Vaccine" || record.type === "Vet visit")) {
-    return {
-      id: "pawpal-prompt-first-doc",
-      title: "Start a proof trail",
-      body: "Saving one certificate or visit summary now would make future care feel much easier to trust.",
-      actionLabel: "Open health docs",
-      action: { type: "open_health_docs" },
-    };
-  }
-
   if (!threadTypes.has("no_recent_memory")) {
     const latestMemoryDate = sortDiaryEntries(state.diary)[0]?.date;
     const memoryGapDays = latestMemoryDate ? daysSince(`${latestMemoryDate}T00:00:00.000Z`, now) : Number.POSITIVE_INFINITY;
-    if (memoryGapDays >= 1) {
+    if (memoryGapDays >= 14) {
       return {
         id: "pawpal-prompt-memory",
         title: "Save one little moment",
@@ -2544,6 +2540,16 @@ export function buildPawPalPlannerPrompt(state: PawfolioState, now = new Date())
         action: { type: "open_diary" },
       };
     }
+  }
+
+  if (!threadTypes.has("unattached_health_doc") && docs.length === 0 && records.some((record) => record.type === "Vaccine" || record.type === "Vet visit")) {
+    return {
+      id: "pawpal-prompt-first-doc",
+      title: "Start a proof trail",
+      body: "Saving one certificate or visit summary now would make future care feel much easier to trust.",
+      actionLabel: "Open health docs",
+      action: { type: "open_health_docs" },
+    };
   }
 
   if (!threadTypes.has("no_upcoming_reminders")) {

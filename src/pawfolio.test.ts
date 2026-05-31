@@ -138,6 +138,11 @@ describe("pawfolio helpers", () => {
     expect(taskTime({ id: "custom-2", title: "Puzzle toy", time: "", done: false, note: "" })).toBe("Anytime");
     expect(parseTaskTimeMinutes("8:00 pM")).toBe(20 * 60);
     expect(parseTaskTimeMinutes("08:00")).toBe(8 * 60);
+    expect(parseTaskTimeMinutes("10")).toBe(10 * 60);
+    expect(parseTaskTimeMinutes("22")).toBe(22 * 60);
+    expect(parseTaskTimeMinutes("10:07 am")).toBe(10 * 60 + 7);
+    expect(parseTaskTimeMinutes("22:14")).toBe(22 * 60 + 14);
+    expect(parseTaskTimeMinutes("whenever")).toBeUndefined();
     expect(formatTaskTime("20:00")).toBe("8:00 PM");
     expect(toTimeInputValue("8:00 PM")).toBe("20:00");
     expect(taskTimeParts("8:00 pM")).toEqual({ hour: "8", minute: "00", meridiem: "PM" });
@@ -1388,10 +1393,10 @@ describe("pawfolio helpers", () => {
 
     const threads = buildPawPalFeed(state, new Date("2026-04-29T12:00:00"));
 
-    expect(threads.map((thread) => thread.id)).toContain("pawpal-thread-memory-gap");
     expect(threads.map((thread) => thread.id)).toContain("pawpal-thread-weight-checkin");
     expect(threads.map((thread) => thread.id)).toContain("pawpal-thread-followup-vet-1");
     expect(threads.map((thread) => thread.id).some((id) => id.startsWith("pawpal-thread-seasonal-"))).toBe(true);
+    expect(threads.map((thread) => thread.id)).not.toContain("pawpal-thread-memory-gap");
   });
 
   it("opens a PawPal routine-drift thread when recent tracked completion slips", () => {
@@ -1564,6 +1569,46 @@ describe("pawfolio helpers", () => {
     const prompt = buildPawPalPlannerPrompt(calm, new Date("2026-04-22T12:00:00"));
     expect(prompt.id).toContain("pawpal-prompt");
     expect(prompt.action.type).toBeTruthy();
+  });
+
+  it("waits two weeks before showing memory-gap PawPal prompts or threads", () => {
+    const state = normalizeState({
+      diary: [{ id: "memory-1", title: "Park", body: "", date: "2026-04-20" }],
+      healthDocs: [
+        {
+          id: "doc-1",
+          title: "Rabies certificate",
+          fileName: "rabies.pdf",
+          mimeType: "application/pdf",
+          assetRef: "pawfolio-doc:1",
+          category: "Vaccine",
+          uploadedAt: "2026-04-21T10:00:00.000Z",
+        },
+      ],
+      reminders: [{ id: "future", title: "Vet", type: "Vet", date: "2026-06-01", time: "09:00", note: "", recurrence: "none" }],
+    });
+
+    expect(buildPawPalFeed(state, new Date("2026-04-29T12:00:00")).map((thread) => thread.id)).not.toContain("pawpal-thread-memory-gap");
+    expect(buildPawPalPlannerPrompt(state, new Date("2026-04-29T12:00:00")).id).not.toBe("pawpal-prompt-memory");
+    expect(buildPawPalFeed(state, new Date("2026-05-05T12:00:00")).map((thread) => thread.id)).toContain("pawpal-thread-memory-gap");
+
+    const hiddenThreadState = normalizeState({
+      ...state,
+      pawPalMemory: {
+        ...state.pawPalMemory,
+        threads: {
+          "pawpal-thread-memory-gap": {
+            id: "pawpal-thread-memory-gap",
+            type: "no_recent_memory",
+            status: "snoozed",
+            firstSeenAt: "2026-05-05T12:00:00.000Z",
+            lastSeenAt: "2026-05-05T12:00:00.000Z",
+            nextCheckAt: "2026-05-12T12:00:00.000Z",
+          },
+        },
+      },
+    });
+    expect(buildPawPalPlannerPrompt(hiddenThreadState, new Date("2026-05-05T12:00:00")).id).toBe("pawpal-prompt-memory");
   });
 
   it("uses a health-doc planner prompt before the proof trail exists", () => {

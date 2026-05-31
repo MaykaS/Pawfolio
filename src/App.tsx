@@ -112,11 +112,8 @@ import {
   sortTasksByTime,
   storageKey,
   taskScheduleLabel,
-  taskHourOptions,
-  taskMeridiemOptions,
-  taskMinuteOptions,
-  taskTimeFromParts,
-  taskTimeParts,
+  parseTaskTimeMinutes,
+  formatTaskTime,
   taskTime,
   normalizeTaskSchedule,
   tasksForDate,
@@ -3317,7 +3314,6 @@ function TaskSheet({
 }) {
   const existing = mode.mode === "edit" ? mode.task : undefined;
   const [title, setTitle] = useState(existing?.title || "");
-  const [timeParts, setTimeParts] = useState(() => taskTimeParts(existing?.time || "08:00"));
   const existingSchedule = normalizeTaskSchedule(existing?.schedule, existing ? todayISO() : todayISO());
   const [repeatMode, setRepeatMode] = useState<"daily" | "every_other_day" | "interval" | "weekdays">(
     existingSchedule.type === "interval"
@@ -3335,7 +3331,10 @@ function TaskSheet({
   const [weekdays, setWeekdays] = useState<number[]>(
     existingSchedule.type === "weekdays" ? (existingSchedule.weekdays || [1]) : [1, 3, 5],
   );
-  const time = taskTimeFromParts(timeParts.hour, timeParts.minute, timeParts.meridiem);
+  const [timeInput, setTimeInput] = useState(
+    existing?.time && existing.time !== "Anytime" ? formatTaskTime(existing.time) : "",
+  );
+  const [timeError, setTimeError] = useState("");
 
   const schedule: DailyTaskSchedule =
     repeatMode === "daily"
@@ -3352,10 +3351,21 @@ function TaskSheet({
         onSubmit={(event) => {
           event.preventDefault();
           if (!title.trim()) return;
+          const normalizedTime = timeInput.trim();
+          const parsedTaskTime = parseTaskTimeMinutes(normalizedTime);
+          if (normalizedTime && typeof parsedTaskTime !== "number") {
+            setTimeError("Enter a time like 10, 10am, 10:07 am, or 22:14.");
+            return;
+          }
+          setTimeError("");
           onSave({
             id: existing?.id || uid("task"),
             title: title.trim(),
-            time: withTaskTime({ ...(existing || { id: "preview", title: title.trim(), done: false, note: "" }), title: title.trim(), time }).time,
+            time: withTaskTime({
+              ...(existing || { id: "preview", title: title.trim(), done: false, note: "" }),
+              title: title.trim(),
+              time: normalizedTime || "Anytime",
+            }).time,
             done: existing?.done || false,
             note: existing?.note || "",
             schedule,
@@ -3366,12 +3376,29 @@ function TaskSheet({
           <input className="input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Afternoon walk" required />
         </Field>
         <Field label="Time">
-          <TaskTimePicker
-            hour={timeParts.hour}
-            minute={timeParts.minute}
-            meridiem={timeParts.meridiem}
-            onChange={(next) => setTimeParts((current) => ({ ...current, ...next }))}
-          />
+          <div className="task-time-picker" aria-label="Task time">
+            <input
+              className="input time-input"
+              value={timeInput}
+              onChange={(event) => {
+                setTimeInput(event.target.value);
+                if (timeError) setTimeError("");
+              }}
+              placeholder="10:07 AM"
+            />
+            <button
+              className={timeInput.trim() ? "choice-chip" : "choice-chip active"}
+              type="button"
+              onClick={() => {
+                setTimeInput("");
+                setTimeError("");
+              }}
+            >
+              Anytime
+            </button>
+          </div>
+          <p className="field-help">Try 10, 10am, 10:07 am, or 22:14.</p>
+          {timeError && <p className="field-error">{timeError}</p>}
         </Field>
         <Field label="Repeat">
           <select className="input" value={repeatMode} onChange={(event) => setRepeatMode(event.target.value as "daily" | "every_other_day" | "interval" | "weekdays")}>
@@ -3432,50 +3459,6 @@ function TaskSheet({
         <button className="btn btn-primary">{mode.mode === "edit" ? "Save task" : "Add task"}</button>
       </form>
     </Sheet>
-  );
-}
-
-function TaskTimePicker({
-  hour,
-  minute,
-  meridiem,
-  onChange,
-}: {
-  hour: string;
-  minute: string;
-  meridiem: string;
-  onChange: (next: Partial<{ hour: string; minute: string; meridiem: string }>) => void;
-}) {
-  return (
-    <div className="task-time-picker" aria-label="Task time">
-      <label>
-        <select value={hour} onChange={(event) => onChange({ hour: event.target.value })}>
-          {taskHourOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <select value={minute} onChange={(event) => onChange({ minute: event.target.value })}>
-          {taskMinuteOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <select value={meridiem} onChange={(event) => onChange({ meridiem: event.target.value })}>
-          {taskMeridiemOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </label>
-    </div>
   );
 }
 
