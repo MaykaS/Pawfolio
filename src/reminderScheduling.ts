@@ -1,6 +1,8 @@
 import {
   getUpcomingReminders,
+  normalizeState,
   reminderAlertDate,
+  storageKey,
   tasksForDate,
   todayISO,
   type DailyTask,
@@ -18,6 +20,14 @@ export type ScheduledLocalNotification = {
   url: string;
   fireAt: Date;
   kind: "reminder" | "task";
+};
+
+export type SchedulingStateArgs = {
+  reminders: Reminder[];
+  reminderHistory: ReminderHistory;
+  tasks: DailyTask[];
+  taskHistory: TaskHistory;
+  routineCoachSettings: RoutineCoachSettings;
 };
 
 function parseTaskClock(time?: string) {
@@ -97,15 +107,30 @@ export function buildMissedTaskNotifications(
     }));
 }
 
+export function freshestSchedulingStateArgs(
+  current: SchedulingStateArgs,
+  storage?: Pick<Storage, "getItem">,
+): SchedulingStateArgs {
+  if (!storage) return current;
+  try {
+    const stored = storage.getItem(storageKey);
+    if (!stored) return current;
+    const persisted = normalizeState(JSON.parse(stored));
+    return {
+      reminders: persisted.reminders,
+      reminderHistory: persisted.reminderHistory,
+      tasks: persisted.tasks,
+      taskHistory: persisted.taskHistory,
+      routineCoachSettings: persisted.routineCoachSettings,
+    };
+  } catch {
+    return current;
+  }
+}
+
 export function shouldSendScheduledLocalNotification(
   notification: ScheduledLocalNotification,
-  args: {
-    reminders: Reminder[];
-    reminderHistory: ReminderHistory;
-    tasks: DailyTask[];
-    taskHistory: TaskHistory;
-    routineCoachSettings: RoutineCoachSettings;
-  },
+  args: SchedulingStateArgs,
   now = new Date(),
 ) {
   if (notification.kind === "reminder") {

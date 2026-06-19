@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildMissedTaskNotifications,
   buildReminderNotifications,
+  freshestSchedulingStateArgs,
   shouldSendScheduledLocalNotification,
 } from "./reminderScheduling";
 import type { Reminder, RoutineCoachSettings } from "./pawfolio";
@@ -64,6 +65,36 @@ describe("local reminder scheduling helpers", () => {
       taskHistory: { "2026-05-12": { snacks: true } },
       routineCoachSettings,
     }, new Date(2026, 4, 12, 14, 0))).toBe(false);
+  });
+
+  it("prefers the freshest persisted task completion state when local storage is ahead of in-memory state", () => {
+    const currentArgs = {
+      reminders: [],
+      reminderHistory: {},
+      tasks: [{ id: "snacks", title: "Snacks", time: "13:00", done: false, note: "" }],
+      taskHistory: {},
+      routineCoachSettings,
+    };
+
+    const freshest = freshestSchedulingStateArgs(currentArgs, {
+      getItem: () => JSON.stringify({
+        tasks: [{ id: "snacks", title: "Snacks", time: "13:00", done: false, note: "" }],
+        taskHistory: { "2026-05-12": { snacks: true } },
+        reminders: [],
+        reminderHistory: {},
+        routineCoachSettings,
+      }),
+    });
+
+    expect(freshest.taskHistory["2026-05-12"]?.snacks).toBe(true);
+    expect(
+      buildMissedTaskNotifications(
+        freshest.tasks,
+        freshest.taskHistory,
+        freshest.routineCoachSettings,
+        new Date(2026, 4, 12, 14, 0),
+      ),
+    ).toEqual([]);
   });
 
   it("builds a standard dated reminder notification inside the next-hour window", () => {

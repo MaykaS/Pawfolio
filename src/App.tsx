@@ -637,6 +637,7 @@ export default function App() {
                 !todayTasks.find((task) => task.id === id)?.done,
               ),
             };
+            safeSetLocalStorage(localStorage, storageKey, nextState);
             setState(nextState);
             void flushCloudStateNow(nextState, { quiet: true });
           }}
