@@ -76,7 +76,7 @@ export function notificationPreferencesEnabled(
 }
 
 export function notificationsSheetMessage() {
-  return "Phone notifications are active from this saved device. Daily-task check-ins stay on this phone, while dated reminder alerts can also come through your cloud backup path.";
+  return "Phone notifications are active from this saved device. Daily-task check-ins use saved push when available, and the app keeps a local fallback on this phone.";
 }
 
 export function backupDiagnosticsDetail(backupDiagnostics: BackupDiagnostics) {

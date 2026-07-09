@@ -21,6 +21,7 @@ type UseLocalReminderSchedulingArgs = {
   taskHistory: TaskHistory;
   routineCoachSettings: RoutineCoachSettings;
   enabled: boolean;
+  skipTaskNudges?: boolean;
 };
 
 export function useLocalReminderScheduling({
@@ -30,6 +31,7 @@ export function useLocalReminderScheduling({
   taskHistory,
   routineCoachSettings,
   enabled,
+  skipTaskNudges = false,
 }: UseLocalReminderSchedulingArgs) {
   const scheduledTimers = useRef<number[]>([]);
   const rescanTimer = useRef<number | null>(null);
@@ -92,7 +94,9 @@ export function useLocalReminderScheduling({
       clearScheduledTimers();
       const now = new Date();
       queueNotifications(buildReminderNotifications(reminders, reminderHistory, now));
-      queueNotifications(buildMissedTaskNotifications(tasks, taskHistory, routineCoachSettings, now));
+      if (!skipTaskNudges) {
+        queueNotifications(buildMissedTaskNotifications(tasks, taskHistory, routineCoachSettings, now));
+      }
     };
 
     scheduleUpcomingNotifications();
@@ -105,5 +109,5 @@ export function useLocalReminderScheduling({
         rescanTimer.current = null;
       }
     };
-  }, [enabled, reminders, reminderHistory, routineCoachSettings, taskHistory, tasks]);
+  }, [enabled, reminders, reminderHistory, routineCoachSettings, skipTaskNudges, taskHistory, tasks]);
 }

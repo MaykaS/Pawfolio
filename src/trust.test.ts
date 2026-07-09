@@ -40,7 +40,7 @@ const pushHealth: PushHealth = {
 describe("trust copy helpers", () => {
   it("keeps the notifications sheet copy aligned with the shipped behavior", () => {
     expect(notificationsSheetMessage()).toContain("saved device");
-    expect(notificationsSheetMessage()).toContain("Daily-task check-ins stay on this phone");
+    expect(notificationsSheetMessage()).toContain("Daily-task check-ins use saved push when available");
     expect(notificationsSheetMessage()).not.toContain("backend push hardening");
   });
 

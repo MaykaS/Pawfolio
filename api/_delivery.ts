@@ -166,5 +166,5 @@ export function collectDueDeliveryCandidates(
   const state = normalizeState(rawState as Partial<PawfolioState>);
   return options.includeTaskNudges
     ? [...dueReminderCandidates(state, now), ...dueMissedTaskCandidates(state, now)]
-    : dueReminderCandidates(state, now);
+    : [...dueReminderCandidates(state, now), ...dueMissedTaskCandidates(state, now)];
 }
