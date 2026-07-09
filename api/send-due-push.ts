@@ -16,22 +16,26 @@ type SnapshotRow = {
   email_enabled?: boolean;
 };
 
-async function alreadyDelivered(
+async function claimDelivery(
   userId: string,
   channel: "push" | "email",
   candidate: DeliveryCandidate,
 ) {
-  const { data } = await supabaseAdmin()
-    .from("notification_deliveries")
-    .select("id,status")
-    .eq("user_id", userId)
-    .eq("channel", channel)
-    .eq("item_type", candidate.channelItemType)
-    .eq("item_id", candidate.itemId)
-    .eq("occurrence_at", candidate.occurrenceAt)
-    .maybeSingle();
+  const { error } = await supabaseAdmin().from("notification_deliveries").insert({
+    user_id: userId,
+    channel,
+    item_type: candidate.channelItemType,
+    item_id: candidate.itemId,
+    occurrence_at: candidate.occurrenceAt,
+    status: "pending",
+    error: null,
+    sent_at: null,
+    updated_at: new Date().toISOString(),
+  });
 
-  return data?.status === "sent";
+  if (!error) return true;
+  if ((error as { code?: string }).code === "23505") return false;
+  throw error;
 }
 
 async function recordDelivery(
@@ -162,8 +166,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
     for (const candidate of candidates) {
       if (preferences.push) {
-        const skipPush = await alreadyDelivered(snapshot.user_id, "push", candidate);
-        if (!skipPush) {
+        const claimedPush = await claimDelivery(snapshot.user_id, "push", candidate);
+        if (claimedPush) {
           const sentCount = await sendPushCandidate(snapshot.user_id, (subscriptions.data || []) as StoredSubscription[], candidate);
           if (sentCount > 0) {
             sent += sentCount;
@@ -175,8 +179,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
       }
 
       if (preferences.email) {
-        const skipEmail = await alreadyDelivered(snapshot.user_id, "email", candidate);
-        if (!skipEmail) {
+        const claimedEmail = await claimDelivery(snapshot.user_id, "email", candidate);
+        if (claimedEmail) {
           const result = await sendEmailCandidate(snapshot.user_id, candidate);
           if (result.ok) {
             emailed += 1;

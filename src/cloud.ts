@@ -260,23 +260,35 @@ export async function subscribeDeviceToPush(session: Session) {
 
   const registration = await navigator.serviceWorker.ready;
   const existing = await registration.pushManager.getSubscription();
-  const subscription =
-    existing ||
-    (await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-    }));
+  if (existing) {
+    await existing.unsubscribe().catch(() => undefined);
+  }
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+  });
+
+  const userAgent = navigator.userAgent || "";
 
   const { error } = await supabase.from("push_subscriptions").upsert({
     user_id: session.user.id,
     endpoint: subscription.endpoint,
     subscription,
-    user_agent: navigator.userAgent || "",
+    user_agent: userAgent,
     updated_at: new Date().toISOString(),
   }, {
     onConflict: "endpoint",
   });
   if (error) throw new Error(error.message || "Could not save this phone for push notifications.");
+
+  if (userAgent) {
+    await supabase
+      .from("push_subscriptions")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("user_agent", userAgent)
+      .neq("endpoint", subscription.endpoint);
+  }
 }
 
 function usesLegacySnapshotSchema(message = "") {
