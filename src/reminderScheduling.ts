@@ -30,6 +30,8 @@ export type SchedulingStateArgs = {
   routineCoachSettings: RoutineCoachSettings;
 };
 
+const localNotificationHandledPrefix = "pawfolio-notification-handled:";
+
 function parseTaskClock(time?: string) {
   const [hours = "9", minutes = "0"] = (time || "09:00").split(":");
   return {
@@ -125,6 +127,34 @@ export function freshestSchedulingStateArgs(
     };
   } catch {
     return current;
+  }
+}
+
+export function handledLocalNotificationKey(notificationKey: string) {
+  return `${localNotificationHandledPrefix}${notificationKey}`;
+}
+
+export function wasLocalNotificationHandled(
+  notificationKey: string,
+  storage?: Pick<Storage, "getItem">,
+) {
+  if (!storage) return false;
+  try {
+    return storage.getItem(handledLocalNotificationKey(notificationKey)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function markLocalNotificationHandled(
+  notificationKey: string,
+  storage?: Pick<Storage, "setItem">,
+) {
+  if (!storage) return;
+  try {
+    storage.setItem(handledLocalNotificationKey(notificationKey), "1");
+  } catch {
+    // Ignore storage failures; notification delivery can still proceed.
   }
 }
 

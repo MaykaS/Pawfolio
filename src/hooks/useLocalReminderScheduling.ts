@@ -10,8 +10,10 @@ import {
   buildMissedTaskNotifications,
   buildReminderNotifications,
   freshestSchedulingStateArgs,
+  markLocalNotificationHandled,
   shouldSendScheduledLocalNotification,
   type ScheduledLocalNotification,
+  wasLocalNotificationHandled,
 } from "../reminderScheduling";
 
 type UseLocalReminderSchedulingArgs = {
@@ -70,21 +72,36 @@ export function useLocalReminderScheduling({
         const delay = Math.max(0, notification.fireAt.getTime() - Date.now());
         const timer = window.setTimeout(async () => {
           if (sessionStorage.getItem(notification.key) === "1") return;
-          if (!shouldSendScheduledLocalNotification(notification, freshestSchedulingStateArgs(latestArgs.current, localStorage), new Date())) return;
-          sessionStorage.setItem(notification.key, "1");
-          if ("serviceWorker" in navigator) {
-            const registration = await navigator.serviceWorker.ready;
-            await registration.showNotification(notification.title, {
-              body: notification.body,
-              icon: "/pwa-192x192.png",
-              badge: "/pwa-192x192.png",
-              tag: notification.tag,
-              data: { url: notification.url },
-            });
+          const send = async () => {
+            if (wasLocalNotificationHandled(notification.key, localStorage)) return;
+            if (!shouldSendScheduledLocalNotification(notification, freshestSchedulingStateArgs(latestArgs.current, localStorage), new Date())) return;
+            sessionStorage.setItem(notification.key, "1");
+            markLocalNotificationHandled(notification.key, localStorage);
+            if ("serviceWorker" in navigator) {
+              const registration = await navigator.serviceWorker.ready;
+              await registration.showNotification(notification.title, {
+                body: notification.body,
+                icon: "/pwa-192x192.png",
+                badge: "/pwa-192x192.png",
+                tag: notification.tag,
+                data: { url: notification.url },
+              });
+              return;
+            }
+
+            new Notification(notification.title, { body: notification.body, tag: notification.tag });
+          };
+
+          const navigatorWithLocks = navigator as Navigator & {
+            locks?: {
+              request: <T>(name: string, callback: () => Promise<T> | T) => Promise<T>;
+            };
+          };
+          if (navigatorWithLocks.locks?.request) {
+            await navigatorWithLocks.locks.request(`pawfolio-notification:${notification.key}`, send);
             return;
           }
-
-          new Notification(notification.title, { body: notification.body, tag: notification.tag });
+          await send();
         }, delay);
         scheduledTimers.current.push(timer);
       });

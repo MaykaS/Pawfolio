@@ -446,7 +446,7 @@ export default function App() {
     taskHistory: state.taskHistory,
     routineCoachSettings: state.routineCoachSettings,
     enabled: localReminderSchedulingEnabled(state.notificationPreferences),
-    skipTaskNudges: Boolean(session && state.notificationPreferences.push && hasPushSubscription),
+    skipTaskNudges: Boolean(session && state.notificationPreferences.push && (hasPushSubscription || pushHealth.subscriptionCount > 0)),
   });
 
   const handleCoachAction = (item: { id: string; action: CoachSuggestionAction }) => {

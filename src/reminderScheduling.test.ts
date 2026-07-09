@@ -3,7 +3,10 @@ import {
   buildMissedTaskNotifications,
   buildReminderNotifications,
   freshestSchedulingStateArgs,
+  handledLocalNotificationKey,
+  markLocalNotificationHandled,
   shouldSendScheduledLocalNotification,
+  wasLocalNotificationHandled,
 } from "./reminderScheduling";
 import type { Reminder, RoutineCoachSettings } from "./pawfolio";
 
@@ -113,5 +116,22 @@ describe("local reminder scheduling helpers", () => {
 
     expect(notifications).toHaveLength(1);
     expect(notifications[0]?.title).toBe("Pawfolio reminder");
+  });
+
+  it("tracks handled local notifications in shared storage", () => {
+    const writes = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => writes.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        writes.set(key, value);
+      },
+    };
+
+    expect(handledLocalNotificationKey("pawfolio-local-task-alert:snacks:2026-05-12")).toBe(
+      "pawfolio-notification-handled:pawfolio-local-task-alert:snacks:2026-05-12",
+    );
+    expect(wasLocalNotificationHandled("pawfolio-local-task-alert:snacks:2026-05-12", storage)).toBe(false);
+    markLocalNotificationHandled("pawfolio-local-task-alert:snacks:2026-05-12", storage);
+    expect(wasLocalNotificationHandled("pawfolio-local-task-alert:snacks:2026-05-12", storage)).toBe(true);
   });
 });
