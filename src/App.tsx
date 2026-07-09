@@ -2876,7 +2876,7 @@ function ProfileScreen({
           {profile.photo ? <PhotoImage src={profile.photo} alt={profile.name} /> : <DogAvatar avatar={profile.avatar} small />}
         </div>
         <h1>{profile.name}</h1>
-        <p>{profile.breed || "Breed not set"} - {ageLabel(profile.birthday)} - {profile.weight || "Weight not set"}</p>
+        <p>{profile.breed || "Breed not set"} - {ageLabel(profile.birthday)}</p>
       <div className="quick-pills center">
           {(profile.personalityTags?.length ? profile.personalityTags : ["Playful", "Energetic", "Food-motivated"]).map((tag, index) => (
             <span className={index % 3 === 0 ? "badge badge-amber" : index % 3 === 1 ? "badge badge-green" : "badge badge-blue"} key={tag}>{tag}</span>
