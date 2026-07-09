@@ -158,7 +158,13 @@ function dueMissedTaskCandidates(state: PawfolioState, now: Date): DeliveryCandi
   return candidates.filter(isDeliveryCandidate);
 }
 
-export function collectDueDeliveryCandidates(rawState: unknown, now = new Date()): DeliveryCandidate[] {
+export function collectDueDeliveryCandidates(
+  rawState: unknown,
+  now = new Date(),
+  options: { includeTaskNudges?: boolean } = {},
+): DeliveryCandidate[] {
   const state = normalizeState(rawState as Partial<PawfolioState>);
-  return [...dueReminderCandidates(state, now), ...dueMissedTaskCandidates(state, now)];
+  return options.includeTaskNudges
+    ? [...dueReminderCandidates(state, now), ...dueMissedTaskCandidates(state, now)]
+    : dueReminderCandidates(state, now);
 }

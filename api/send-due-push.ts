@@ -150,7 +150,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
     const preferences = snapshot.state?.notificationPreferences || {};
     if (!preferences.push && !preferences.email) continue;
 
-    const candidates = collectDueDeliveryCandidates(snapshot.state || {});
+    const candidates = collectDueDeliveryCandidates(snapshot.state || {}, new Date(), { includeTaskNudges: false });
     if (candidates.length === 0) continue;
 
     const subscriptions = preferences.push
